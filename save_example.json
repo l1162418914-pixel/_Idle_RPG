@@ -1,0 +1,113 @@
+{
+	"header": {
+		"version": 1,
+		"timestamp": "2026-06-03T14:30:00",
+		"play_time_seconds": 1847
+	},
+	"gold": 1250,
+	"rebirth_count": 0,
+	"rebirth_bonus": 0.0,
+	"unlocked_maps": ["grassland"],
+	"buildings": {
+		"barracks": {"level": 3, "building_id": "barracks"},
+		"forge": {"level": 2, "building_id": "forge"},
+		"infirmary": {"level": 1, "building_id": "infirmary"},
+		"research_lab": {"level": 0, "building_id": "research_lab"},
+		"warehouse": {"level": 2, "building_id": "warehouse"}
+	},
+	"player": {
+		"merc_id": "player_01",
+		"merc_name": "主角",
+		"merc_type": 0,
+		"merc_class": "warrior",
+		"level": 12,
+		"exp": 3400,
+		"max_level": 60,
+		"hp": 450,
+		"max_hp": 450,
+		"current_hp": 380,
+		"patk": 42,
+		"matk": 8,
+		"pdef": 25,
+		"mdef": 12,
+		"spd": 18,
+		"crit_chance": 0.08,
+		"dodge": 0.05,
+		"block_chance": 0.07,
+		"attack_range": 50.0,
+		"attack_speed": 1.2,
+		"equipment_slots": {
+			"weapon": {
+				"item_id": "eq_weapon_3_847291",
+				"item_name": "锋利稀有·长剑",
+				"slot": "weapon",
+				"quality": 3,
+				"quality_name": "稀有",
+				"prefix_name": "锋利",
+				"stats": {"patk": 28}
+			},
+			"armor": null,
+			"helmet": null,
+			"boots": null,
+			"ring": null,
+			"amulet": null
+		},
+		"passive_skills": ["坚韧"],
+		"active_skills": ["盾击"],
+		"growth_per_level": {
+			"hp": 15, "patk": 3, "pdef": 2, "spd": 1
+		},
+		"template_id": "warrior",
+		"player_extra": {
+			"base_exp_multiplier": 0.25,
+			"squad_stability_influence": 0.1,
+			"owned_elite_ids": [],
+			"owned_normal_ids": []
+		}
+	},
+	"roster": {
+		"elite": [
+			{
+				"merc_id": "elite_01",
+				"merc_name": "精英剑士",
+				"merc_type": 1,
+				"merc_class": "swordsman",
+				"level": 8,
+				"exp": 1200,
+				"max_level": 60,
+				"hp": 280,
+				"max_hp": 280,
+				"current_hp": 280,
+				"patk": 35,
+				"matk": 5,
+				"pdef": 18,
+				"mdef": 8,
+				"spd": 14,
+				"crit_chance": 0.07,
+				"dodge": 0.04,
+				"block_chance": 0.05,
+				"attack_range": 50.0,
+				"attack_speed": 1.0,
+				"equipment_slots": {"weapon": null, "armor": null, "helmet": null, "boots": null, "ring": null, "amulet": null},
+				"passive_skills": [],
+				"active_skills": [],
+				"growth_per_level": {"hp": 12, "patk": 3, "spd": 1},
+				"template_id": "elite_swordsman",
+				"player_extra": {}
+			}
+		],
+		"normal": []
+	},
+	"inventory": [
+		{
+			"item_id": "eq_boots_2_392847",
+			"item_name": "迅捷精良·皮靴",
+			"slot": "boots",
+			"quality": 2,
+			"quality_name": "精良",
+			"prefix_name": "迅捷",
+			"stats": {"spd": 12}
+		}
+	],
+	"cloud_reserved": {}
+}

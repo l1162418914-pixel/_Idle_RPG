@@ -1,0 +1,49 @@
+{
+  "maps": [
+    {
+      "map_id": "grassland",
+      "name": "草原·外围",
+      "unlock_base_level": 1,
+      "background": "grassland_bg",
+      "enemy_pool": [
+        { "template": "slime", "weight": 50, "level_range": [1, 3] },
+        { "template": "wolf", "weight": 30, "level_range": [2, 4] },
+        { "template": "goblin", "weight": 20, "level_range": [3, 5] }
+      ],
+      "boss": "goblin_chief",
+      "boss_distance": 600.0,
+      "resource_yield": 1.0,
+      "danger_level": 1
+    },
+    {
+      "map_id": "forest",
+      "name": "密林·深处",
+      "unlock_base_level": 3,
+      "background": "forest_bg",
+      "enemy_pool": [
+        { "template": "spider", "weight": 40, "level_range": [4, 7] },
+        { "template": "treant", "weight": 35, "level_range": [5, 8] },
+        { "template": "bear", "weight": 25, "level_range": [6, 9] }
+      ],
+      "boss": "ancient_treant",
+      "boss_distance": 800.0,
+      "resource_yield": 1.5,
+      "danger_level": 3
+    },
+    {
+      "map_id": "cave",
+      "name": "暗影洞穴",
+      "unlock_base_level": 5,
+      "background": "cave_bg",
+      "enemy_pool": [
+        { "template": "skeleton", "weight": 40, "level_range": [7, 10] },
+        { "template": "zombie", "weight": 35, "level_range": [8, 11] },
+        { "template": "gargoyle", "weight": 25, "level_range": [9, 12] }
+      ],
+      "boss": "lich",
+      "boss_distance": 1000.0,
+      "resource_yield": 2.0,
+      "danger_level": 5
+    }
+  ]
+}

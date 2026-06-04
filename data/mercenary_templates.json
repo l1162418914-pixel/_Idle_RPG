@@ -1,0 +1,162 @@
+{
+  "mercenaries": [
+    {
+      "template_id": "warrior_elite",
+      "name": "钢铁守卫",
+      "type": "elite",
+      "class": "warrior",
+      "base_stats": {
+        "hp": 150, "patk": 12, "matk": 3,
+        "pdef": 10, "mdef": 5, "spd": 8,
+        "crit_chance": 0.05, "dodge": 0.03, "block_chance": 0.10,
+        "attack_range": 50, "attack_speed": 1.2
+      },
+      "growth_per_level": {
+        "hp": 12, "patk": 1.5, "pdef": 1.0, "spd": 0.3
+      },
+      "passive_skills": ["toughness", "iron_wall"],
+      "rarity": 3,
+      "sprite": "warrior_elite"
+    },
+    {
+      "template_id": "mage_elite",
+      "name": "奥术师",
+      "type": "elite",
+      "class": "mage",
+      "base_stats": {
+        "hp": 90, "patk": 5, "matk": 20,
+        "pdef": 3, "mdef": 12, "spd": 10,
+        "crit_chance": 0.08, "dodge": 0.05, "block_chance": 0.03,
+        "attack_range": 120, "attack_speed": 1.5
+      },
+      "growth_per_level": {
+        "hp": 7, "matk": 2.5, "mdef": 0.8, "spd": 0.4
+      },
+      "passive_skills": ["arcane_affinity", "mana_shield"],
+      "rarity": 3,
+      "sprite": "mage_elite"
+    },
+    {
+      "template_id": "ranger_elite",
+      "name": "影刃游侠",
+      "type": "elite",
+      "class": "ranger",
+      "base_stats": {
+        "hp": 110, "patk": 15, "matk": 3,
+        "pdef": 5, "mdef": 5, "spd": 14,
+        "crit_chance": 0.12, "dodge": 0.08, "block_chance": 0.05,
+        "attack_range": 100, "attack_speed": 1.0
+      },
+      "growth_per_level": {
+        "hp": 9, "patk": 1.8, "spd": 0.6, "crit_chance": 0.002
+      },
+      "passive_skills": ["shadow_step", "keen_eye"],
+      "rarity": 3,
+      "sprite": "ranger_elite"
+    },
+    {
+      "template_id": "warrior_normal",
+      "name": "新兵",
+      "type": "normal",
+      "class": "warrior",
+      "base_stats": {
+        "hp": 80, "patk": 8, "matk": 2,
+        "pdef": 5, "mdef": 2, "spd": 6,
+        "crit_chance": 0.03, "dodge": 0.02, "block_chance": 0.05,
+        "attack_range": 45, "attack_speed": 1.5
+      },
+      "growth_per_level": {
+        "hp": 8, "patk": 1.0, "pdef": 0.5
+      },
+      "passive_skills": [],
+      "rarity": 1,
+      "sprite": "warrior_normal"
+    },
+    {
+      "template_id": "mage_normal",
+      "name": "学徒",
+      "type": "normal",
+      "class": "mage",
+      "base_stats": {
+        "hp": 60, "patk": 3, "matk": 12,
+        "pdef": 2, "mdef": 6, "spd": 7,
+        "crit_chance": 0.05, "dodge": 0.03, "block_chance": 0.02,
+        "attack_range": 100, "attack_speed": 1.8
+      },
+      "growth_per_level": {
+        "hp": 5, "matk": 1.5, "mdef": 0.5
+      },
+      "passive_skills": [],
+      "rarity": 1,
+      "sprite": "mage_normal"
+    },
+    {
+      "template_id": "ranger_normal",
+      "name": "斥候",
+      "type": "normal",
+      "class": "ranger",
+      "base_stats": {
+        "hp": 70, "patk": 10, "matk": 2,
+        "pdef": 3, "mdef": 3, "spd": 10,
+        "crit_chance": 0.07, "dodge": 0.05, "block_chance": 0.03,
+        "attack_range": 80, "attack_speed": 1.2
+      },
+      "growth_per_level": {
+        "hp": 6, "patk": 1.2, "spd": 0.4
+      },
+      "passive_skills": [],
+      "rarity": 1,
+      "sprite": "ranger_normal"
+    }
+  ],
+  "player_classes": [
+    {
+      "class_id": "warrior",
+      "name": "战士",
+      "base_stats": {
+        "hp": 200, "patk": 15, "matk": 5,
+        "pdef": 12, "mdef": 6, "spd": 9,
+        "crit_chance": 0.05, "dodge": 0.03, "block_chance": 0.15,
+        "attack_range": 50, "attack_speed": 1.2
+      },
+      "growth_per_level": {
+        "hp": 10, "patk": 1.2, "pdef": 0.8, "spd": 0.2
+      },
+      "passive_skills": ["toughness", "iron_wall"],
+      "squad_bonus": { "exp_rate": 20, "defense_rate": 10 },
+      "sprite": "player_warrior"
+    },
+    {
+      "class_id": "mage",
+      "name": "法师",
+      "base_stats": {
+        "hp": 120, "patk": 5, "matk": 22,
+        "pdef": 4, "mdef": 15, "spd": 11,
+        "crit_chance": 0.08, "dodge": 0.05, "block_chance": 0.05,
+        "attack_range": 120, "attack_speed": 1.5
+      },
+      "growth_per_level": {
+        "hp": 6, "matk": 2.0, "mdef": 0.6, "spd": 0.3
+      },
+      "passive_skills": ["arcane_affinity", "mana_shield"],
+      "squad_bonus": { "exp_rate": 15, "resource_rate": 15 },
+      "sprite": "player_mage"
+    },
+    {
+      "class_id": "ranger",
+      "name": "游侠",
+      "base_stats": {
+        "hp": 140, "patk": 18, "matk": 3,
+        "pdef": 6, "mdef": 6, "spd": 16,
+        "crit_chance": 0.12, "dodge": 0.10, "block_chance": 0.05,
+        "attack_range": 100, "attack_speed": 1.0
+      },
+      "growth_per_level": {
+        "hp": 8, "patk": 1.5, "spd": 0.5, "crit_chance": 0.002
+      },
+      "passive_skills": ["shadow_step", "keen_eye"],
+      "squad_bonus": { "exp_rate": 10, "dodge_rate": 5 },
+      "sprite": "player_ranger"
+    }
+  ]
+}

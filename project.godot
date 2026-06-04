@@ -1,0 +1,51 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
+[application]
+
+config/name="TBH Idle RPG"
+config/description="2D横版自动战斗+基地经营+佣兵撤退RPG"
+run/main_scene="res://scenes/CharacterCreate.tscn"
+config/features=PackedStringArray("4.2")
+config/icon="res://icon.svg"
+
+[autoload]
+
+DataLoader="*res://scripts/core/data_loader.gd"
+SaveManager="*res://scripts/core/save_manager.gd"
+GameManager="*res://scripts/core/game_manager.gd"
+
+[debug]
+
+gdscript/warnings/inferred_declaration=false
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=540
+window/stretch/mode="canvas_items"
+
+[input]
+
+ui_accept={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194309,"physical_keycode":0,"key_label":0,"unicode":0,"echo":false,"script":null)
+]
+}
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+environment/defaults/default_environment="res://default_env.tres"

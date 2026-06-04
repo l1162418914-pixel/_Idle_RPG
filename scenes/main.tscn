@@ -1,0 +1,295 @@
+[gd_scene load_steps=7 format=3 uid="uid://6fdhc4h2huww"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/base_ui.gd" id="2_baseui"]
+[ext_resource type="Script" path="res://scripts/ui/squad_ui.gd" id="3_squadui"]
+[ext_resource type="Script" path="res://scripts/ui/run_ui.gd" id="4_runui"]
+[ext_resource type="Script" path="res://scripts/ui/combat_view.gd" id="5_combatview"]
+[ext_resource type="Script" path="res://scripts/ui/result_ui.gd" id="6_resultui"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.1, 0.12, 0.18, 1)
+
+[node name="BaseUI" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_baseui")
+
+[node name="MarginContainer" type="MarginContainer" parent="BaseUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="MainVBox" type="VBoxContainer" parent="BaseUI/MarginContainer"]
+layout_mode = 2
+
+[node name="GoldLabel" type="Label" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "金币: 0"
+
+[node name="HSeparator" type="HSeparator" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Content" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll"]
+layout_mode = 2
+
+[node name="Buildings" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+
+[node name="Roster" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+
+[node name="HSeparator2" type="HSeparator" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="Actions" type="HFlowContainer" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="UpgradeBarracks" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "升级佣兵大厅"
+
+[node name="UpgradeForge" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "升级铁匠铺"
+
+[node name="UpgradeInfirmary" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "升级医疗室"
+
+[node name="UpgradeWarehouse" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "升级仓库"
+
+[node name="ExploreBtn" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "出战!"
+
+[node name="SquadUI" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_squadui")
+
+[node name="MarginContainer" type="MarginContainer" parent="SquadUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="MainVBox" type="VBoxContainer" parent="SquadUI/MarginContainer"]
+layout_mode = 2
+
+[node name="MapLabel" type="Label" parent="SquadUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "地图: -"
+
+[node name="HSeparator" type="HSeparator" parent="SquadUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="RosterHBox" type="HBoxContainer" parent="SquadUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftPanel" type="VBoxContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox"]
+layout_mode = 2
+
+[node name="AvailableLabel" type="Label" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/LeftPanel"]
+layout_mode = 2
+text = "可选单位"
+
+[node name="AvailableScroll" type="ScrollContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Available" type="VBoxContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/LeftPanel/AvailableScroll"]
+layout_mode = 2
+
+[node name="RightPanel" type="VBoxContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox"]
+layout_mode = 2
+
+[node name="SelectedLabel" type="Label" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/RightPanel"]
+layout_mode = 2
+text = "已选单位"
+
+[node name="SelectedScroll" type="ScrollContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Selected" type="VBoxContainer" parent="SquadUI/MarginContainer/MainVBox/RosterHBox/RightPanel/SelectedScroll"]
+layout_mode = 2
+
+[node name="ButtonHBox" type="HBoxContainer" parent="SquadUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="SquadUI/MarginContainer/MainVBox/ButtonHBox"]
+layout_mode = 2
+text = "返回基地"
+
+[node name="StartButton" type="Button" parent="SquadUI/MarginContainer/MainVBox/ButtonHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "出发!"
+
+[node name="RunUI" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_runui")
+
+[node name="MarginContainer" type="MarginContainer" parent="RunUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="MainVBox" type="VBoxContainer" parent="RunUI/MarginContainer"]
+layout_mode = 2
+
+[node name="InfoHBox" type="HBoxContainer" parent="RunUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="DistanceLabel" type="Label" parent="RunUI/MarginContainer/MainVBox/InfoHBox"]
+layout_mode = 2
+text = "距离: 0m"
+
+[node name="StabilityLabel" type="Label" parent="RunUI/MarginContainer/MainVBox/InfoHBox"]
+layout_mode = 2
+text = "稳定度: 100"
+
+[node name="HSeparator" type="HSeparator" parent="RunUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="CombatView" type="VBoxContainer" parent="RunUI/MarginContainer/MainVBox"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("5_combatview")
+
+[node name="BattlefieldHBox" type="HBoxContainer" parent="RunUI/MarginContainer/MainVBox/CombatView"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AllyContainer" type="HBoxContainer" parent="RunUI/MarginContainer/MainVBox/CombatView/BattlefieldHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EnemyContainer" type="HBoxContainer" parent="RunUI/MarginContainer/MainVBox/CombatView/BattlefieldHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 2
+
+[node name="HSeparator" type="HSeparator" parent="RunUI/MarginContainer/MainVBox/CombatView"]
+layout_mode = 2
+
+[node name="BattleLog" type="RichTextLabel" parent="RunUI/MarginContainer/MainVBox/CombatView"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_vertical = 2
+bbcode_enabled = true
+scroll_following = true
+
+[node name="ResultUI" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6_resultui")
+
+[node name="MarginContainer" type="MarginContainer" parent="ResultUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="MainVBox" type="VBoxContainer" parent="ResultUI/MarginContainer"]
+layout_mode = 2
+
+[node name="ResultLabel" type="Label" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "结算"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="HSeparator2" type="HSeparator" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="LootContainer" type="VBoxContainer" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ReturnButton" type="Button" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "返回基地"
+
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeBarracks" to="." method="_on_upgrade_barracks"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeForge" to="." method="_on_upgrade_forge"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeInfirmary" to="." method="_on_upgrade_infirmary"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeWarehouse" to="." method="_on_upgrade_warehouse"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/ExploreBtn" to="." method="_on_explore"]

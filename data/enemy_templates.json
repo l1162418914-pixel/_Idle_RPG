@@ -1,0 +1,129 @@
+{
+  "enemies": [
+    {
+      "template_id": "slime",
+      "name": "史莱姆",
+      "level": 1,
+      "stats": { "hp": 15, "patk": 1, "pdef": 0, "spd": 1, "attack_range": 60 },
+      "exp_reward": 6,
+      "gold_reward": 3,
+      "atk_type": "physical",
+      "sprite": "slime"
+    },
+    {
+      "template_id": "wolf",
+      "name": "野狼",
+      "level": 2,
+      "stats": { "hp": 22, "patk": 3, "pdef": 0, "spd": 3, "attack_range": 50 },
+      "exp_reward": 12,
+      "gold_reward": 6,
+      "atk_type": "physical",
+      "sprite": "wolf"
+    },
+    {
+      "template_id": "goblin",
+      "name": "哥布林",
+      "level": 3,
+      "stats": { "hp": 20, "patk": 2, "pdef": 1, "spd": 2, "attack_range": 55 },
+      "exp_reward": 14,
+      "gold_reward": 8,
+      "atk_type": "physical",
+      "sprite": "goblin"
+    },
+    {
+      "template_id": "treant",
+      "name": "树精",
+      "level": 5,
+      "stats": { "hp": 100, "patk": 10, "pdef": 8, "spd": 1, "attack_range": 70 },
+      "exp_reward": 50,
+      "gold_reward": 25,
+      "atk_type": "physical",
+      "sprite": "treant"
+    },
+    {
+      "template_id": "spider",
+      "name": "毒蜘蛛",
+      "level": 4,
+      "stats": { "hp": 45, "patk": 7, "pdef": 3, "spd": 6, "attack_range": 65 },
+      "exp_reward": 35,
+      "gold_reward": 18,
+      "atk_type": "physical",
+      "sprite": "spider"
+    },
+    {
+      "template_id": "bear",
+      "name": "熊怪",
+      "level": 6,
+      "stats": { "hp": 150, "patk": 15, "pdef": 10, "spd": 2, "attack_range": 55 },
+      "exp_reward": 70,
+      "gold_reward": 35,
+      "atk_type": "physical",
+      "sprite": "bear"
+    },
+    {
+      "template_id": "skeleton",
+      "name": "骷髅兵",
+      "level": 7,
+      "stats": { "hp": 80, "patk": 12, "pdef": 15, "spd": 3, "attack_range": 50 },
+      "exp_reward": 60,
+      "gold_reward": 30,
+      "atk_type": "physical",
+      "sprite": "skeleton"
+    },
+    {
+      "template_id": "zombie",
+      "name": "僵尸",
+      "level": 8,
+      "stats": { "hp": 200, "patk": 8, "pdef": 5, "spd": 1, "attack_range": 45 },
+      "exp_reward": 65,
+      "gold_reward": 32,
+      "atk_type": "physical",
+      "sprite": "zombie"
+    },
+    {
+      "template_id": "gargoyle",
+      "name": "石像鬼",
+      "level": 9,
+      "stats": { "hp": 120, "patk": 18, "pdef": 20, "spd": 4, "attack_range": 60 },
+      "exp_reward": 80,
+      "gold_reward": 40,
+      "atk_type": "physical",
+      "sprite": "gargoyle"
+    }
+  ],
+  "bosses": [
+    {
+      "template_id": "goblin_chief",
+      "name": "哥布林酋长",
+      "level": 4,
+      "stats": { "hp": 180, "patk": 10, "pdef": 5, "spd": 2, "attack_range": 60 },
+      "exp_reward": 100,
+      "gold_reward": 60,
+      "atk_type": "physical",
+      "sprite": "goblin_chief",
+      "is_boss": true
+    },
+    {
+      "template_id": "ancient_treant",
+      "name": "古树守卫",
+      "level": 10,
+      "stats": { "hp": 800, "patk": 35, "pdef": 25, "spd": 1, "attack_range": 80 },
+      "exp_reward": 400,
+      "gold_reward": 200,
+      "atk_type": "physical",
+      "sprite": "ancient_treant",
+      "is_boss": true
+    },
+    {
+      "template_id": "lich",
+      "name": "巫妖",
+      "level": 15,
+      "stats": { "hp": 600, "matk": 50, "pdef": 15, "mdef": 30, "spd": 4, "attack_range": 90 },
+      "exp_reward": 600,
+      "gold_reward": 300,
+      "atk_type": "magical",
+      "sprite": "lich",
+      "is_boss": true
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+[gd_scene load_steps=2 format=3 uid="uid://gqq1un8bvoa1"]
+
+[ext_resource type="Script" path="res://scripts/ui/character_create.gd" id="1_cc"]
+
+[node name="CharacterCreate" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cc")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.1, 0.16, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="MainVBox" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "角色创建"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="NameHBox" type="HBoxContainer" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="MarginContainer/MainVBox/NameHBox"]
+layout_mode = 2
+text = "角色名称:"
+vertical_alignment = 1
+
+[node name="NameInput" type="LineEdit" parent="MarginContainer/MainVBox/NameHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "输入角色名称..."
+max_length = 12
+
+[node name="ClassHBox" type="HBoxContainer" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="ClassLabel" type="Label" parent="MarginContainer/MainVBox/ClassHBox"]
+layout_mode = 2
+text = "职业:"
+vertical_alignment = 1
+
+[node name="ClassSelect" type="OptionButton" parent="MarginContainer/MainVBox/ClassHBox"]
+layout_mode = 2
+
+[node name="PreviewLabel" type="Label" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+text = "选择职业查看属性..."
+autowrap_mode = 1
+
+[node name="HSeparator2" type="HSeparator" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="CreateButton" type="Button" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "创建角色"
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="OverwriteDialog" type="ConfirmationDialog" parent="."]
+title = "覆盖确认"
+ok_button_text = "覆盖并重建"
+cancel_button_text = "继续游戏"
+
+[connection signal="canceled" from="OverwriteDialog" to="." method="_on_overwrite_no"]
+[connection signal="confirmed" from="OverwriteDialog" to="." method="_on_overwrite_yes"]
