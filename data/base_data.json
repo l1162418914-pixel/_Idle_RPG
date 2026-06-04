@@ -25,7 +25,7 @@
     {
       "building_id": "infirmary",
       "name": "医疗室",
-      "description": "减少重伤恢复时间",
+      "description": "提升基地自动回血速度（每秒恢复最大生命百分比）",
       "max_level": 10,
       "upgrade_costs": { "gold": [200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400] },
       "effects": {

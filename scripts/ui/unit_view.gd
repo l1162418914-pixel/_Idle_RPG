@@ -44,7 +44,11 @@ func setup(entity: CombatEntity) -> void:
 	# 名称
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_name_label.text = unit_name
+	if entity.is_downed():
+		_name_label.text = "%s (濒死)" % unit_name
+		modulate = Color(0.72, 0.72, 0.78)
+	else:
+		_name_label.text = unit_name
 	_name_label.add_theme_font_size_override("font_size", 10)
 	_name_label.clip_text = true
 	add_child(_name_label)
@@ -87,6 +91,14 @@ func _resolve_name(entity: CombatEntity) -> String:
 
 
 # ── 动态更新 ────────────────────────────────────────────
+
+func set_downed_visual() -> void:
+	if is_dead:
+		return
+	modulate = Color(0.72, 0.72, 0.78)
+	if _name_label and not "(濒死)" in _name_label.text:
+		_name_label.text = "%s (濒死)" % unit_name
+
 
 func update_hp(new_current: int, new_max: int) -> void:
 	if is_dead:

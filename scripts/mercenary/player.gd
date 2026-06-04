@@ -1,6 +1,6 @@
 extends Mercenary
 class_name Player
-## 主角 — 战略核心，不可阵亡，经验倍率25%，队伍力量总控
+## 主角 — 战略核心；与佣兵相同：战中倒下为濒死，仅撤离失败时永久阵亡
 
 @export var base_exp_multiplier: float = 0.25
 @export var squad_stability_influence: float = 0.0
@@ -17,7 +17,9 @@ func _init() -> void:
 func init_from_template(template: Dictionary) -> void:
 	super(template)
 	merc_type = MercType.PLAYER
-	squad_stability_influence = template.get("squad_bonus", {}).get("defense_rate", 10) / 100.0
+	var squad_bonus: Dictionary = template.get("squad_bonus", {})
+	squad_stability_influence = squad_bonus.get("defense_rate", 10) / 100.0
+	base_exp_multiplier = squad_bonus.get("exp_rate", 10) / 100.0
 
 
 func get_exp_multiplier() -> float:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://6fdhc4h2huww"]
+[gd_scene load_steps=8 format=3 uid="uid://6fdhc4h2huww"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/ui/base_ui.gd" id="2_baseui"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/ui/run_ui.gd" id="4_runui"]
 [ext_resource type="Script" path="res://scripts/ui/combat_view.gd" id="5_combatview"]
 [ext_resource type="Script" path="res://scripts/ui/result_ui.gd" id="6_resultui"]
+[ext_resource type="Script" path="res://scripts/ui/equipment_ui.gd" id="7_equipui"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -63,10 +64,27 @@ size_flags_vertical = 3
 [node name="Content" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll"]
 layout_mode = 2
 
+[node name="MapsTitle" type="Label" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+text = "—— 出征地图 ——"
+
+[node name="MapsList" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+
+[node name="HSeparatorMaps" type="HSeparator" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+
 [node name="Buildings" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
 layout_mode = 2
 
 [node name="Roster" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+
+[node name="DeadTitle" type="Label" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
+layout_mode = 2
+text = "—— 阵亡单位 ——"
+
+[node name="DeadRoster" type="VBoxContainer" parent="BaseUI/MarginContainer/MainVBox/Scroll/Content"]
 layout_mode = 2
 
 [node name="HSeparator2" type="HSeparator" parent="BaseUI/MarginContainer/MainVBox"]
@@ -101,7 +119,11 @@ text = "招募精英 (500g)"
 
 [node name="ExploreBtn" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
 layout_mode = 2
-text = "出战!"
+text = "快速·草原"
+
+[node name="EquipmentBtn" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "装备"
 
 [node name="StatusLabel" type="Label" parent="BaseUI/MarginContainer/MainVBox"]
 layout_mode = 2
@@ -219,6 +241,15 @@ text = "距离: 0m"
 layout_mode = 2
 text = "稳定度: 100"
 
+[node name="WithdrawButton" type="Button" parent="RunUI/MarginContainer/MainVBox/InfoHBox"]
+layout_mode = 2
+text = "撤离"
+
+[node name="RunHintLabel" type="Label" parent="RunUI/MarginContainer/MainVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = ""
+
 [node name="HSeparator" type="HSeparator" parent="RunUI/MarginContainer/MainVBox"]
 layout_mode = 2
 
@@ -244,6 +275,39 @@ alignment = 2
 
 [node name="HSeparator" type="HSeparator" parent="RunUI/MarginContainer/MainVBox/CombatView"]
 layout_mode = 2
+
+[node name="DebugToolbar" type="HBoxContainer" parent="RunUI/MarginContainer/MainVBox/CombatView"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SpeedLabel" type="Label" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "战斗速度:"
+
+[node name="BtnSpeedNormal" type="Button" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "1.0x"
+
+[node name="BtnSpeedSlow" type="Button" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "0.5x"
+
+[node name="BtnSpeedVerySlow" type="Button" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "0.25x"
+
+[node name="BtnPauseLog" type="Button" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "Pause Log"
+
+[node name="BtnResumeLog" type="Button" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+text = "Resume Log"
+
+[node name="DebugModeLabel" type="Label" parent="RunUI/MarginContainer/MainVBox/CombatView/DebugToolbar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "测试模式"
 
 [node name="BattleLog" type="RichTextLabel" parent="RunUI/MarginContainer/MainVBox/CombatView"]
 custom_minimum_size = Vector2(0, 80)
@@ -291,14 +355,118 @@ layout_mode = 2
 [node name="HSeparator2" type="HSeparator" parent="ResultUI/MarginContainer/MainVBox"]
 layout_mode = 2
 
-[node name="LootContainer" type="VBoxContainer" parent="ResultUI/MarginContainer/MainVBox"]
+[node name="LootScroll" type="ScrollContainer" parent="ResultUI/MarginContainer/MainVBox"]
+custom_minimum_size = Vector2(0, 140)
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="LootContainer" type="VBoxContainer" parent="ResultUI/MarginContainer/MainVBox/LootScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="LootStatusLabel" type="Label" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = ""
+
+[node name="EquipAllButton" type="Button" parent="ResultUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "一键装备主角提升"
 
 [node name="ReturnButton" type="Button" parent="ResultUI/MarginContainer/MainVBox"]
 layout_mode = 2
 size_flags_horizontal = 4
 text = "返回基地"
+
+[node name="EquipmentUI" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("7_equipui")
+
+[node name="PanelBg" type="ColorRect" parent="EquipmentUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.1, 0.14, 0.92)
+
+[node name="MarginContainer" type="MarginContainer" parent="EquipmentUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="MainVBox" type="VBoxContainer" parent="EquipmentUI/MarginContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "装备管理"
+horizontal_alignment = 1
+
+[node name="MercTabs" type="HBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "属性"
+
+[node name="BodyHBox" type="HBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftPanel" type="VBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="InvTitle" type="Label" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox/LeftPanel"]
+layout_mode = 2
+text = "背包"
+
+[node name="InventoryScroll" type="ScrollContainer" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InventoryList" type="VBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox/LeftPanel/InventoryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightPanel" type="VBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="SlotsTitle" type="Label" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox/RightPanel"]
+layout_mode = 2
+text = "已装备"
+
+[node name="SlotsList" type="VBoxContainer" parent="EquipmentUI/MarginContainer/MainVBox/BodyHBox/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="StatusLabel" type="Label" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = ""
+
+[node name="CloseButton" type="Button" parent="EquipmentUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "关闭"
 
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeBarracks" to="." method="_on_upgrade_barracks"]
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeForge" to="." method="_on_upgrade_forge"]

@@ -21,6 +21,26 @@
       "sprite": "wolf"
     },
     {
+      "template_id": "slime_striker",
+      "name": "试炼史莱姆",
+      "level": 1,
+      "stats": { "hp": 55, "patk": 16, "matk": 0, "pdef": 2, "mdef": 0, "spd": 5, "attack_range": 58 },
+      "exp_reward": 4,
+      "gold_reward": 2,
+      "atk_type": "physical",
+      "sprite": "slime"
+    },
+    {
+      "template_id": "wolf_striker",
+      "name": "试炼野狼",
+      "level": 2,
+      "stats": { "hp": 70, "patk": 20, "matk": 0, "pdef": 3, "mdef": 0, "spd": 8, "attack_range": 52 },
+      "exp_reward": 6,
+      "gold_reward": 3,
+      "atk_type": "physical",
+      "sprite": "wolf"
+    },
+    {
       "template_id": "goblin",
       "name": "哥布林",
       "level": 3,
@@ -92,6 +112,17 @@
     }
   ],
   "bosses": [
+    {
+      "template_id": "slime_king",
+      "name": "史莱姆王",
+      "level": 1,
+      "stats": { "hp": 48, "patk": 3, "pdef": 1, "mdef": 0, "spd": 1, "attack_range": 60 },
+      "exp_reward": 20,
+      "gold_reward": 12,
+      "atk_type": "physical",
+      "sprite": "slime",
+      "is_boss": true
+    },
     {
       "template_id": "goblin_chief",
       "name": "哥布林酋长",

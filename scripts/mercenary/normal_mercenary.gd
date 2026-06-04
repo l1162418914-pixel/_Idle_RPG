@@ -1,6 +1,6 @@
 extends Mercenary
 class_name NormalMercenary
-## 普通佣兵 — 无成长记录，一次性消耗品，阵亡即消失
+## 普通佣兵 — 无成长记录；战中倒下为濒死，撤离失败才永久消失
 
 @export var is_dead_permanently: bool = false
 
@@ -19,4 +19,4 @@ func init_from_template(template: Dictionary) -> void:
 
 func mark_dead() -> void:
 	is_dead_permanently = true
-	is_alive = false
+	mark_permanent_death()

@@ -8,6 +8,7 @@ var _map_templates: Dictionary = {}
 var _base_data: Dictionary = {}
 var _equipment_data: Dictionary = {}
 var _skill_templates: Dictionary = {}
+var _equipment_sets: Dictionary = {}
 
 
 func load_all() -> void:
@@ -17,6 +18,8 @@ func load_all() -> void:
 	_base_data = _load_json("res://data/base_data.json")
 	_equipment_data = _load_json("res://data/equipment_data.json")
 	_skill_templates = _load_json("res://data/skill_templates.json")
+	_equipment_sets = _load_json("res://data/equipment_sets.json")
+	EquipmentSetRegistry.load_from_data(_equipment_sets)
 	_index_merc()
 	_index_player_classes()
 	_index_maps()
@@ -74,6 +77,9 @@ func _index_skills() -> void:
 	_indexed_skills = {}
 	if _skill_templates.has("passive_skills"):
 		for s in _skill_templates.passive_skills:
+			_indexed_skills[s.skill_id] = s
+	if _skill_templates.has("active_skills"):
+		for s in _skill_templates.active_skills:
 			_indexed_skills[s.skill_id] = s
 
 

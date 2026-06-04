@@ -123,6 +123,7 @@
         "hp": 10, "patk": 1.2, "pdef": 0.8, "spd": 0.2
       },
       "passive_skills": ["toughness", "iron_wall"],
+      "active_skills": ["taunt"],
       "squad_bonus": { "exp_rate": 20, "defense_rate": 10 },
       "sprite": "player_warrior"
     },
@@ -139,6 +140,7 @@
         "hp": 6, "matk": 2.0, "mdef": 0.6, "spd": 0.3
       },
       "passive_skills": ["arcane_affinity", "mana_shield"],
+      "active_skills": ["fireball", "heal"],
       "squad_bonus": { "exp_rate": 15, "resource_rate": 15 },
       "sprite": "player_mage"
     },
@@ -155,6 +157,7 @@
         "hp": 8, "patk": 1.5, "spd": 0.5, "crit_chance": 0.002
       },
       "passive_skills": ["shadow_step", "keen_eye"],
+      "active_skills": ["rapid_shot"],
       "squad_bonus": { "exp_rate": 10, "dodge_rate": 5 },
       "sprite": "player_ranger"
     }

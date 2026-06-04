@@ -12,9 +12,9 @@ enum MercType { PLAYER, ELITE, NORMAL }
 @export var exp: int = 0
 @export var max_level: int = 60
 
-# 基础属性
+# 基础属性（仅模板 + 等级成长；最终值由 StatResolver 计算，勿写入装备/Buff 结果）
 @export var hp: int = 0
-@export var max_hp: int = 0
+@export var max_hp: int = 0  # 与 hp 同步的基础生命镜像，非战斗最终上限
 @export var patk: int = 0
 @export var matk: int = 0
 @export var pdef: int = 0
@@ -40,7 +40,12 @@ var buff_system: BuffSystem = BuffSystem.new()
 # 出征临时状态
 var current_hp: int = 0
 var is_alive: bool = true
+## 濒死：仍算存活、可触发撤离；无法攻击与移动；撤离失败才转为永久死亡
+var is_near_death: bool = false
 var is_retreated: bool = false
+## 个人稳定度过低，无法出征直至基地恢复
+var is_personal_break: bool = false
+var personal_stability: int = 100
 var run_kills: int = 0
 var run_damage_dealt: int = 0
 
@@ -57,7 +62,10 @@ func init_from_template(template: Dictionary) -> void:
 		growth_per_level = template.growth_per_level.duplicate()
 	if template.has("passive_skills"):
 		passive_skills = template.passive_skills.duplicate()
+	if template.has("active_skills"):
+		active_skills = template.active_skills.duplicate()
 	
+	personal_stability = StabilitySystem.MAX_STABILITY
 	reset_to_full_hp()
 
 
@@ -77,17 +85,93 @@ func _apply_base(stats: Dictionary) -> void:
 
 
 func reset_to_full_hp() -> void:
-	current_hp = max_hp
+	current_hp = StatResolver.get_max_hp(self)
 	is_alive = true
+	is_near_death = false
 	is_retreated = false
+
+
+func get_max_hp_value() -> int:
+	return StatResolver.get_max_hp(self)
+
+
+func get_hp_ratio() -> float:
+	var max_v: int = get_max_hp_value()
+	if max_v <= 0:
+		return 0.0
+	return float(current_hp) / float(max_v)
+
+
+func modify_personal_stability(delta: int) -> void:
+	personal_stability = clampi(personal_stability + delta, 0, StabilitySystem.MAX_STABILITY)
+	if personal_stability > StabilitySystem.PERSONAL_BREAK_THRESHOLD:
+		try_clear_personal_break()
+
+
+func is_personal_stability_ok() -> bool:
+	return personal_stability > StabilitySystem.PERSONAL_BREAK_THRESHOLD
+
+
+## 是否可编入出征队
+func can_join_squad() -> bool:
+	return is_alive and not is_near_death and not is_retreated and not is_personal_break and is_personal_stability_ok()
+
+
+func mark_personal_break() -> void:
+	is_personal_break = true
+
+
+func try_clear_personal_break() -> void:
+	if is_personal_stability_ok():
+		is_personal_break = false
+
+
+func should_personal_break() -> bool:
+	if not is_alive or is_personal_break:
+		return false
+	if merc_type == MercType.PLAYER:
+		return false
+	return personal_stability <= StabilitySystem.PERSONAL_BREAK_THRESHOLD
+
+
+## 非主角：战后血量过低则脱离队伍
+func should_auto_retreat(threshold: float = RosterHealth.RETREAT_HP_RATIO) -> bool:
+	if not is_alive or is_retreated or is_near_death:
+		return false
+	if merc_type == MercType.PLAYER:
+		return false
+	return get_hp_ratio() <= threshold
+
+
+func mark_retreated() -> void:
+	is_retreated = true
+
+
+func try_clear_retreat_on_full_heal() -> void:
+	if is_alive and get_hp_ratio() >= 1.0:
+		is_retreated = false
+		is_near_death = false
+
+
+func clamp_hp_to_max() -> void:
+	if not is_alive:
+		current_hp = 0
+		return
+	current_hp = mini(current_hp, get_max_hp_value())
 
 
 func level_up() -> bool:
 	if level >= max_level:
 		return false
 	level += 1
-	EquipmentSystem.apply_to(self)
+	refresh_base_stats()
+	current_hp = StatResolver.get_max_hp(self)
 	return true
+
+
+## 获得经验并自动升级，返回升级次数
+func add_exp(amount: int) -> int:
+	return ExpSystem.grant_exp(self, amount).get("levels_gained", 0)
 
 
 func _apply_growth() -> void:
@@ -108,14 +192,19 @@ func equip(item) -> void:
 	if item == null:
 		return
 	equipment_slots[item.slot] = item
-	EquipmentSystem.apply_to(self)
+	refresh_base_stats()
 
 
 func unequip(slot: String) -> void:
 	if not equipment_slots.has(slot):
 		return
 	equipment_slots[slot] = null
-	EquipmentSystem.apply_to(self)
+	refresh_base_stats()
+
+
+## 按 template + level 重算基础属性（不写 final）
+func refresh_base_stats() -> void:
+	_recalc_stats_from_base()
 
 
 func _recalc_stats_from_base() -> void:
@@ -132,7 +221,7 @@ func _recalc_stats_from_base() -> void:
 func take_damage(amount: int) -> bool:
 	current_hp = max(0, current_hp - amount)
 	if current_hp <= 0:
-		is_alive = false
+		enter_near_death_state(0.05)
 		return true
 	return false
 
@@ -140,13 +229,37 @@ func take_damage(amount: int) -> bool:
 ## 复活角色 — 从死亡状态恢复，HP 回满
 func revive(full_heal: bool = true) -> void:
 	is_alive = true
+	is_near_death = false
+	is_retreated = false
 	if full_heal:
-		current_hp = max_hp
+		current_hp = StatResolver.get_max_hp(self)
 	else:
-		current_hp = max(1, int(max_hp * 0.3))
+		current_hp = max(1, int(StatResolver.get_max_hp(self) * 0.3))
 
 
-## 是否死亡（显式语义，等同 not is_alive）
+## 进入濒死（战中倒下或撤离成功惩罚）
+func enter_near_death_state(hp_ratio: float = 0.08) -> void:
+	is_alive = true
+	is_near_death = true
+	var max_hp_val := StatResolver.get_max_hp(self)
+	current_hp = maxi(1, int(float(max_hp_val) * hp_ratio))
+	hp = current_hp
+
+
+## 紧急撤离成功后的濒死惩罚
+func apply_near_death_state(hp_ratio: float = 0.08) -> void:
+	enter_near_death_state(hp_ratio)
+
+
+## 撤离失败：永久死亡
+func mark_permanent_death() -> void:
+	is_near_death = false
+	is_alive = false
+	current_hp = 0
+	hp = 0
+
+
+## 是否死亡（濒死仍视为未永久死亡）
 func is_dead() -> bool:
 	return not is_alive
 
@@ -155,8 +268,9 @@ func is_dead() -> bool:
 func get_status_label() -> String:
 	if is_dead():
 		return "[死亡] %s Lv.%d" % [merc_name, level]
-	else:
-		return "[存活] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, max_hp]
+	if is_near_death:
+		return "[濒死] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, StatResolver.get_max_hp(self)]
+	return "[存活] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, StatResolver.get_max_hp(self)]
 
 
 func get_display_class() -> String:

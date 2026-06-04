@@ -76,8 +76,9 @@ func _gather_slot_info() -> Dictionary:
 			if f:
 				var text = f.get_as_text()
 				f.close()
+				var json_str = _read_save_json_string(text)
 				var json = JSON.new()
-				if json.parse(text) == OK and json.data is Dictionary:
+				if json.parse(json_str) == OK and json.data is Dictionary:
 					var h = json.data.get("header", {})
 					info[str(i)] = {
 						"timestamp": h.get("timestamp", ""),
@@ -85,6 +86,14 @@ func _gather_slot_info() -> Dictionary:
 						"play_time": h.get("play_time_seconds", 0)
 					}
 	return info
+
+
+## 槽位文件为 XOR+Base64 或明文 JSON
+func _read_save_json_string(file_text: String) -> String:
+	var json = JSON.new()
+	if json.parse(file_text) == OK:
+		return file_text
+	return _decrypt(file_text)
 
 
 func get_slot_list() -> Array:
@@ -107,6 +116,9 @@ func set_current_slot(slot: int) -> void:
 
 func save_game(slot: int = -1) -> bool:
 	if _is_saving:
+		return false
+	if not GameManager.is_save_allowed():
+		push_warning("SaveManager: 当前状态不允许存档 (state=%s)" % GameManager.state)
 		return false
 	_is_saving = true
 	
@@ -260,12 +272,13 @@ func _setup_auto_save_timer() -> void:
 
 
 func _on_auto_save() -> void:
-	if GameManager.state != GameManager.GameState.RUNNING:
+	if GameManager.is_save_allowed():
 		save_game()
 
 
 func force_auto_save() -> void:
-	save_game()
+	if GameManager.is_save_allowed():
+		save_game()
 
 
 # ─── 数据收集 / 应用 ───────────────────────────────────

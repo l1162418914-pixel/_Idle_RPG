@@ -9,13 +9,24 @@ class_name Equipment
 @export var stats: Dictionary = {}
 @export var item_name: String = ""
 @export var item_id: String = ""
+## 套装 id（可选，见 equipment_sets.json）
+@export var set_id: String = ""
 
 
 static func generate(slot_id: String, quality_tier: int = -1, base_level: int = 1) -> Equipment:
+	return generate_with_options(slot_id, quality_tier, base_level, "")
+
+
+static func generate_with_options(
+	slot_id: String,
+	quality_tier: int,
+	base_level: int,
+	set_id: String = ""
+) -> Equipment:
 	var equip = Equipment.new()
 	equip.slot = slot_id
+	equip.set_id = set_id
 	
-	# 品质
 	if quality_tier < 0:
 		quality_tier = _roll_quality(base_level)
 	equip.quality = quality_tier
@@ -44,6 +55,10 @@ static func generate(slot_id: String, quality_tier: int = -1, base_level: int = 
 	# 名称
 	var slot_name = DataLoader.equipment_slot(slot_id).get("name", slot_id)
 	equip.item_name = equip.prefix_name + equip.quality_name + "·" + slot_name
+	if set_id != "":
+		var set_name: String = EquipmentSetRegistry.get_set_name(set_id)
+		if set_name != "":
+			equip.item_name += "·" + set_name
 	equip.item_id = "eq_%s_%d_%d" % [slot_id, quality_tier, randi()]
 	
 	return equip
@@ -77,6 +92,7 @@ func to_dict() -> Dictionary:
 		"quality": quality,
 		"quality_name": quality_name,
 		"prefix_name": prefix_name,
+		"set_id": set_id,
 		"stats": stats.duplicate()
 	}
 
@@ -89,5 +105,6 @@ static func from_dict(data: Dictionary) -> Equipment:
 	eq.quality = data.get("quality", 1)
 	eq.quality_name = data.get("quality_name", "")
 	eq.prefix_name = data.get("prefix_name", "")
+	eq.set_id = data.get("set_id", "")
 	eq.stats = data.get("stats", {}).duplicate()
 	return eq

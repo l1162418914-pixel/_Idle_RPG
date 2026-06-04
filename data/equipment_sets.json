@@ -1,0 +1,31 @@
+{
+  "sets": [
+    {
+      "set_id": "iron_guard",
+      "name": "铁卫",
+      "pieces": ["weapon", "armor", "helmet"],
+      "bonuses": [
+        { "pieces_required": 2, "description": "物防+8", "stats": { "pdef": 8 } },
+        { "pieces_required": 3, "description": "生命+40", "stats": { "hp": 40 } }
+      ]
+    },
+    {
+      "set_id": "shadow_hunter",
+      "name": "影猎",
+      "pieces": ["weapon", "boots", "ring"],
+      "bonuses": [
+        { "pieces_required": 2, "description": "物攻+6", "stats": { "patk": 6 } },
+        { "pieces_required": 3, "description": "暴击+3%", "stats": { "crit_chance": 0.03 } }
+      ]
+    },
+    {
+      "set_id": "arcane_weave",
+      "name": "奥术",
+      "pieces": ["amulet", "ring", "helmet"],
+      "bonuses": [
+        { "pieces_required": 2, "description": "魔攻+6", "stats": { "matk": 6 } },
+        { "pieces_required": 3, "description": "魔防+10", "stats": { "mdef": 10 } }
+      ]
+    }
+  ]
+}

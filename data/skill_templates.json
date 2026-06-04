@@ -48,5 +48,42 @@
         "crit_chance": { "base": 0.03, "per_level": 0.005 }
       }
     }
+  ],
+  "active_skills": [
+    {
+      "skill_id": "fireball",
+      "name": "火球术",
+      "description": "对单个敌人造成魔法伤害",
+      "cooldown": 5.0,
+      "cast_range": 400,
+      "effect_type": "damage_magic",
+      "power": { "base": 20, "per_level": 6 }
+    },
+    {
+      "skill_id": "heal",
+      "name": "治疗术",
+      "description": "治疗血量最低的友方单位",
+      "cooldown": 6.0,
+      "effect_type": "heal_ally",
+      "power": { "base": 25, "per_level": 8 }
+    },
+    {
+      "skill_id": "taunt",
+      "name": "嘲讽",
+      "description": "提升自身物防",
+      "cooldown": 8.0,
+      "effect_type": "buff_self",
+      "buff": { "stat": "pdef", "value": 8, "duration": 5.0 }
+    },
+    {
+      "skill_id": "rapid_shot",
+      "name": "连射",
+      "description": "对目标连续射击3次",
+      "cooldown": 4.5,
+      "cast_range": 400,
+      "effect_type": "damage_multi",
+      "hits": 3,
+      "power_scale": 0.45
+    }
   ]
 }

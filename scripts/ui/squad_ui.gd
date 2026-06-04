@@ -29,17 +29,32 @@ func _refresh() -> void:
 	GameManager.selected_squad.clear()
 	
 	# 预选所有存活佣兵，死亡角色不入选
-	if GameManager.player and GameManager.player.is_alive:
+	if GameManager.player and GameManager.player.can_join_squad():
 		_selected_ids.append(GameManager.player.merc_id)
 	for e in GameManager.elite_roster:
-		if e.is_alive:
+		if e.can_join_squad():
 			_selected_ids.append(e.merc_id)
 	for n in GameManager.normal_roster:
-		if n.is_alive:
+		if n.can_join_squad():
 			_selected_ids.append(n.merc_id)
 	
 	if map_label:
-		map_label.text = "地图: %s" % GameManager.selected_map_id
+		var md := DataLoader.map_data(GameManager.selected_map_id)
+		var map_name: String = md.get("name", GameManager.selected_map_id) if not md.is_empty() else GameManager.selected_map_id
+		var danger: int = int(md.get("danger_level", 1)) if not md.is_empty() else 1
+		var boss_dist: float = float(md.get("boss_distance", 600.0))
+		var extra := ""
+		var req: String = str(md.get("unlock_after_boss_on_map", ""))
+		if req != "":
+			var prev: Dictionary = DataLoader.map_data(req)
+			extra = " | 前置: %s Boss" % prev.get("name", req)
+		var team_st: int = GameManager.get_team_stability()
+		var withdraw_hint := ""
+		if team_st <= StabilitySystem.TEAM_WITHDRAW_THRESHOLD + 10:
+			withdraw_hint = " (团队≤30强制撤离)"
+		map_label.text = "地图: %s | 危险%d | Boss %.0fm | 团队稳定度:%d%s%s" % [
+			map_name, danger, boss_dist, team_st, withdraw_hint, extra
+		]
 	
 	_refresh_available()
 	_refresh_selected()
@@ -74,8 +89,23 @@ func _make_merc_button(merc: Mercenary, is_player: bool) -> Button:
 		btn.text = "%s %s Lv.%d [阵亡]" % [prefix, merc.merc_name, merc.level]
 		btn.modulate = Color.DIM_GRAY
 		btn.disabled = true
+	elif not merc.can_join_squad():
+		var reason := "[个人稳定不足]"
+		if merc.is_personal_break or not merc.is_personal_stability_ok():
+			reason = "[个人稳定不足·回城恢复]"
+		elif merc.is_retreated:
+			reason = "[休整·满血后可出征]"
+		btn.text = "%s %s Lv.%d HP:%d/%d 个人稳:%d %s" % [
+			prefix, merc.merc_name, merc.level, merc.current_hp, StatResolver.get_max_hp(merc),
+			merc.personal_stability, reason
+		]
+		btn.modulate = Color.GOLD
+		btn.disabled = true
 	else:
-		btn.text = "%s %s Lv.%d HP:%d/%d ATK:%d" % [prefix, merc.merc_name, merc.level, merc.current_hp, EquipmentSystem.get_max_hp(merc), EquipmentSystem.get_attack(merc)]
+		btn.text = "%s %s Lv.%d HP:%d/%d 个人稳:%d ATK:%d" % [
+			prefix, merc.merc_name, merc.level, merc.current_hp, StatResolver.get_max_hp(merc),
+			merc.personal_stability, StatResolver.get_patk(merc)
+		]
 		btn.pressed.connect(_on_merc_selected.bind(merc.merc_id, btn))
 		if merc.merc_id in _selected_ids:
 			btn.modulate = Color.GREEN
@@ -104,10 +134,10 @@ func _refresh_selected() -> void:
 	
 	for mid in _selected_ids:
 		var merc = _find_merc(mid)
-		if merc:
+		if merc and merc.can_join_squad():
 			GameManager.selected_squad.append(merc)
 			var label = Label.new()
-			label.text = "%s Lv.%d ATK:%d" % [merc.merc_name, merc.level, EquipmentSystem.get_attack(merc)]
+			label.text = "%s Lv.%d ATK:%d" % [merc.merc_name, merc.level, StatResolver.get_patk(merc)]
 			selected_list.add_child(label)
 
 
@@ -131,7 +161,10 @@ func _update_start_button() -> void:
 func _on_start_pressed() -> void:
 	if GameManager.selected_squad.size() < 1:
 		return
-	GameManager.start_run()
+	var code: int = GameManager.start_run()
+	if code != 0 and map_label:
+		map_label.text = GameManager.get_run_start_error_message(code)
+		map_label.modulate = Color.ORANGE_RED
 
 
 func _on_back_pressed() -> void:

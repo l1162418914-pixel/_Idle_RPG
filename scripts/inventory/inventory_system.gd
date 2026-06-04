@@ -68,6 +68,18 @@ func clear() -> void:
 	items.clear()
 
 
+func sort_items() -> void:
+	InventoryService.sort_inventory(self)
+
+
+func remove_items(to_remove: Array) -> int:
+	var n := 0
+	for item in to_remove:
+		if item is Equipment and remove(item):
+			n += 1
+	return n
+
+
 # ─── 序列化 ───────────────────────────────────────────
 
 func to_dict_array() -> Array:

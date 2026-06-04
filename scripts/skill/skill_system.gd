@@ -46,3 +46,32 @@ static func get_skill_info(skill_id: String) -> Dictionary:
 		"description": skill_data.get("description", ""),
 		"effects": skill_data.get("effects", {}).duplicate()
 	}
+
+
+# ─── 主动技能 ───────────────────────────────────────────
+
+static func is_active_skill(skill_id: String) -> bool:
+	var skill_data := DataLoader.skill_template(skill_id)
+	return skill_data.has("effect_type")
+
+
+static func get_active_skill_name(skill_id: String) -> String:
+	var skill_data := DataLoader.skill_template(skill_id)
+	return skill_data.get("name", skill_id)
+
+
+static func get_active_cooldown(skill_id: String) -> float:
+	var skill_data := DataLoader.skill_template(skill_id)
+	return float(skill_data.get("cooldown", 5.0))
+
+
+## 技能施法距离（与普攻射程独立；缺省为 max(attack_range, 350)）
+static func get_skill_cast_range(skill_data: Dictionary, attack_range: float) -> float:
+	if skill_data.has("cast_range"):
+		return float(skill_data.get("cast_range", 350.0))
+	return maxf(attack_range, 350.0)
+
+
+static func compute_active_power(skill_data: Dictionary, merc_level: int) -> float:
+	var power: Dictionary = skill_data.get("power", {})
+	return float(power.get("base", 0)) + float(power.get("per_level", 0)) * float(merc_level - 1)
