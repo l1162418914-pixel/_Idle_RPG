@@ -114,6 +114,9 @@ func _on_create_pressed() -> void:
 	GameManager.player = Player.new()
 	GameManager.player.merc_name = player_name
 	GameManager.player.init_from_template(template)
+	
+
+	
 	GameManager.state = GameManager.GameState.BASE
 	if not SaveManager.save_game(1):
 		status_label.text = "存档失败，请重试"

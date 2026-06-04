@@ -6,6 +6,7 @@ signal enemy_spawned(enemy_data: Dictionary)
 signal boss_encountered(boss_data: Dictionary)
 signal loot_dropped(equipment: Equipment, gold: int)
 signal run_completed(result: Dictionary)
+signal run_event(event_name: String, data: Dictionary)
 
 var map_id: String = ""
 var map_data: Dictionary = {}

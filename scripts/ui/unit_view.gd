@@ -13,7 +13,7 @@ var _name_label: Label = null
 var _hp_bar: ProgressBar = null
 var _hp_label: Label = null
 
-const SPRITE_SIZE := Vector2(64, 64)
+const SPRITE_SIZE := Vector2(48, 48)
 
 const COLOR_MAP := {
 	"player": Color(0.25, 0.45, 0.85),
@@ -32,7 +32,7 @@ func setup(entity: CombatEntity) -> void:
 	is_dead = false
 
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(90, 0)
+	custom_minimum_size = Vector2(60, 0)
 	alignment = BoxContainer.ALIGNMENT_CENTER
 
 	# 色块占位
@@ -45,12 +45,13 @@ func setup(entity: CombatEntity) -> void:
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.text = unit_name
-	_name_label.add_theme_font_size_override("font_size", 12)
+	_name_label.add_theme_font_size_override("font_size", 10)
+	_name_label.clip_text = true
 	add_child(_name_label)
 
 	# HP条
 	_hp_bar = ProgressBar.new()
-	_hp_bar.custom_minimum_size = Vector2(0, 10)
+	_hp_bar.custom_minimum_size = Vector2(0, 8)
 	_hp_bar.size_flags_horizontal = Control.SIZE_FILL
 	_hp_bar.max_value = max_hp
 	_hp_bar.value = current_hp
@@ -62,7 +63,7 @@ func setup(entity: CombatEntity) -> void:
 	_hp_label = Label.new()
 	_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hp_label.text = "%d/%d" % [current_hp, max_hp]
-	_hp_label.add_theme_font_size_override("font_size", 10)
+	_hp_label.add_theme_font_size_override("font_size", 8)
 	add_child(_hp_label)
 
 

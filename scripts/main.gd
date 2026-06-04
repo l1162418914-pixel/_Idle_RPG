@@ -15,6 +15,7 @@ var _combat_resolved_enemies: Array = []
 
 
 func _ready() -> void:
+	randomize()
 	_find_ui_refs()
 	GameManager.state_changed.connect(_on_state_changed)
 	
@@ -78,8 +79,9 @@ func _tick_exploration(delta: float, run: WorldRun) -> void:
 					_start_combat(run)
 			
 			"boss":
-				_pending_enemies = [ev.data]
-				_start_combat(run)
+				_pending_enemies.append(ev.data)
+				if not _in_combat:
+					_start_combat(run)
 	
 	# 检查撤离
 	if run.is_retreating or run.stability.should_withdraw():
@@ -124,25 +126,19 @@ func _tick_combat(delta: float, run: WorldRun) -> void:
 			run.register_enemy_defeat(e_data)
 		_combat_resolved_enemies = _pending_enemies.duplicate()
 		_pending_enemies.clear()
-		_combat = null
-		if _combat_view:
-			_combat_view.cleanup()
+		_finish_combat()
 		
 	elif result.status == "defeat":
 		# 全队覆没
 		_in_combat = false
 		_pending_enemies.clear()
-		_combat = null
-		if _combat_view:
-			_combat_view.cleanup()
+		_finish_combat()
 		_end_run(run, true)
 	
 	elif not _in_combat:
 		# tick 内已通过 entity_dead → _end_run 结束战斗，收尾
 		_pending_enemies.clear()
-		_combat = null
-		if _combat_view:
-			_combat_view.cleanup()
+		_finish_combat()
 
 
 func _on_combat_ended(victory: bool) -> void:
@@ -162,15 +158,21 @@ func _on_combat_entity_dead(entity: CombatEntity) -> void:
 				_end_run(run, true)
 
 
+func _finish_combat() -> void:
+	if _combat:
+		_combat.sync_allies_hp_to_mercs()
+		_combat = null
+	if _combat_view:
+		_combat_view.cleanup()
+
+
 func _end_run(run: WorldRun, forced: bool) -> void:
 	# 防重入：state 已变更说明已结束
 	if GameManager.state != GameManager.GameState.RUNNING:
 		return
 	_in_combat = false
 	_pending_enemies.clear()
-	_combat = null
-	if _combat_view:
-		_combat_view.cleanup()
+	_finish_combat()
 	GameManager.end_run(forced)
 
 
@@ -194,6 +196,30 @@ func _on_upgrade_warehouse() -> void:
 	GameManager.upgrade_building("warehouse")
 	if _base_ui:
 		_base_ui._refresh()
+
+func _on_recruit_normal() -> void:
+	var code := GameManager.recruit_merc("normal")
+	if code != 0:
+		printerr("[Recruit] normal failed, code=%d" % code)
+		if _base_ui:
+			_base_ui.show_recruit_result("normal", code)
+	else:
+		if _base_ui:
+			_base_ui.show_recruit_result("normal", 0)
+			_base_ui._refresh()
+
+
+func _on_recruit_elite() -> void:
+	var code := GameManager.recruit_merc("elite")
+	if code != 0:
+		printerr("[Recruit] elite failed, code=%d" % code)
+		if _base_ui:
+			_base_ui.show_recruit_result("elite", code)
+	else:
+		if _base_ui:
+			_base_ui.show_recruit_result("elite", 0)
+			_base_ui._refresh()
+
 
 func _on_explore() -> void:
 	GameManager.start_prepare("grassland")

@@ -18,6 +18,9 @@ var selected_squad: Array[Mercenary] = []
 var buildings: Dictionary = {}
 var rebirth_count: int = 0
 var rebirth_bonus: float = 0.0
+## 待发放奖励（end_run 写入，return_to_base 时 apply_run_rewards 消费）
+var _pending_run_result: Dictionary = {}
+var _run_rewards_applied: bool = false
 
 signal state_changed(new_state: int)
 signal gold_changed(amount: int)
@@ -81,12 +84,30 @@ func start_run() -> int:
 
 func end_run(forced_withdraw: bool = false) -> void:
 	var result = current_run.end_run(forced_withdraw)
+	_pending_run_result = result
+	_run_rewards_applied = false
 	state = GameState.RESULT
 	state_changed.emit(GameState.RESULT)
 	run_ended.emit(result)
 
 
+## 将本次出征累计的金币与掉落写入全局状态（仅在此处发放）
+func apply_run_rewards(result: Dictionary) -> void:
+	if _run_rewards_applied:
+		return
+	var gold_earned: int = result.get("total_gold", 0)
+	if gold_earned > 0:
+		add_gold(gold_earned)
+	for item in result.get("total_loot", []):
+		if item is Equipment:
+			inventory.add(item)
+	_run_rewards_applied = true
+
+
 func return_to_base() -> void:
+	if not _pending_run_result.is_empty():
+		apply_run_rewards(_pending_run_result)
+	_pending_run_result = {}
 	state = GameState.BASE
 	if current_run:
 		current_run = null
@@ -355,6 +376,69 @@ func get_max_normal_slots() -> int:
 	if bdata.has("effects"):
 		return bdata.effects.normal_slots[lv - 1]
 	return 2
+
+
+## 招募佣兵。type: "normal" 或 "elite"
+## 返回值: 0=成功, -1=金币不足, -2=槽位已满, -3=模板池为空
+func recruit_merc(merc_type: String) -> int:
+	const NORMAL_COST := 100
+	const ELITE_COST := 500
+	
+	var cost := ELITE_COST if merc_type == "elite" else NORMAL_COST
+	if gold < cost:
+		return -1
+	
+	# 收集该类型模板
+	var pool: Array = []
+	var all := DataLoader.all_merc_templates()
+	for tpl in all:
+		if tpl.get("type", "") == merc_type:
+			pool.append(tpl)
+	if pool.is_empty():
+		return -3
+	
+	# 检查槽位
+	if merc_type == "elite":
+		if elite_roster.size() >= get_max_elite_slots():
+			return -2
+	else:
+		if normal_roster.size() >= get_max_normal_slots():
+			return -2
+	
+	# 扣钱
+	spend_gold(cost)
+	
+	# 随机抽取模板并实例化
+	var tpl: Dictionary = pool[randi() % pool.size()]
+	var id_seed: int = int(Time.get_unix_time_from_system())
+	
+	if merc_type == "elite":
+		var m := EliteMercenary.new()
+		m.merc_id = "elite_%d_%d" % [id_seed, randi()]
+		m.init_from_template(tpl)
+		elite_roster.append(m)
+	else:
+		var m := NormalMercenary.new()
+		m.merc_id = "normal_%d_%d" % [id_seed, randi()]
+		m.init_from_template(tpl)
+		normal_roster.append(m)
+	
+	return 0
+
+
+## 解雇佣兵。返回 true 表示成功移除
+func dismiss_merc(merc_type: String, merc_id: String) -> bool:
+	if merc_type == "elite":
+		for i in range(elite_roster.size()):
+			if elite_roster[i].merc_id == merc_id:
+				elite_roster.remove_at(i)
+				return true
+	else:
+		for i in range(normal_roster.size()):
+			if normal_roster[i].merc_id == merc_id:
+				normal_roster.remove_at(i)
+				return true
+	return false
 
 
 func can_go_next_frame() -> bool:

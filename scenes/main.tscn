@@ -91,9 +91,21 @@ text = "升级医疗室"
 layout_mode = 2
 text = "升级仓库"
 
+[node name="RecruitNormal" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "招募佣兵 (100g)"
+
+[node name="RecruitElite" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
+layout_mode = 2
+text = "招募精英 (500g)"
+
 [node name="ExploreBtn" type="Button" parent="BaseUI/MarginContainer/MainVBox/Actions"]
 layout_mode = 2
 text = "出战!"
+
+[node name="StatusLabel" type="Label" parent="BaseUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = ""
 
 [node name="SquadUI" type="Control" parent="."]
 visible = false
@@ -292,4 +304,6 @@ text = "返回基地"
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeForge" to="." method="_on_upgrade_forge"]
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeInfirmary" to="." method="_on_upgrade_infirmary"]
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/UpgradeWarehouse" to="." method="_on_upgrade_warehouse"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/RecruitNormal" to="." method="_on_recruit_normal"]
+[connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/RecruitElite" to="." method="_on_recruit_elite"]
 [connection signal="pressed" from="BaseUI/MarginContainer/MainVBox/Actions/ExploreBtn" to="." method="_on_explore"]

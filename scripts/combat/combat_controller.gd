@@ -220,3 +220,12 @@ func _entity_snapshot(e: CombatEntity) -> Dictionary:
 func force_end() -> void:
 	is_active = false
 	combat_ended.emit(false)
+
+
+## 战斗结束后将存活友方实体的 HP 写回源 Mercenary（阵亡者由 on_death 已处理）
+func sync_allies_hp_to_mercs() -> void:
+	for entity in allies:
+		if entity.source_merc == null or entity.is_dead():
+			continue
+		entity.source_merc.current_hp = maxi(0, entity.current_hp)
+		entity.source_merc.is_alive = true

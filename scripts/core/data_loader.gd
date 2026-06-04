@@ -102,6 +102,10 @@ func merc_template(template_id: String) -> Dictionary:
 	return _indexed_merc.get(template_id, {})
 
 
+func all_merc_templates() -> Array:
+	return _indexed_merc.values()
+
+
 func player_class(class_id: String) -> Dictionary:
 	return _indexed_player_classes.get(class_id, {})
 
