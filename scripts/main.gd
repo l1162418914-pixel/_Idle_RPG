@@ -475,8 +475,7 @@ func _on_world_run_event(event_name: String, data: Dictionary) -> void:
 			_run_ui.show_run_hint(msg, Color.SKY_BLUE)
 		"chase_repel_loot":
 			_run_ui.show_run_hint(
-				"追击击退额外掉落: [%s] → %s"
-				% [str(data.get("quality", "")), str(data.get("item_name", ""))],
+				"追击击退额外掉落: [%s] → %s" % [str(data.get("quality", "")), str(data.get("item_name", ""))],
 				Color(0.75, 0.95, 1.0)
 			)
 		"chase_boss_killed":
