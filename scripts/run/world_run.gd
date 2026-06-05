@@ -72,8 +72,7 @@ var material_shield_current: int = 0
 var _shield_cd_equipment_ids: Array[String] = []
 var _shield_emergency_refresh_used: bool = false
 var extract_guard_cleared: bool = false
-## 守卫战待结算撤离物（避免全局类未注册时 world_run 无法解析）
-var pending_extract_guard = null
+var pending_extract_guard: RunExtractItem = null
 var last_extract_item_name: String = ""
 var bench_reserves: Array[Mercenary] = []
 var deploy_half: String = "A"

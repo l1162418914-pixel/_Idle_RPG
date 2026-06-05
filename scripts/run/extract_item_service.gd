@@ -14,7 +14,7 @@ static func try_drop_on_defeat(run: WorldRun, enemy_data: Dictionary) -> void:
 		return
 	if run._rng.randf() >= chance:
 		return
-	var item: RunExtractItem = RunExtractItem.roll_for_map(run.map_data)
+	var item: RunExtractItem = RunExtractItemFactory.roll_for_map(run.map_data)
 	if item == null:
 		return
 	var placed: Dictionary = RunLootService.add_extract_item_drop(run, item)
