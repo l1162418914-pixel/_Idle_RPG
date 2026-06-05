@@ -2,7 +2,12 @@ class_name RunExtractItem
 extends Resource
 ## 撤离物：占格；拾取后按 retreat_chance 可能触发守卫战
 
-const _SCRIPT := preload("res://scripts/inventory/run_extract_item.gd")
+const _SCRIPT_PATH := "res://scripts/inventory/run_extract_item.gd"
+
+
+static func _create() -> Resource:
+	return load(_SCRIPT_PATH).new()
+
 
 @export var item_id: String = ""
 @export var item_name: String = ""
@@ -14,8 +19,8 @@ const _SCRIPT := preload("res://scripts/inventory/run_extract_item.gd")
 @export var bonus_exp: int = 0
 
 
-static func from_template(tpl: Dictionary) -> RunExtractItem:
-	var it: RunExtractItem = _SCRIPT.new()
+static func from_template(tpl: Dictionary):
+	var it = _create()
 	it.item_id = str(tpl.get("id", ""))
 	it.item_name = str(tpl.get("name", "撤离物"))
 	it.retreat_chance = clampf(float(tpl.get("retreat_chance", 0.7)), 0.0, 1.0)
@@ -63,7 +68,7 @@ static func _pool_for_map(map_id: String) -> Array:
 	return pool
 
 
-static func roll_for_map(map_data: Dictionary) -> RunExtractItem:
+static func roll_for_map(map_data: Dictionary):
 	var map_id: String = str(map_data.get("map_id", ""))
 	var pool: Array = _pool_for_map(map_id)
 	if pool.is_empty():
@@ -72,7 +77,7 @@ static func roll_for_map(map_data: Dictionary) -> RunExtractItem:
 		return null
 	var tpl: Dictionary = (pool[randi() % pool.size()] as Dictionary).duplicate()
 	var mult: float = float(map_data.get("resource_yield", 1.0))
-	var item := from_template(tpl)
+	var item = from_template(tpl)
 	item.carry_value = maxi(1, int(float(item.carry_value) * mult))
 	item.bonus_gold = int(float(item.bonus_gold) * mult)
 	return item
