@@ -1,5 +1,6 @@
 # 扫描易错的「多行括号 + 单独一行 %」写法（不运行 Godot）
-$root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = (Resolve-Path (Join-Path $here "..")).Path
 $scripts = Join-Path $root "scripts"
 $hits = @()
 Get-ChildItem -Path $scripts -Filter "*.gd" -Recurse | ForEach-Object {

@@ -75,6 +75,22 @@ func _refresh() -> void:
 					float(md.get("extract_drop_chance", 0.04)) * 100.0,
 				]
 			)
+		elif TestScenarioService.is_test_map(md):
+			var test_hints: PackedStringArray = []
+			if md.has("auto_carry_value_threshold"):
+				test_hints.append("携带价值阈值 %d" % int(md.get("auto_carry_value_threshold", 0)))
+			if md.has("exposed_grid_w"):
+				test_hints.append(
+					"外露格 %dx%d" % [int(md.get("exposed_grid_w", 4)), int(md.get("exposed_grid_h", 3))]
+				)
+			if float(md.get("drop_chance", 0.0)) > 0.001:
+				test_hints.append("装备掉率 %.0f%%" % (float(md.drop_chance) * 100.0))
+			if bool(md.get("disable_boss_chase", false)):
+				test_hints.append("无Boss追击")
+			if bool(md.get("auto_retreat_on_boss_spawn", false)):
+				test_hints.append("区域首领出现即自动返程")
+			if test_hints.size() > 0:
+				lines.append("测试参数: " + " · ".join(test_hints))
 		map_label.text = "\n".join(lines)
 		if GameManager.is_recovery_lock_active():
 			map_label.modulate = Color.ORANGE_RED
