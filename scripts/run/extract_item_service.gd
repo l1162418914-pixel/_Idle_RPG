@@ -1,7 +1,7 @@
 extends RefCounted
 ## 撤离物掉落/守卫（无 class_name，避免与 WorldRun 全局类循环依赖）
 
-const _EXTRACT_ITEM_SCRIPT := preload("res://scripts/inventory/run_extract_item.gd")
+const _EXTRACT_ITEM_PATH := "res://scripts/inventory/run_extract_item.gd"
 
 
 static func try_drop_on_defeat(run, enemy_data: Dictionary) -> void:
@@ -72,7 +72,7 @@ static func roll_extract_for_map(map_data: Dictionary):
 
 
 static func _extract_from_template(tpl: Dictionary):
-	var it = _EXTRACT_ITEM_SCRIPT.new()
+	var it = load(_EXTRACT_ITEM_PATH).new()
 	it.item_id = str(tpl.get("id", ""))
 	it.item_name = str(tpl.get("name", "撤离物"))
 	it.retreat_chance = clampf(float(tpl.get("retreat_chance", 0.7)), 0.0, 1.0)

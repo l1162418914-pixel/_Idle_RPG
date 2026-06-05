@@ -1,7 +1,7 @@
 extends Node
 ## Main — 主场景，驱动 GameManager 循环
 
-const _ExtractItemService := preload("res://scripts/run/extract_item_service.gd")
+const _EXTRACT_ITEM_SERVICE_PATH := "res://scripts/run/extract_item_service.gd"
 
 var _base_ui: Control = null
 var _squad_ui: Control = null
@@ -191,7 +191,7 @@ func _tick_combat(delta: float, run: WorldRun, world_run_already_ticked: bool = 
 		if _extract_guard_active:
 			_extract_guard_active = false
 			run.extract_guard_cleared = true
-			_ExtractItemService.apply_clear_bonus(run)
+			load(_EXTRACT_ITEM_SERVICE_PATH).apply_clear_bonus(run)
 			_pending_enemies.clear()
 			if _run_ui:
 				_run_ui.show_run_hint("击退宝库守卫！直接结算…", Color.GREEN)
