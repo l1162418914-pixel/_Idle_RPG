@@ -2,7 +2,7 @@ extends Resource
 class_name Equipment
 ## 装备 — 7品质 + 前后缀 + 基础属性
 
-const _SCRIPT := preload("res://scripts/equipment/equipment.gd")
+const _SCRIPT_PATH := "res://scripts/equipment/equipment.gd"
 const _LootFootprint = preload("res://scripts/inventory/loot_footprint.gd")
 
 @export var slot: String = ""
@@ -21,7 +21,11 @@ const _LootFootprint = preload("res://scripts/inventory/loot_footprint.gd")
 @export var shield_cd_runs_left: int = 0
 
 
-static func generate(slot_id: String, quality_tier: int = -1, base_level: int = 1) -> Equipment:
+static func _create():
+	return load(_SCRIPT_PATH).new()
+
+
+static func generate(slot_id: String, quality_tier: int = -1, base_level: int = 1):
 	return generate_with_options(slot_id, quality_tier, base_level, "")
 
 
@@ -30,8 +34,8 @@ static func generate_with_options(
 	quality_tier: int,
 	base_level: int,
 	set_id: String = ""
-) -> Equipment:
-	var equip: Equipment = _SCRIPT.new()
+):
+	var equip = _create()
 	equip.slot = slot_id
 	equip.set_id = set_id
 	
@@ -109,8 +113,8 @@ func to_dict() -> Dictionary:
 	}
 
 
-static func from_dict(data: Dictionary) -> Equipment:
-	var eq: Equipment = _SCRIPT.new()
+static func from_dict(data: Dictionary):
+	var eq = _create()
 	eq.item_id = data.get("item_id", "")
 	eq.item_name = data.get("item_name", "")
 	eq.slot = data.get("slot", "")

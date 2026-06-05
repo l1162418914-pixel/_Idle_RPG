@@ -2,17 +2,21 @@ class_name RunMaterial
 extends Resource
 ## 出征物资（网格占格，material_value 可转返程物资护盾）
 
-const _SCRIPT := preload("res://scripts/inventory/run_material.gd")
-
 @export var material_id: String = ""
 @export var item_name: String = ""
 @export var material_value: int = 10
 @export var grid_w: int = 1
 @export var grid_h: int = 1
 
+const _SCRIPT_PATH := "res://scripts/inventory/run_material.gd"
 
-static func from_template(tpl: Dictionary) -> RunMaterial:
-	var m: RunMaterial = _SCRIPT.new()
+
+static func _create():
+	return load(_SCRIPT_PATH).new()
+
+
+static func from_template(tpl: Dictionary):
+	var m = _create()
 	m.material_id = str(tpl.get("id", ""))
 	m.item_name = str(tpl.get("name", "物资"))
 	m.material_value = maxi(1, int(tpl.get("material_value", 10)))
@@ -39,7 +43,7 @@ static func _all_loot_material_templates() -> Array:
 	return []
 
 
-static func roll_for_map(map_data: Dictionary, enemy_data: Dictionary) -> RunMaterial:
+static func roll_for_map(map_data: Dictionary, enemy_data: Dictionary):
 	var pool: Array = _all_loot_material_templates()
 	if pool.is_empty():
 		return null
@@ -47,7 +51,7 @@ static func roll_for_map(map_data: Dictionary, enemy_data: Dictionary) -> RunMat
 	var mult: float = float(map_data.get("resource_yield", 1.0))
 	if enemy_data.get("is_boss", false):
 		mult *= 1.35
-	var mat: RunMaterial = from_template(tpl)
+	var mat = from_template(tpl)
 	mat.material_value = maxi(1, int(float(mat.material_value) * mult))
 	return mat
 
@@ -62,8 +66,8 @@ func to_dict() -> Dictionary:
 	}
 
 
-static func from_dict(data: Dictionary) -> RunMaterial:
-	var m: RunMaterial = _SCRIPT.new()
+static func from_dict(data: Dictionary):
+	var m = _create()
 	m.material_id = data.get("material_id", "")
 	m.item_name = data.get("item_name", "")
 	m.material_value = maxi(1, int(data.get("material_value", 10)))

@@ -2,13 +2,6 @@ class_name RunExtractItem
 extends Resource
 ## 撤离物：占格；拾取后按 retreat_chance 可能触发守卫战
 
-const _SCRIPT_PATH := "res://scripts/inventory/run_extract_item.gd"
-
-
-static func _create() -> Resource:
-	return load(_SCRIPT_PATH).new()
-
-
 @export var item_id: String = ""
 @export var item_name: String = ""
 @export var retreat_chance: float = 0.7
@@ -17,6 +10,12 @@ static func _create() -> Resource:
 @export var grid_h: int = 1
 @export var bonus_gold: int = 0
 @export var bonus_exp: int = 0
+
+const _SCRIPT_PATH := "res://scripts/inventory/run_extract_item.gd"
+
+
+static func _create():
+	return load(_SCRIPT_PATH).new()
 
 
 static func from_template(tpl: Dictionary):
