@@ -368,9 +368,6 @@ static func clear_slot(gm: GameManager, half: String, slot_kind: String, slot_in
 	ensure_formation(gm)
 	var active: Array[String] = _pad_slots(get_active_ids(gm.squad_formation, half), MAX_ACTIVE)
 	var bench: Array[String] = _pad_slots(get_bench_ids(gm.squad_formation, half), MAX_BENCH)
-	var mid := _slot_id_at(active, bench, slot_kind, slot_index)
-	if mid == gm.player.merc_id:
-		return -3
 	_set_slot_id(active, bench, slot_kind, slot_index, "")
 	gm.squad_formation[half] = {
 		"active": _compact_ids(active),
@@ -503,7 +500,7 @@ static func _validate_player_placement(gm: GameManager) -> int:
 	if in_a and in_b:
 		return -2
 	if not in_a and not in_b:
-		return -3
+		return 0
 	if pid in get_bench_ids(gm.squad_formation, HALF_A) or pid in get_bench_ids(gm.squad_formation, HALF_B):
 		return -4
 	if pid not in get_active_ids(gm.squad_formation, HALF_A) and pid not in get_active_ids(gm.squad_formation, HALF_B):

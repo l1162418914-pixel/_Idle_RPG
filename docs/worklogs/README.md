@@ -17,7 +17,7 @@
 
 ## 开工时
 
-1. 读 **`docs/CTO.md`**（章程）→ **`docs/PROJECT_STATUS.md`**（当前任务）→ **`docs/ARCHITECTURE.md`**（铁律）→ **`docs/TASK_PROTOCOL.md`**（交付模板）。
+1. 按角色读 **`docs/session_rules/README.md`**（CTO 用 PM_RULES；开发用 FEATURE_DEV_RULES）→ **`PROJECT_STATUS`** → **`ARCHITECTURE`**。
 2. 再看最近 worklog：
 
 ```powershell

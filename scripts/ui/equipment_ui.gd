@@ -22,6 +22,11 @@ var _merc_button_group: ButtonGroup = ButtonGroup.new()
 
 func _ready() -> void:
 	visible = false
+	var title := get_node_or_null("MarginContainer/MainVBox/TitleLabel") as Label
+	if title:
+		title.visible = false
+	if stats_label:
+		stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if close_button:
 		close_button.pressed.connect(_on_close_pressed)
 	GameManager.state_changed.connect(_on_game_state_changed)
@@ -118,7 +123,8 @@ func _add_merc_tab(merc: Mercenary, prefix: String) -> void:
 	if merc == null:
 		return
 	var btn := Button.new()
-	btn.text = "%s %s" % [prefix, merc.merc_name]
+	btn.text = merc.merc_name
+	btn.tooltip_text = prefix.strip_edges()
 	btn.toggle_mode = true
 	btn.button_group = _merc_button_group
 	btn.pressed.connect(_on_merc_tab_pressed.bind(merc, btn))
@@ -144,17 +150,18 @@ func _refresh_stats() -> void:
 		stats_label.text = "未选择佣兵"
 		return
 	var m := _selected_merc
+	var role := "主角" if m == GameManager.player else ("精英" if m is EliteMercenary else "佣兵")
+	var lines: PackedStringArray = PackedStringArray([
+		"%s · %s · Lv.%d" % [role, m.merc_name, m.level],
+		"HP %d/%d   ATK %d   DEF %d" % [
+			m.current_hp, StatResolver.get_max_hp(m),
+			StatResolver.get_patk(m), StatResolver.get_pdef(m)
+		],
+	])
 	var set_lines: Array[String] = EquipmentSetRegistry.get_active_bonus_lines(m)
-	var set_text := ""
 	if not set_lines.is_empty():
-		set_text = " | 套装:" + ", ".join(set_lines)
-	stats_label.text = "%s Lv.%d | HP:%d/%d | ATK:%d | DEF:%d%s" % [
-		m.merc_name, m.level, m.current_hp,
-		StatResolver.get_max_hp(m),
-		StatResolver.get_patk(m),
-		StatResolver.get_pdef(m),
-		set_text
-	]
+		lines.append("套装 " + ", ".join(set_lines))
+	stats_label.text = "\n".join(lines)
 
 
 func _refresh_inventory() -> void:
@@ -181,8 +188,9 @@ func _refresh_inventory() -> void:
 			continue
 		var btn := Button.new()
 		var price: int = InventoryService.get_sell_price(item)
-		btn.text = "%s  售%d金" % [_format_item(item), price]
+		btn.text = "%s · %d金" % [_format_item_short(item), price]
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_font_size_override("font_size", 12)
 		btn.pressed.connect(_on_inventory_item_pressed.bind(item))
 		inventory_list.add_child(btn)
 
@@ -202,16 +210,18 @@ func _refresh_slots() -> void:
 		row.custom_minimum_size = Vector2(0, 28)
 		var slot_name := _slot_display_name(slot_id)
 		var name_lbl := Label.new()
-		name_lbl.custom_minimum_size = Vector2(56, 0)
+		name_lbl.custom_minimum_size = Vector2(40, 0)
 		name_lbl.text = slot_name
+		name_lbl.add_theme_font_size_override("font_size", 12)
 		row.add_child(name_lbl)
 		
 		var item: Equipment = _selected_merc.equipment_slots.get(slot_id)
 		var item_btn := Button.new()
 		item_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		item_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		item_btn.add_theme_font_size_override("font_size", 12)
 		if item:
-			item_btn.text = _format_item(item)
+			item_btn.text = _format_item_short(item)
 			item_btn.pressed.connect(_on_slot_item_pressed.bind(slot_id))
 		else:
 			item_btn.text = "（空）"
@@ -310,10 +320,11 @@ func _find_merc_with_item(item: Equipment) -> Mercenary:
 	return null
 
 
-func _format_item(item: Equipment) -> String:
+func _format_item_short(item: Equipment) -> String:
+	var q: String = item.quality_name.substr(0, 1) if item.quality_name.length() > 0 else "?"
 	if item.set_id != "":
-		return "[%s] %s ·%s" % [item.quality_name, item.item_name, EquipmentSetRegistry.get_set_name(item.set_id)]
-	return "[%s] %s" % [item.quality_name, item.item_name]
+		return "%s %s·%s" % [q, item.item_name, EquipmentSetRegistry.get_set_name(item.set_id)]
+	return "%s %s" % [q, item.item_name]
 
 
 func _slot_display_name(slot_id: String) -> String:

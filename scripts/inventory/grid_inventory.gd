@@ -1,6 +1,6 @@
 class_name GridInventory
 extends RefCounted
-## 二维网格背包：Equipment + RunMaterial 占格
+## 二维网格背包：Equipment + RunMaterial + 撤离物（extract_item 字典项，鸭子类型）
 
 
 var width: int = 1

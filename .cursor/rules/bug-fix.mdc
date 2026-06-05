@@ -1,33 +1,29 @@
 ---
-description: 本对话专用于修 Bug：最小改动、先复现再修、避免顺带重构
+description: Bug 修复会话：先读 BUG_FIX_WORKFLOW + session_rules；确认前禁止改代码
 alwaysApply: false
 ---
 
-# Bug 修复模式
+# Bug 修复会话
 
-本规则用于「修 Bug」专用对话。默认行为：
+**开工前必读：**
 
-## 目标
+1. `docs/session_rules/BUGFIX_RULES.md`
+2. `docs/BUG_FIX_WORKFLOW.md`
+3. `docs/PROJECT_STATUS.md` — 冻结项
+4. `docs/ARCHITECTURE.md`
+5. （按需）`docs/UI_SUBSYSTEM_AUDIT.md`、最近 worklog
 
-- 只修复用户描述的问题，不顺带做功能、重构或「顺便优化」
-- 优先找到根因，而不是堆叠 workaround
-- 改动范围尽量小，符合现有代码风格
+未读完不得改代码。用户确认修复方案前 **禁止** 修改代码。
+
+## 角色
+
+- 只修 Bug；不开发新功能；不重构系统
+- 最小 diff；不顺带优化无关文件
 
 ## 流程
 
-0. **开工前必读**：`docs/PROJECT_STATUS.md` → `docs/TASK_PROTOCOL.md` → `docs/ARCHITECTURE.md`；未读不得改代码。收工按 `TASK_PROTOCOL.md` §三 填完成模板
-1. **澄清**：复现步骤、期望 vs 实际、是否必现、相关场景/存档
-2. **定位**：从报错、日志、相关脚本/场景入手，说明根因再改
-3. **修复**：最小可行 diff；若需改多处，简要说明原因
-4. **验证**：说明如何自测（Godot：运行场景、相关 UI/战斗流程等）
+1. 复现 → 根因 → 影响范围 → 修复方案
+2. 用 `BUG_FIX_WORKFLOW.md` §四 模板回复，末尾「等待确认。」
+3. 用户确认后再编码；完成后提供测试步骤 / 回归测试 / 是否影响其它系统
 
-## 约束
-
-- 不新增无关测试、文档或抽象，除非用户明确要求
-- 不修改与当前 Bug 无关的文件
-- 若根因不明，先调查并汇报，不猜测性大改
-- 修完后用简短中文说明：原因、改了什么、如何验证
-
-## 项目
-
-Godot 项目（`project.godot`）。优先查 `.gd`、`.tscn` 与 autoload/信号相关逻辑。
+完整流程见 `docs/session_rules/BUGFIX_RULES.md` 与 `docs/BUG_FIX_WORKFLOW.md`。

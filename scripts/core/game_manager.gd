@@ -204,7 +204,7 @@ func formation_error_message(code: int) -> String:
 		-2:
 			return "该佣兵已在另一半组"
 		-3:
-			return "主角须在某半组出战位"
+			return "主角须在某半组出战位（可从未编入拖入）"
 		-4:
 			return "主角不能放替补席"
 		_:

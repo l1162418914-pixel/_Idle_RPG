@@ -1,6 +1,6 @@
 class_name FormationSlotButton
 extends Button
-## 编队槽：拖拽换位、右键移出（主角出战位不可清空）
+## 编队槽：拖拽换位、右键移出至未编入
 
 var slot_half: String = ""
 var slot_kind: String = ""

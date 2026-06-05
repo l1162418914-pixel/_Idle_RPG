@@ -5,6 +5,7 @@ class_name CombatView
 
 const RANGED_ATTACK_RANGE := 60.0
 const MAX_LOG_LINES := 80
+const POSITION_VISUAL_MAX := 200.0
 
 var _combat: CombatController = null
 var _unit_views: Dictionary = {}  # entity_id → UnitView
@@ -324,9 +325,11 @@ func _sync_one_unit_position(entity: CombatEntity) -> void:
 	if spacer == null:
 		return
 	var width: float = CombatController.BATTLEFIELD_WIDTH
-	var offset: float = clampf(entity.position / width, 0.0, 1.0) * 72.0
+	var offset: float
 	if entity.team == CombatEntity.Team.ENEMY:
-		offset = clampf((width - entity.position) / width, 0.0, 1.0) * 48.0
+		offset = clampf((width - entity.position) / width, 0.0, 1.0) * POSITION_VISUAL_MAX * 0.65
+	else:
+		offset = clampf(entity.position / width, 0.0, 1.0) * POSITION_VISUAL_MAX
 	spacer.custom_minimum_size = Vector2(offset, 0)
 
 

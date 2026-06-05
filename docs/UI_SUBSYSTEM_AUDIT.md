@@ -2,7 +2,8 @@
 
 > **项目**：TBH Idle RPG（Godot 4.x）  
 > **范围**：已有后端/数据 vs UI 显示、操作、反馈  
-> **结论**：审计文档（实现修复时同步更新本文「状态」列）
+> **结论**：审计文档（实现修复时同步更新本文「状态」列）  
+> **同步**：2026-06-05 — 仓库容量已接线（见 §四、§六、§八）
 
 ---
 
@@ -74,7 +75,7 @@
 | **转生** | 存档 `rebirth_count` / `rebirth_bonus` | 无触发流程、无加成应用、无 UI |
 | **云存档** | `SaveManager.get_cloud_payload` / `apply_cloud_payload` | 无调用方；无云同步 UI |
 | **多槽存档** | 3 槽 API | 仅 `character_create` 用槽 1 |
-| **仓库容量** | `base_data.json` `inventory_slots`；升级按钮可点 | `InventorySystem.add()` 无上限；`BaseManager.get_inventory_capacity()` 未使用 |
+| **仓库容量** | ✅ `GameManager.get_inventory_capacity()`（仓库建筑等级 → `inventory_slots`）；`InventorySystem.can_add()` / `add()` 满仓失败；`EquipmentUI` 标题 `背包 (n/max)` | 无（2026-06-05 已接线；勿重复开发） |
 
 **模式**：按钮/建筑/存档字段有 → 玩法或反馈没接。
 
@@ -102,6 +103,7 @@
 - **Boss 追击**：`RunUI` 距离/压力/按钮 + `main` 多种 chase toast
 - **返程护盾**：盾条 + 数值行 + 破碎 hint
 - **编队**：`FormationUI` 拖拽/半组/恢复锁 — 后端与 UI 一致
+- **仓库容量**：`InventorySystem._capacity()` → `GameManager.get_inventory_capacity()`；`EquipmentUI` 显示 `背包 (已用/上限)`；满仓 `add()` 返回 false
 - **手动斩仓**：Withdraw 对话框 + Result 标题/舍弃件数
 - **地图解锁**：`BaseUI` 锁因 + Result 解锁提示
 - **RunExtractItem 架构**：数据脚本 + `ExtractItemService` 工厂 — 解析问题已解
@@ -123,9 +125,9 @@
 
 ## 八、建议修复顺序（给开发排期）
 
-1. 套装进 `StatResolver` + UI 显示 N/M 件（消除展示/战斗不一致）
-2. `CombatView` 远程/技能/Buff/觉醒头标（战斗可读性）
-3. 仓库容量接入 `InventorySystem` + `EquipmentUI` n/max
+1. 套装进 `StatResolver` + UI 显示 N/M 件（消除展示/战斗不一致）— 对应 `PROJECT_STATUS` **T-01**
+2. `CombatView` 远程/技能/Buff/觉醒头标（战斗可读性）— 对应 **T-02** / **T-03**
+3. ~~仓库容量接入 `InventorySystem` + `EquipmentUI` n/max~~ — **✅ 已完成**（勿重复）
 4. 研究所升级钮 + 转生流程（读 `unlock_rebirth` / `rebirth_bonus_rate`）
 5. `RunUI` 安全箱格子填充率 + 自动撤规则说明
 6. `EquipmentUI` 护盾 CD；搀扶/伤痕战中提示

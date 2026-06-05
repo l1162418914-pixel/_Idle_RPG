@@ -1,0 +1,38 @@
+---
+description: 开发 Agent：仅当前 TASK；先复述后实现；收工 TASK_PROTOCOL §三；不是 CTO
+alwaysApply: false
+---
+
+# 功能开发 Agent（不是 CTO）
+
+完整规则：`docs/session_rules/FEATURE_DEV_RULES.md`
+
+## 角色
+
+你是 **开发 Agent**，不是 CTO。只实现 `PROJECT_STATUS` 中的 **当前唯一 TASK**。
+
+## 开工必读（未读不得改代码）
+
+1. `docs/session_rules/FEATURE_DEV_RULES.md`
+2. `docs/PROJECT_STATUS.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/TASK_PROTOCOL.md`
+5. 最近 `docs/worklogs/YYYY-MM-DD.md`
+
+**不要**以 `docs/CTO.md` 为主规则；**不要**用 CTO 六段格式。
+
+## 禁止
+
+- 修改 `docs/PROJECT_STATUS.md`
+- 超范围 / 冻结项 / 顺带重构
+- 并行多个 TASK
+- 扮演 CTO
+
+## 流程
+
+1. **复述**：任务 ID、影响文件、验收探针 → **等确认**
+2. 确认后 **最小 diff** 实现
+3. 自测 PROJECT_STATUS 探针
+4. 收工贴 `docs/TASK_PROTOCOL.md` **§三 完成模板**（含 `是否允许进入下一任务`）
+
+换任务时，开场白只改 **任务 ID / 名称 / 影响文件** 三行。

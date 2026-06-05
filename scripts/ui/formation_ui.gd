@@ -63,7 +63,7 @@ func _build_ui() -> void:
 	tools.add_child(fill_btn)
 	add_child(tools)
 	var hint := Label.new()
-	hint.text = "拖拽槽位或从未编入拖入；点选两格交换；右键移出（主角出战不可清空）。"
+	hint.text = "拖拽换位；右键移出至未编入（出征前主角须在任一半组出战位）。"
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.modulate = Color.DIM_GRAY
 	add_child(hint)

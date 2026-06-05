@@ -72,6 +72,8 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 		_init_entity_stats(e)
 		BattleDebug.apply_entity_modifiers(e)
 	
+	_reposition_all_downed_allies()
+	
 	is_active = true
 	combat_time = 0.0
 	combat_started.emit()
@@ -79,6 +81,8 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 
 func set_march_retreat_combat(enabled: bool) -> void:
 	_march_retreat_combat = enabled
+	if enabled:
+		_reposition_all_downed_allies()
 
 
 func tick(delta: float) -> Dictionary:
@@ -143,10 +147,14 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 	if is_ally and _try_cast_active_skill(entity, opponents, allies, events):
 		return
 	
+	var fighters_only: bool = not is_ally
+	
 	match entity.action_state:
 		CombatEntity.ActionState.IDLE, CombatEntity.ActionState.MOVING:
-			var attack_target: CombatEntity = _find_nearest_in_range(opponents, entity.position, entity.attack_range)
-			var move_target: CombatEntity = _find_nearest_alive(opponents, entity.position)
+			var attack_target: CombatEntity = _find_nearest_in_range(
+				opponents, entity.position, entity.attack_range, fighters_only
+			)
+			var move_target: CombatEntity = _find_nearest_alive(opponents, entity.position, fighters_only)
 			entity.current_target = attack_target if attack_target else move_target
 			
 			if move_target == null:
@@ -162,10 +170,12 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 				_move_toward_attack_range(entity, move_target, delta)
 		
 		CombatEntity.ActionState.ATTACKING:
-			var attack_target: CombatEntity = _find_nearest_in_range(opponents, entity.position, entity.attack_range)
+			var attack_target: CombatEntity = _find_nearest_in_range(
+				opponents, entity.position, entity.attack_range, fighters_only
+			)
 			if attack_target == null:
 				entity.action_state = CombatEntity.ActionState.MOVING
-				var move_target: CombatEntity = _find_nearest_alive(opponents, entity.position)
+				var move_target: CombatEntity = _find_nearest_alive(opponents, entity.position, fighters_only)
 				if move_target:
 					_move_toward_attack_range(entity, move_target, delta)
 				return
@@ -357,6 +367,7 @@ func _append_skill_damage_events(caster: CombatEntity, target: CombatEntity, dmg
 	if merc:
 		merc.run_damage_dealt += dmg
 	if target.is_downed() and target.team == CombatEntity.Team.ALLY:
+		_reposition_downed_to_rear(target)
 		_handle_ally_incapacitated(target)
 	elif target.is_dead():
 		events.append({"type": "death", "entity": target.entity_id, "team": target.team})
@@ -402,6 +413,7 @@ func _do_attack(attacker: CombatEntity, target: CombatEntity, events: Array) -> 
 		attacker.source_merc.run_damage_dealt += dmg
 	
 	if target.is_downed() and target.team == CombatEntity.Team.ALLY:
+		_reposition_downed_to_rear(target)
 		_handle_ally_incapacitated(target)
 	elif target.is_dead():
 		events.append({
@@ -459,7 +471,7 @@ func get_battle_stats_lines() -> Array[String]:
 	return lines
 
 
-func _find_nearest_alive(entities: Array, from_pos: float) -> CombatEntity:
+func _find_nearest_alive(entities: Array, from_pos: float, fighters_only: bool = false) -> CombatEntity:
 	var best: CombatEntity = null
 	var best_dist: float = INF
 	for e in entities:
@@ -467,6 +479,8 @@ func _find_nearest_alive(entities: Array, from_pos: float) -> CombatEntity:
 			continue
 		var unit: CombatEntity = e as CombatEntity
 		if unit.is_dead():
+			continue
+		if fighters_only and not unit.can_fight():
 			continue
 		var d: float = abs(unit.position - from_pos)
 		if d < best_dist:
@@ -475,7 +489,9 @@ func _find_nearest_alive(entities: Array, from_pos: float) -> CombatEntity:
 	return best
 
 
-func _find_nearest_in_range(entities: Array, from_pos: float, max_range: float) -> CombatEntity:
+func _find_nearest_in_range(
+	entities: Array, from_pos: float, max_range: float, fighters_only: bool = false
+) -> CombatEntity:
 	var best: CombatEntity = null
 	var best_dist: float = INF
 	for e in entities:
@@ -484,11 +500,38 @@ func _find_nearest_in_range(entities: Array, from_pos: float, max_range: float) 
 		var unit: CombatEntity = e as CombatEntity
 		if unit.is_dead():
 			continue
+		if fighters_only and not unit.can_fight():
+			continue
 		var d: float = abs(unit.position - from_pos)
 		if d <= max_range and d < best_dist:
 			best_dist = d
 			best = unit
 	return best
+
+
+## 搀扶拖至后排：一次性 position 快照，非濒死自主移动
+func _reposition_downed_to_rear(downed: CombatEntity) -> void:
+	if downed.team != CombatEntity.Team.ALLY or not downed.is_downed():
+		return
+	var rear_x: float = ALLY_SPAWN_X
+	var has_fighter := false
+	for e in allies:
+		if e.is_dead() or e == downed:
+			continue
+		if e.can_fight():
+			has_fighter = true
+			rear_x = minf(rear_x, e.position)
+	if has_fighter:
+		downed.position = maxf(0.0, rear_x - ally_formation_gap)
+	else:
+		downed.position = ALLY_SPAWN_X
+	downed.is_facing_right = false
+
+
+func _reposition_all_downed_allies() -> void:
+	for e in allies:
+		if e.is_downed():
+			_reposition_downed_to_rear(e)
 
 
 func _count_alive(entities: Array) -> int:

@@ -1,36 +1,37 @@
 # 任务协议（TASK_PROTOCOL）
 
-> **每次开工前先读** [CTO.md](CTO.md) → [PROJECT_STATUS.md](PROJECT_STATUS.md) → [ARCHITECTURE.md](ARCHITECTURE.md) → **本文**。  
-> 未读不得改代码。收工时必须按 §三 模板回报。
+> **开发 Agent 收工模板与门禁。**  
+> CTO 章程见 [CTO.md](CTO.md)；开发开工见 [session_rules/FEATURE_DEV_RULES.md](session_rules/FEATURE_DEV_RULES.md)。
 
 ---
 
-## 一、角色与约束
+## 一、角色分工（勿混用）
 
-| 角色 | 职责 | 禁止 |
-|------|------|------|
-| **CTO** | 维护任务板、审计架构、拆解任务、排优先级、验收代码 | 直接写代码；一次开发多个系统；擅自重构 |
-| **开发 Agent** | 执行**当前唯一** `PROJECT_STATUS` 中的 `当前任务` | 超范围改动；顺带开发冻结项；跳过交付模板 |
+| 角色 | 主规则 | 收工 / 回复格式 |
+|------|--------|-----------------|
+| **CTO** | [CTO.md](CTO.md) + [PM_RULES.md](session_rules/PM_RULES.md) | 每条回复 **六段格式**（§四） |
+| **开发 Agent** | [FEATURE_DEV_RULES.md](session_rules/FEATURE_DEV_RULES.md) | **§三 完成模板** |
+| **Bug 修复** | [BUGFIX_RULES.md](session_rules/BUGFIX_RULES.md) | [BUG_FIX_WORKFLOW.md](BUG_FIX_WORKFLOW.md) §四 |
 
-**铁律**
+**开发铁律**
 
-1. **一次只做一个系统**（或一个 TASK 子项）。
-2. **最小 diff**；不顺带重构、不「顺便优化」。
-3. 属性/存档/状态机边界见 [ARCHITECTURE.md](ARCHITECTURE.md)；违反则拒收。
-4. 任务完成后 **必须** 填写 §三 模板；CTO 填 `是否允许进入下一任务`。
+1. 一次只做一个 TASK；最小 diff
+2. 属性/存档边界见 [ARCHITECTURE.md](ARCHITECTURE.md)
+3. 完工 **必须** 填 §三；`是否允许进入下一任务` 由 **CTO 复核** 后生效
 
 ---
 
-## 二、开工前必读（顺序）
+## 二、开发 Agent 开工前必读
 
-与 [CTO.md](CTO.md) §四 一致：
+与 [FEATURE_DEV_RULES.md](session_rules/FEATURE_DEV_RULES.md) 一致：
 
-1. **[CTO.md](CTO.md)** — 角色、禁止项、CTO 回复格式
-2. **[PROJECT_STATUS.md](PROJECT_STATUS.md)** — 当前阶段、当前任务、冻结项、任务板
-3. **[ARCHITECTURE.md](ARCHITECTURE.md)** — 属性铁律、状态机、UI 边界
-4. **本文（TASK_PROTOCOL.md)** — 交付格式与门禁
-5. **最近一篇** `docs/worklogs/YYYY-MM-DD.md` — 上次做到哪、下次第一步
-6. （按需）[UI_SUBSYSTEM_AUDIT.md](UI_SUBSYSTEM_AUDIT.md) — 接线缺口，非铁律
+1. [session_rules/FEATURE_DEV_RULES.md](session_rules/FEATURE_DEV_RULES.md)
+2. [PROJECT_STATUS.md](PROJECT_STATUS.md)
+3. [ARCHITECTURE.md](ARCHITECTURE.md)
+4. **本文（TASK_PROTOCOL.md)** — §三 模板
+5. 最近一篇 `docs/worklogs/YYYY-MM-DD.md`
+6. （Bug 会话）[BUG_FIX_WORKFLOW.md](BUG_FIX_WORKFLOW.md)
+7. （按需）[UI_SUBSYSTEM_AUDIT.md](UI_SUBSYSTEM_AUDIT.md)
 
 ```powershell
 git pull origin main
@@ -81,9 +82,9 @@ Get-ChildItem docs\worklogs\*.md | Sort-Object Name -Descending | Select-Object 
 
 ---
 
-## 四、CTO 状态回复格式（每次对话）
+## 四、CTO 六段回复格式（仅 CTO 会话）
 
-完整说明见 **[CTO.md](CTO.md) §三**。CTO 每条回复须包含：
+**开发 Agent 不用本节。** 完整说明见 **[CTO.md](CTO.md) §三**。CTO 每条回复须包含：
 
 ```
 当前阶段：
@@ -111,6 +112,8 @@ Get-ChildItem docs\worklogs\*.md | Sort-Object Name -Descending | Select-Object 
 
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) — 任务板（开工第一读）
 - [ARCHITECTURE.md](ARCHITECTURE.md) — 架构铁律
+- [BUG_FIX_WORKFLOW.md](BUG_FIX_WORKFLOW.md) — 缺陷修复工作流（修 Bug 专用）
 - [UI_SUBSYSTEM_AUDIT.md](UI_SUBSYSTEM_AUDIT.md) — UI/子系统审计
 - [ACCEPTANCE_PROGRESS.md](ACCEPTANCE_PROGRESS.md) — QA 勾选
 - [worklogs/README.md](worklogs/README.md) — 日志规范
+- [session_rules/FEATURE_DEV_RULES.md](session_rules/FEATURE_DEV_RULES.md) — 开发会话短规则（复制用） |

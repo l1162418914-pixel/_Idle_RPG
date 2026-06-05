@@ -1,0 +1,29 @@
+---
+description: 全项目基线：开工读状态文档；理解冲突先报告；按会话角色读 session_rules
+alwaysApply: true
+---
+
+# 项目基线（所有会话）
+
+## 开工前（未读不得改代码）
+
+1. `docs/PROJECT_STATUS.md` — 当前任务、冻结项、任务板（单一事实源）
+2. `docs/ARCHITECTURE.md` — 架构铁律
+
+若理解与代码冲突：**先报告冲突，不要直接修改**。
+
+## 按角色追加阅读
+
+用户开场白或 @ 规则指明角色后，读对应短规则（**勿混用 CTO 与开发**）：
+
+| 角色 | 短规则 | Cursor 规则 | 回复格式 |
+|------|--------|-------------|----------|
+| PM / CTO | `docs/session_rules/PM_RULES.md` | `cto-pm.mdc` | 六段（CTO.md §三） |
+| 开发 Agent | `docs/session_rules/FEATURE_DEV_RULES.md` | `feature-dev.mdc` | TASK_PROTOCOL §三 |
+| Bug 修复 | `docs/session_rules/BUGFIX_RULES.md` | `bug-fix.mdc` | BUG_FIX_WORKFLOW §四 |
+
+索引：`docs/session_rules/README.md`
+
+## 任务编号
+
+以 `PROJECT_STATUS.md` 的 `T-xx` 为准；不使用已废弃的 `TASK-xxx` / `BUG-xxx`。
