@@ -1,6 +1,6 @@
-# 测试验收进度（B 机勾选）
+# 测试验收进度（勾选后 commit）
 
-对照 [TEST_SCENARIOS.md](TEST_SCENARIOS.md)。测完一项改 `[ ]` → `[x]`，收工与 worklog 一起 commit。
+对照 **[TEST_PLAYBOOK.md](TEST_PLAYBOOK.md)**（推荐，可打印/双屏）或 [TEST_SCENARIOS.md](TEST_SCENARIOS.md)。测完一项改 `[ ]` → `[x]`，收工与 worklog 一起 commit。
 
 | 序 | 内容 | 状态 | 备注 / commit |
 |----|------|------|----------------|

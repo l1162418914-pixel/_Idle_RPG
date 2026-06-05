@@ -9,4 +9,4 @@
 | [design-expedition-meta.md](design-expedition-meta.md) | 1/7 挂机再战、双半组 4+2、养伤锁（交叉引用） |
 | [design-boss-chase.md](design-boss-chase.md) | 7/7 Boss 追击、压力缩放、击杀=通关结算、返程反击按钮 |
 
-相关现网说明：[SAVE_FORMAT.md](SAVE_FORMAT.md)（存档字段）、[MAP_UNLOCK.md](MAP_UNLOCK.md)、[TEST_SCENARIOS.md](TEST_SCENARIOS.md)（QA 测试图）。
+相关现网说明：[SAVE_FORMAT.md](SAVE_FORMAT.md)（存档字段）、[MAP_UNLOCK.md](MAP_UNLOCK.md)、[TEST_PLAYBOOK.md](TEST_PLAYBOOK.md)（QA 对照测试档案）、[TEST_SCENARIOS.md](TEST_SCENARIOS.md)（QA 简表）。
