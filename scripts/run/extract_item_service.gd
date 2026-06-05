@@ -109,7 +109,7 @@ static func _read_extract_items_from_disk() -> Array:
 static func _extract_pool_for_map(map_id: String) -> Array:
 	var pool: Array = []
 	for tpl in _all_extract_templates():
-		if tpl is not Dictionary:
+		if not (tpl is Dictionary):
 			continue
 		var allowed: Array = tpl.get("maps", [])
 		if allowed is Array and allowed.size() > 0:

@@ -195,7 +195,7 @@ func _on_auto_fill_preferred() -> void:
 
 
 func _handle_slot_drop(target_half: String, target_kind: String, target_index: int, data: Variant) -> void:
-	if data is not Dictionary:
+	if not (data is Dictionary):
 		return
 	var merc_id: String = str(data.get("merc_id", ""))
 	if merc_id == "":
