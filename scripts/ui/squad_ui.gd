@@ -86,7 +86,7 @@ func _refresh() -> void:
 			if float(md.get("drop_chance", 0.0)) > 0.001:
 				test_hints.append("装备掉率 %.0f%%" % (float(md.drop_chance) * 100.0))
 			if bool(md.get("disable_boss_chase", false)):
-				test_hints.append("无Boss追击")
+				test_hints.append("无 Boss 追击")
 			if bool(md.get("auto_retreat_on_boss_spawn", false)):
 				test_hints.append("区域首领出现即自动返程")
 			if test_hints.size() > 0:
