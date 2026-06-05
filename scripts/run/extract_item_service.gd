@@ -1,10 +1,10 @@
-class_name ExtractItemService
 extends RefCounted
+## 撤离物掉落/守卫（无 class_name，避免与 WorldRun 全局类循环依赖）
 
 const _EXTRACT_ITEM_SCRIPT := preload("res://scripts/inventory/run_extract_item.gd")
 
 
-static func try_drop_on_defeat(run: WorldRun, enemy_data: Dictionary) -> void:
+static func try_drop_on_defeat(run, enemy_data: Dictionary) -> void:
 	if run == null or run.is_retreating:
 		return
 	if run.boss_defeated or run.extract_guard_cleared:
@@ -25,7 +25,7 @@ static func try_drop_on_defeat(run: WorldRun, enemy_data: Dictionary) -> void:
 	resolve_on_pickup(run, item)
 
 
-static func resolve_on_pickup(run: WorldRun, item: RunExtractItem) -> void:
+static func resolve_on_pickup(run, item) -> void:
 	if run == null or item == null:
 		return
 	run.last_extract_item_name = item.item_name
@@ -44,13 +44,13 @@ static func resolve_on_pickup(run: WorldRun, item: RunExtractItem) -> void:
 		)
 
 
-static func apply_clear_bonus(run: WorldRun) -> void:
+static func apply_clear_bonus(run) -> void:
 	if run == null or run.pending_extract_guard == null:
 		return
-	var item: RunExtractItem = run.pending_extract_guard
+	var item = run.pending_extract_guard
 	run.total_gold_earned += item.bonus_gold
 	run.total_exp_earned += item.bonus_exp
-	var drop: Equipment = LootSystem.roll_equipment(run.map_data, {"level": 5, "is_boss": false}, 0.1, 1)
+	var drop = LootSystem.roll_equipment(run.map_data, {"level": 5, "is_boss": false}, 0.1, 1)
 	if drop != null:
 		run._add_run_loot(drop)
 	run.pending_extract_guard = null

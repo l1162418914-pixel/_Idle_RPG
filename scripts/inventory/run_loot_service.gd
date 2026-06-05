@@ -3,7 +3,7 @@ extends RefCounted
 ## 本趟战利品：优先安全箱，挤占低密度，溢出外露
 
 
-static func init_run_grids(run: WorldRun) -> void:
+static func init_run_grids(run) -> void:
 	if run == null:
 		return
 	var safe_size: Vector2i = Vector2i(2, 2)
@@ -18,7 +18,7 @@ static func init_run_grids(run: WorldRun) -> void:
 	run.exposed_loot = GridInventory.new(exposed_w, exposed_h)
 
 
-static func add_equipment_drop(run: WorldRun, equip: Equipment) -> Dictionary:
+static func add_equipment_drop(run, equip: Equipment) -> Dictionary:
 	if run == null or equip == null:
 		return {"ok": false, "where": "none"}
 	LootFootprint.assign_for_equipment(equip)
@@ -35,7 +35,7 @@ static func add_equipment_drop(run: WorldRun, equip: Equipment) -> Dictionary:
 	return {"ok": false, "where": "none"}
 
 
-static func add_extract_item_drop(run: WorldRun, item: RunExtractItem) -> Dictionary:
+static func add_extract_item_drop(run, item) -> Dictionary:
 	if run == null or item == null:
 		return {"ok": false, "where": "none"}
 	if run.safe_loot == null or run.exposed_loot == null:
@@ -47,7 +47,7 @@ static func add_extract_item_drop(run: WorldRun, item: RunExtractItem) -> Dictio
 	return {"ok": false, "where": "none"}
 
 
-static func add_material_drop(run: WorldRun, mat: RunMaterial) -> Dictionary:
+static func add_material_drop(run, mat: RunMaterial) -> Dictionary:
 	if run == null or mat == null:
 		return {"ok": false, "where": "none"}
 	if run.safe_loot == null or run.exposed_loot == null:
@@ -62,7 +62,7 @@ static func add_material_drop(run: WorldRun, mat: RunMaterial) -> Dictionary:
 
 
 ## 手动斩仓：舍弃外露格，仅保留安全箱（返回舍弃件数）
-static func abandon_exposed_loot(run: WorldRun) -> int:
+static func abandon_exposed_loot(run) -> int:
 	if run == null or run.exposed_loot == null:
 		return 0
 	var count: int = run.exposed_loot.item_count()
@@ -72,7 +72,7 @@ static func abandon_exposed_loot(run: WorldRun) -> int:
 	return count
 
 
-static func collect_loot_for_settlement(run: WorldRun, manual: bool) -> Array[Equipment]:
+static func collect_loot_for_settlement(run, manual: bool) -> Array[Equipment]:
 	if run == null:
 		return []
 	if manual:
@@ -82,7 +82,7 @@ static func collect_loot_for_settlement(run: WorldRun, manual: bool) -> Array[Eq
 	return collect_all_equipment(run)
 
 
-static func collect_all_equipment(run: WorldRun) -> Array[Equipment]:
+static func collect_all_equipment(run) -> Array[Equipment]:
 	var list: Array[Equipment] = []
 	if run == null:
 		return list
@@ -95,7 +95,7 @@ static func collect_all_equipment(run: WorldRun) -> Array[Equipment]:
 	return list
 
 
-static func _try_evict_safe_and_place(run: WorldRun, equip: Equipment) -> bool:
+static func _try_evict_safe_and_place(run, equip: Equipment) -> bool:
 	var new_cells: int = LootFootprint.cell_count(equip)
 	var new_density: float = float(EquipmentCompare.power_score(equip)) / float(maxi(1, new_cells))
 	var worst: Equipment = null
@@ -117,7 +117,7 @@ static func _try_evict_safe_and_place(run: WorldRun, equip: Equipment) -> bool:
 	return true
 
 
-static func _try_evict_exposed_and_place(run: WorldRun, equip: Equipment) -> bool:
+static func _try_evict_exposed_and_place(run, equip: Equipment) -> bool:
 	if run == null or run.exposed_loot == null or equip == null:
 		return false
 	var new_cells: int = LootFootprint.cell_count(equip)
@@ -139,7 +139,7 @@ static func _try_evict_exposed_and_place(run: WorldRun, equip: Equipment) -> boo
 	return true
 
 
-static func _try_evict_exposed_equipment_for_material(run: WorldRun, mat: RunMaterial) -> bool:
+static func _try_evict_exposed_equipment_for_material(run, mat: RunMaterial) -> bool:
 	if run == null or run.exposed_loot == null or mat == null:
 		return false
 	var removed: Equipment = run.exposed_loot.remove_lowest_density()

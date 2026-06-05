@@ -2,6 +2,8 @@ class_name WorldRun
 extends RefCounted
 ## WorldRun — 单次出征的顶层逻辑
 
+const _ExtractItemService := preload("res://scripts/run/extract_item_service.gd")
+
 signal enemy_spawned(enemy_data: Dictionary)
 signal boss_encountered(boss_data: Dictionary)
 signal loot_dropped(equipment: Equipment, gold: int)
@@ -396,7 +398,7 @@ func register_enemy_defeat(enemy_data: Dictionary) -> void:
 		boss_defeated = true
 		stability.on_boss_killed()
 	if not enemy_data.get("is_extract_guard", false):
-		ExtractItemService.try_drop_on_defeat(self, enemy_data)
+		_ExtractItemService.try_drop_on_defeat(self, enemy_data)
 
 
 func register_chase_deep_counter_repelled(enemy_data: Dictionary) -> void:
