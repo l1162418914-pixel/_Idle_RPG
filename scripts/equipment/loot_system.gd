@@ -37,6 +37,18 @@ static func roll_equipment(
 	return Equipment.generate_with_options(slot, tier, level, set_id)
 
 
+static func roll_material(map_data: Dictionary, enemy_data: Dictionary) -> RunMaterial:
+	return RunMaterial.roll_for_map(map_data, enemy_data)
+
+
+static func get_material_drop_chance(map_data: Dictionary, enemy_data: Dictionary) -> float:
+	var base: float = 0.22
+	if enemy_data.get("is_boss", false):
+		base = 0.38
+	base *= float(map_data.get("resource_yield", 1.0))
+	return minf(base, 0.55)
+
+
 static func get_drop_chance(map_data: Dictionary, enemy_data: Dictionary, forge_drop_bonus: float) -> float:
 	if enemy_data.get("is_boss", false):
 		var boss_chance: float = float(map_data.get("drop_chance_boss", 1.0))

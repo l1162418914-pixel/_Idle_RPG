@@ -2,6 +2,12 @@ extends Resource
 class_name Mercenary
 ## 佣兵基类 — 所有佣兵共享的属性、装备、技能接口
 
+const _BuffSystemLib = preload("res://scripts/buff/buff_system.gd")
+const _StatResolver = preload("res://scripts/stats/stat_resolver.gd")
+const _StabilitySystem = preload("res://scripts/run/stability_system.gd")
+const _RosterHealth = preload("res://scripts/roster/roster_health.gd")
+const _ExpSystem = preload("res://scripts/progression/exp_system.gd")
+
 enum MercType { PLAYER, ELITE, NORMAL }
 
 @export var merc_id: String = ""
@@ -35,7 +41,7 @@ var passive_skills: Array = []
 var active_skills: Array = []
 var growth_per_level: Dictionary = {}
 var template_id: String = ""
-var buff_system: BuffSystem = BuffSystem.new()
+var buff_system = _BuffSystemLib.new()
 
 # 出征临时状态
 var current_hp: int = 0
@@ -48,6 +54,15 @@ var is_personal_break: bool = false
 var personal_stability: int = 100
 var run_kills: int = 0
 var run_damage_dealt: int = 0
+## 伤痕层数（每次进入濒死 +1）
+var scar_stacks: int = 0
+## 搀扶者 merc_id（本趟临时）
+var supported_by_id: String = ""
+## 本趟是否已触发绝境觉醒
+var run_awaken_used: bool = false
+var is_awakening: bool = false
+var awakening_time_left: float = 0.0
+var awakening_variant_id: String = ""
 
 
 func init_from_template(template: Dictionary) -> void:
@@ -65,7 +80,7 @@ func init_from_template(template: Dictionary) -> void:
 	if template.has("active_skills"):
 		active_skills = template.active_skills.duplicate()
 	
-	personal_stability = StabilitySystem.MAX_STABILITY
+	personal_stability = _StabilitySystem.MAX_STABILITY
 	reset_to_full_hp()
 
 
@@ -85,14 +100,14 @@ func _apply_base(stats: Dictionary) -> void:
 
 
 func reset_to_full_hp() -> void:
-	current_hp = StatResolver.get_max_hp(self)
+	current_hp = _StatResolver.get_max_hp(self)
 	is_alive = true
 	is_near_death = false
 	is_retreated = false
 
 
 func get_max_hp_value() -> int:
-	return StatResolver.get_max_hp(self)
+	return _StatResolver.get_max_hp(self)
 
 
 func get_hp_ratio() -> float:
@@ -103,18 +118,75 @@ func get_hp_ratio() -> float:
 
 
 func modify_personal_stability(delta: int) -> void:
-	personal_stability = clampi(personal_stability + delta, 0, StabilitySystem.MAX_STABILITY)
-	if personal_stability > StabilitySystem.PERSONAL_BREAK_THRESHOLD:
+	personal_stability = clampi(personal_stability + delta, 0, _StabilitySystem.MAX_STABILITY)
+	if personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD:
 		try_clear_personal_break()
 
 
 func is_personal_stability_ok() -> bool:
-	return personal_stability > StabilitySystem.PERSONAL_BREAK_THRESHOLD
+	return personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD
 
 
 ## 是否可编入出征队
 func can_join_squad() -> bool:
+	try_clear_near_death_for_deploy()
 	return is_alive and not is_near_death and not is_retreated and not is_personal_break and is_personal_stability_ok()
+
+
+func try_clear_near_death_for_deploy() -> void:
+	if not is_alive or not is_near_death:
+		return
+	if get_hp_ratio() >= _RosterHealth.DEPLOY_HP_RATIO:
+		is_near_death = false
+
+
+func _scars_cfg() -> Dictionary:
+	return DataLoader.near_death_config().get("scars", {})
+
+
+func get_scar_stack_cap() -> int:
+	return maxi(1, int(_scars_cfg().get("max_stacks", 8)))
+
+
+func _effective_scar_stacks() -> int:
+	return mini(scar_stacks, get_scar_stack_cap())
+
+
+func get_scar_hp_mult() -> float:
+	var cfg: Dictionary = _scars_cfg()
+	var per: float = float(cfg.get("hp_penalty_per_stack", 0.03))
+	var floor_m: float = float(cfg.get("min_mult", 0.7))
+	return maxf(floor_m, 1.0 - per * float(_effective_scar_stacks()))
+
+
+func get_scar_atk_mult() -> float:
+	var cfg: Dictionary = _scars_cfg()
+	var per: float = float(cfg.get("atk_penalty_per_stack", 0.02))
+	var floor_m: float = float(cfg.get("min_mult", 0.7))
+	return maxf(floor_m, 1.0 - per * float(_effective_scar_stacks()))
+
+
+## 稳定度受伤额外倍率（≥1，层数越高掉得越快）
+func get_scar_stability_loss_mult() -> float:
+	var cfg: Dictionary = _scars_cfg()
+	var per: float = float(cfg.get("stability_loss_per_stack", 0.04))
+	return 1.0 + per * float(_effective_scar_stacks())
+
+
+func get_scar_stat_mult() -> float:
+	return get_scar_hp_mult()
+
+
+func get_scar_effect_summary() -> String:
+	if scar_stacks <= 0:
+		return ""
+	var hp_pct: int = int((1.0 - get_scar_hp_mult()) * 100.0)
+	var atk_pct: int = int((1.0 - get_scar_atk_mult()) * 100.0)
+	return "生命-%d%% 攻-%d%% 易损稳定" % [hp_pct, atk_pct]
+
+
+func add_scar_stack() -> void:
+	scar_stacks = mini(get_scar_stack_cap(), scar_stacks + 1)
 
 
 func mark_personal_break() -> void:
@@ -131,11 +203,11 @@ func should_personal_break() -> bool:
 		return false
 	if merc_type == MercType.PLAYER:
 		return false
-	return personal_stability <= StabilitySystem.PERSONAL_BREAK_THRESHOLD
+	return personal_stability <= _StabilitySystem.PERSONAL_BREAK_THRESHOLD
 
 
 ## 非主角：战后血量过低则脱离队伍
-func should_auto_retreat(threshold: float = RosterHealth.RETREAT_HP_RATIO) -> bool:
+func should_auto_retreat(threshold: float = _RosterHealth.RETREAT_HP_RATIO) -> bool:
 	if not is_alive or is_retreated or is_near_death:
 		return false
 	if merc_type == MercType.PLAYER:
@@ -165,13 +237,13 @@ func level_up() -> bool:
 		return false
 	level += 1
 	refresh_base_stats()
-	current_hp = StatResolver.get_max_hp(self)
+	current_hp = _StatResolver.get_max_hp(self)
 	return true
 
 
 ## 获得经验并自动升级，返回升级次数
 func add_exp(amount: int) -> int:
-	return ExpSystem.grant_exp(self, amount).get("levels_gained", 0)
+	return _ExpSystem.grant_exp(self, amount).get("levels_gained", 0)
 
 
 func _apply_growth() -> void:
@@ -232,16 +304,19 @@ func revive(full_heal: bool = true) -> void:
 	is_near_death = false
 	is_retreated = false
 	if full_heal:
-		current_hp = StatResolver.get_max_hp(self)
+		current_hp = _StatResolver.get_max_hp(self)
 	else:
-		current_hp = max(1, int(StatResolver.get_max_hp(self) * 0.3))
+		current_hp = max(1, int(_StatResolver.get_max_hp(self) * 0.3))
 
 
 ## 进入濒死（战中倒下或撤离成功惩罚）
 func enter_near_death_state(hp_ratio: float = 0.08) -> void:
+	var was_near: bool = is_near_death
 	is_alive = true
 	is_near_death = true
-	var max_hp_val := StatResolver.get_max_hp(self)
+	if not was_near:
+		add_scar_stack()
+	var max_hp_val := _StatResolver.get_max_hp(self)
 	current_hp = maxi(1, int(float(max_hp_val) * hp_ratio))
 	hp = current_hp
 
@@ -269,8 +344,11 @@ func get_status_label() -> String:
 	if is_dead():
 		return "[死亡] %s Lv.%d" % [merc_name, level]
 	if is_near_death:
-		return "[濒死] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, StatResolver.get_max_hp(self)]
-	return "[存活] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, StatResolver.get_max_hp(self)]
+		var scar_hint := " 伤×%d" % scar_stacks if scar_stacks > 0 else ""
+		return "[濒死] %s Lv.%d HP:%d/%d%s" % [
+			merc_name, level, current_hp, _StatResolver.get_max_hp(self), scar_hint
+		]
+	return "[存活] %s Lv.%d HP:%d/%d" % [merc_name, level, current_hp, _StatResolver.get_max_hp(self)]
 
 
 func get_display_class() -> String:

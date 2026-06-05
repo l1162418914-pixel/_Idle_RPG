@@ -4,6 +4,8 @@ extends RefCounted
 
 ## 非主角血量 ≤ 此比例时自动脱离当前出征队伍
 const RETREAT_HP_RATIO: float = 0.25
+## 回城后 ≥ 此比例可清除濒死、再次出征
+const DEPLOY_HP_RATIO: float = 0.70
 ## 基地回血结算间隔（秒）
 const BASE_HEAL_TICK_SEC: float = 1.0
 ## 每 tick 恢复最大生命的比例（医疗室等级再乘倍率）
@@ -25,6 +27,7 @@ static func heal_mercenary(merc: Mercenary, heal_ratio: float) -> int:
 	var before: int = merc.current_hp
 	merc.current_hp = mini(max_hp, merc.current_hp + amount)
 	merc.try_clear_retreat_on_full_heal()
+	merc.try_clear_near_death_for_deploy()
 	return merc.current_hp - before
 
 

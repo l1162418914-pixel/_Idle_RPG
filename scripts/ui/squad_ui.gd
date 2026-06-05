@@ -27,19 +27,19 @@ func _on_state_changed(new_state: int) -> void:
 func _refresh() -> void:
 	_selected_ids.clear()
 	GameManager.selected_squad.clear()
-	
-	# 预选所有存活佣兵，死亡角色不入选
-	if GameManager.player and GameManager.player.can_join_squad():
-		_selected_ids.append(GameManager.player.merc_id)
-	for e in GameManager.elite_roster:
-		if e.can_join_squad():
-			_selected_ids.append(e.merc_id)
-	for n in GameManager.normal_roster:
-		if n.can_join_squad():
-			_selected_ids.append(n.merc_id)
+	SquadFormationService.ensure_formation(GameManager)
+	var half: String = SquadFormationService.pick_deploy_half(GameManager)
+	var md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
+	var lock_roster: bool = TestScenarioService.should_lock_roster(md)
+	if half == "":
+		_selected_ids.clear()
+	else:
+		if not lock_roster:
+			SquadFormationService.auto_fill_half(GameManager, half)
+		for m in SquadFormationService.resolve_active_squad(GameManager, half):
+			_selected_ids.append(m.merc_id)
 	
 	if map_label:
-		var md := DataLoader.map_data(GameManager.selected_map_id)
 		var map_name: String = md.get("name", GameManager.selected_map_id) if not md.is_empty() else GameManager.selected_map_id
 		var danger: int = int(md.get("danger_level", 1)) if not md.is_empty() else 1
 		var boss_dist: float = float(md.get("boss_distance", 600.0))
@@ -52,9 +52,34 @@ func _refresh() -> void:
 		var withdraw_hint := ""
 		if team_st <= StabilitySystem.TEAM_WITHDRAW_THRESHOLD + 10:
 			withdraw_hint = " (团队≤30强制撤离)"
-		map_label.text = "地图: %s | 危险%d | Boss %.0fm | 团队稳定度:%d%s%s" % [
-			map_name, danger, boss_dist, team_st, withdraw_hint, extra
-		]
+		var form_hint: String = SquadFormationService.get_formation_summary(GameManager)
+		var lines: PackedStringArray = []
+		lines.append(
+			"地图: %s | 危险%d | Boss %.0fm | 团队稳定度:%d%s%s" % [
+				map_name, danger, boss_dist, team_st, withdraw_hint, extra
+			]
+		)
+		lines.append(form_hint)
+		var test_banner: String = TestScenarioService.get_run_start_banner(md)
+		if test_banner != "":
+			lines.append(test_banner)
+		if lock_roster:
+			lines.append("（本测试图编队已锁定，请回大营「双半组编队」调整槽位）")
+		else:
+			lines.append("（编队在大营「双半组编队」调整；此处为即将出征名单）")
+		if md.has("extract_distance"):
+			lines.append(
+				"撤离点 %.0fm · 智能撤离阈值 %d · 撤离物掉率 %.0f%%" % [
+					float(md.extract_distance),
+					int(md.get("auto_carry_value_threshold", 0)),
+					float(md.get("extract_drop_chance", 0.04)) * 100.0,
+				]
+			)
+		map_label.text = "\n".join(lines)
+		if GameManager.is_recovery_lock_active():
+			map_label.modulate = Color.ORANGE_RED
+		else:
+			map_label.modulate = Color.WHITE
 	
 	_refresh_available()
 	_refresh_selected()
@@ -67,17 +92,25 @@ func _refresh_available() -> void:
 	for child in available_list.get_children():
 		child.queue_free()
 	
+	var lock_roster: bool = TestScenarioService.should_lock_roster(
+		DataLoader.map_data(GameManager.selected_map_id)
+	)
 	var player = GameManager.player
 	if player:
 		var btn = _make_merc_button(player, true)
+		if lock_roster:
+			btn.disabled = true
 		available_list.add_child(btn)
-	
 	for e in GameManager.elite_roster:
 		var btn = _make_merc_button(e, false)
+		if lock_roster:
+			btn.disabled = true
 		available_list.add_child(btn)
 	
 	for n in GameManager.normal_roster:
 		var btn = _make_merc_button(n, false)
+		if lock_roster:
+			btn.disabled = true
 		available_list.add_child(btn)
 
 
@@ -88,6 +121,15 @@ func _make_merc_button(merc: Mercenary, is_player: bool) -> Button:
 	if merc.is_dead():
 		btn.text = "%s %s Lv.%d [阵亡]" % [prefix, merc.merc_name, merc.level]
 		btn.modulate = Color.DIM_GRAY
+		btn.disabled = true
+	elif merc.is_near_death:
+		var scar_line := ""
+		if merc.scar_stacks > 0:
+			scar_line = " 伤×%d %s" % [merc.scar_stacks, merc.get_scar_effect_summary()]
+		btn.text = "%s %s Lv.%d [濒死·需≥70%%HP]%s" % [
+			prefix, merc.merc_name, merc.level, scar_line
+		]
+		btn.modulate = Color.ORANGE_RED
 		btn.disabled = true
 	elif not merc.can_join_squad():
 		var reason := "[个人稳定不足]"
@@ -106,14 +148,19 @@ func _make_merc_button(merc: Mercenary, is_player: bool) -> Button:
 			prefix, merc.merc_name, merc.level, merc.current_hp, StatResolver.get_max_hp(merc),
 			merc.personal_stability, StatResolver.get_patk(merc)
 		]
-		btn.pressed.connect(_on_merc_selected.bind(merc.merc_id, btn))
+		btn.disabled = true
 		if merc.merc_id in _selected_ids:
 			btn.modulate = Color.GREEN
+		else:
+			btn.modulate = Color(0.7, 0.75, 0.8)
 	
 	return btn
 
 
 func _on_merc_selected(merc_id: String, btn: Button) -> void:
+	var md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
+	if TestScenarioService.should_lock_roster(md):
+		return
 	if merc_id in _selected_ids:
 		_selected_ids.erase(merc_id)
 		btn.modulate = Color.WHITE
@@ -155,7 +202,9 @@ func _find_merc(merc_id: String) -> Mercenary:
 
 func _update_start_button() -> void:
 	if start_button:
-		start_button.disabled = _selected_ids.size() < 1
+		var half: String = SquadFormationService.pick_deploy_half(GameManager)
+		start_button.disabled = half == "" or GameManager.is_recovery_lock_active()
+		start_button.text = "按半组 %s 出征" % half if half != "" else "无法出征"
 
 
 func _on_start_pressed() -> void:

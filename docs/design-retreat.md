@@ -1,6 +1,6 @@
 # 2/7 返程（Retreat）· 讨论定稿
 
-> **状态：未实现**（现码仍为领队 HP 单池护盾、`total_loot` 扁平列表等）。实现时以本文档为准。
+> **状态：核心返程链路已实现**（网格、斩仓、撤离点、双池盾、智能撤离、守卫战、刷怪档位）。可选扩展见各专项文档。
 
 ## 一、流程总览
 
@@ -194,13 +194,24 @@ shield_max = (equip + material) × (1 + 职业/天赋) × reason_mult
 
 ---
 
-## 十、现码差异摘要
+## 十、实现进度
 
-- `total_loot` 扁平数组 → 需 `GridInventory`（箱/外露/基地）。
-- `manual_withdraw` 仍 `begin_retreat` → 应改为斩仓结算。
-- 掉装仍从 `total_loot` 抽 → 应仅 `exposed`。
-- 护盾单池 + 领队 HP → 应双池 + 装备 CD。
-- `refresh_retreat_shield` 满盾 → 应限制。
+| 模块 | 状态 |
+|------|------|
+| `GridInventory` + `RunLootService` + 占格 | ✅ |
+| 返程掉装仅 `exposed_loot` | ✅ |
+| 医疗室 `safe_box_w/h` 升级 | ✅ |
+| 手动斩仓（无返程、仅安全箱） | ✅ |
+| Boss 胜直接结算 / 败→撤离点返程 | ✅ |
+| `extract_distance` 首段返程目标 | ✅ |
+| 双池护盾（装备→物资扣减） | ✅ |
+| 装备护盾 CD（`shield_cd_runs_left`） | ✅ |
+| 网格物资 + 濒死烧物资转盾 | ✅ |
+| 紧急返程仅补 30% 盾（每趟一次） | ✅ |
+| 携带价值 `auto_value` + `auto_retreat_rules.json` | ✅ |
+| 撤离物 + 守卫战 (`extract_items.json`) | ✅ |
+| 返程刷怪稀疏/追击档位 + `shield_damage_mult_chase` | ✅ |
+| 返程 UI 双盾条 + 结算返程原因 | ✅ |
 
 ---
 

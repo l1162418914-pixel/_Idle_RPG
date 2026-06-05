@@ -1,6 +1,8 @@
 extends Node
 ## DataLoader — 加载、缓存并提供 JSON 数据访问
 
+const _EquipmentSetRegistry = preload("res://scripts/equipment/equipment_set_registry.gd")
+
 var _enemy_templates: Dictionary = {}
 var _merc_templates: Dictionary = {}
 var _player_classes: Dictionary = {}
@@ -9,6 +11,11 @@ var _base_data: Dictionary = {}
 var _equipment_data: Dictionary = {}
 var _skill_templates: Dictionary = {}
 var _equipment_sets: Dictionary = {}
+var _loot_materials: Dictionary = {}
+var _auto_retreat_rules: Dictionary = {}
+var _extract_items: Dictionary = {}
+var _near_death_config: Dictionary = {}
+var _chase_drop_tables: Dictionary = {}
 
 
 func load_all() -> void:
@@ -19,7 +26,12 @@ func load_all() -> void:
 	_equipment_data = _load_json("res://data/equipment_data.json")
 	_skill_templates = _load_json("res://data/skill_templates.json")
 	_equipment_sets = _load_json("res://data/equipment_sets.json")
-	EquipmentSetRegistry.load_from_data(_equipment_sets)
+	_loot_materials = _load_json("res://data/loot_materials.json")
+	_auto_retreat_rules = _load_json("res://data/auto_retreat_rules.json")
+	_extract_items = _load_json("res://data/extract_items.json")
+	_near_death_config = _load_json("res://data/near_death_config.json")
+	_chase_drop_tables = _load_json("res://data/chase_drop_tables.json")
+	_EquipmentSetRegistry.load_from_data(_equipment_sets)
 	_index_merc()
 	_index_player_classes()
 	_index_maps()
@@ -156,6 +168,45 @@ func equipment_base_stats(slot_id: String) -> Dictionary:
 
 func all_prefixes() -> Array:
 	return _equipment_data.get("prefixes", [])
+
+
+func all_loot_materials() -> Array:
+	return _loot_materials.get("materials", [])
+
+
+func loot_material_shield_config() -> Dictionary:
+	return _loot_materials.get("shield", {})
+
+
+func auto_retreat_defaults() -> Dictionary:
+	return _auto_retreat_rules.get("defaults", {})
+
+
+func auto_retreat_rules() -> Array:
+	return _auto_retreat_rules.get("rules", [])
+
+
+func all_extract_items() -> Array:
+	return _extract_items.get("items", [])
+
+
+func equipment_set_name(set_id: String) -> String:
+	if set_id == "":
+		return ""
+	for entry in _equipment_sets.get("sets", []):
+		if entry is Dictionary and str(entry.get("set_id", "")) == set_id:
+			return str(entry.get("name", set_id))
+	return set_id
+
+
+func near_death_config() -> Dictionary:
+	return _near_death_config
+
+
+func chase_drop_table(table_id: String) -> Dictionary:
+	if table_id == "":
+		return {}
+	return _chase_drop_tables.get("tables", {}).get(table_id, {})
 
 
 func skill_template(skill_id: String) -> Dictionary:

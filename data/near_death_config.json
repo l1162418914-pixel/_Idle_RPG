@@ -1,0 +1,46 @@
+{
+  "awakening": {
+    "base_chance": 0.04,
+    "duration_sec": 5.0,
+    "damage_mult": 1.75,
+    "attack_speed_mult": 1.25,
+    "variants": [
+      {
+        "id": "damage_burst",
+        "weight": 50,
+        "damage_mult": 1.75,
+        "attack_speed_mult": 1.25
+      },
+      {
+        "id": "team_shield",
+        "weight": 20,
+        "duration_sec": 4.0,
+        "material_shield_ratio": 0.18
+      },
+      {
+        "id": "taunt",
+        "weight": 15,
+        "duration_sec": 5.0,
+        "damage_mult": 1.15,
+        "defense_mult": 1.6
+      },
+      {
+        "id": "heal_snap",
+        "weight": 15,
+        "duration_sec": 3.5,
+        "heal_hp_ratio": 0.38
+      }
+    ]
+  },
+  "scars": {
+    "max_stacks": 8,
+    "hp_penalty_per_stack": 0.03,
+    "atk_penalty_per_stack": 0.02,
+    "stability_loss_per_stack": 0.04,
+    "min_mult": 0.7
+  },
+  "scar_treatment": {
+    "base_gold_per_stack": 18,
+    "base_gold_flat": 25
+  }
+}

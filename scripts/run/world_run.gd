@@ -33,7 +33,10 @@ const CHASE_WARN_GAP: float = 120.0
 const CHASE_DANGER_GAP: float = 60.0
 var total_gold_earned: int = 0
 var total_exp_earned: int = 0
+## 兼容旧逻辑；结算以 safe_loot + exposed_loot 为准
 var total_loot: Array[Equipment] = []
+var safe_loot: GridInventory = null
+var exposed_loot: GridInventory = null
 var enemies_defeated: int = 0
 var squad_member_ids: Array[String] = []
 var spawn_timer: float = 0.0
@@ -42,17 +45,42 @@ var boss_spawned: bool = false
 var boss_defeated: bool = false
 var boss_zone_reached: bool = false
 var boss_chase_active: bool = false
+var guard_chase_active: bool = false
 var boss_chase_position: float = 0.0
+var retreat_spawn_tier: String = ""
 var chase_combat_in_progress: bool = false
+var chase_pressure: float = 0.0
+var chase_boss_repelled_count: int = 0
+var chase_evade_eligible: bool = false
+var chase_counter_uses: int = 0
+var chase_stagger_charge: float = 0.0
+var chase_stagger_holding: bool = false
+var chase_stagger_repelled_count: int = 0
+var chase_deep_counter_uses: int = 0
 var _chase_combat_cooldown: float = 0.0
+var _chase_counter_cooldown: float = 0.0
+var _chase_deep_counter_cooldown: float = 0.0
 var _chase_stability_tick: float = 0.0
 var run_loot_lost_count: int = 0
+var manual_loot_abandoned: int = 0
 var retreat_shield_max: int = 0
 var retreat_shield_current: int = 0
+var equip_shield_max: int = 0
+var equip_shield_current: int = 0
+var material_shield_max: int = 0
+var material_shield_current: int = 0
+var _shield_cd_equipment_ids: Array[String] = []
+var _shield_emergency_refresh_used: bool = false
+var extract_guard_cleared: bool = false
+var pending_extract_guard: RunExtractItem = null
+var last_extract_item_name: String = ""
+var bench_reserves: Array[Mercenary] = []
+var deploy_half: String = "A"
 var _enemy_pool: Array = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## 返程开始时立即注入 tick 的遇敌（避免等计时器）
 var _retreat_opening_spawns: Array = []
+var _pending_awakening_shield_bonus: int = 0
 
 
 func _init(p_map_id: String, p_squad: Squad) -> void:
@@ -94,7 +122,8 @@ func start() -> int:
 		m.clamp_hp_to_max()
 		m.run_kills = 0
 		m.run_damage_dealt = 0
-	
+	NearDeathRunService.assign_carry_support(squad)
+	NearDeathAwakeningService.reset_run_flags(self)
 	is_active = true
 	is_retreating = false
 	retreat_origin_distance = 0.0
@@ -107,17 +136,47 @@ func start() -> int:
 	boss_defeated = false
 	boss_zone_reached = false
 	boss_chase_active = false
+	guard_chase_active = false
 	boss_chase_position = 0.0
+	retreat_spawn_tier = ""
 	chase_combat_in_progress = false
+	chase_pressure = 0.0
+	chase_boss_repelled_count = 0
+	chase_evade_eligible = false
+	chase_counter_uses = 0
+	chase_stagger_charge = 0.0
+	chase_stagger_holding = false
+	chase_stagger_repelled_count = 0
+	chase_deep_counter_uses = 0
 	_chase_combat_cooldown = 0.0
+	_chase_counter_cooldown = 0.0
+	_chase_deep_counter_cooldown = 0.0
 	_chase_stability_tick = 0.0
 	run_loot_lost_count = 0
+	manual_loot_abandoned = 0
 	retreat_shield_max = 0
 	retreat_shield_current = 0
+	equip_shield_max = 0
+	equip_shield_current = 0
+	material_shield_max = 0
+	material_shield_current = 0
+	_shield_cd_equipment_ids.clear()
+	_shield_emergency_refresh_used = false
+	extract_guard_cleared = false
+	pending_extract_guard = null
+	last_extract_item_name = ""
+	deploy_half = "A"
 	_retreat_opening_spawns.clear()
+	_pending_awakening_shield_bonus = 0
+	if GameManager:
+		deploy_half = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
+		bench_reserves = SquadFormationService.load_bench_reserves(GameManager, deploy_half)
+	else:
+		bench_reserves.clear()
 	total_gold_earned = 0
 	total_exp_earned = 0
 	total_loot.clear()
+	RunLootService.init_run_grids(self)
 	enemies_defeated = 0
 	
 	return 0
@@ -131,6 +190,8 @@ func tick(delta: float) -> Dictionary:
 	
 	if stability.should_withdraw() and not is_retreating:
 		begin_retreat("forced")
+	elif not is_retreating:
+		AutoRetreatService.check(self)
 	
 	var result = {"status": "running", "events": []}
 	for ambush_data in _retreat_opening_spawns:
@@ -154,6 +215,13 @@ func tick(delta: float) -> Dictionary:
 			var boss_data = _spawn_boss()
 			boss_encountered.emit(boss_data)
 			result.events.append({"type": "boss", "data": boss_data})
+			if bool(map_data.get("auto_retreat_on_boss_spawn", false)) and not is_retreating:
+				emit_signal(
+					"run_event",
+					"test_auto_retreat",
+					{"reason": "到达首领线，测试图自动返程以触发追击"}
+				)
+				begin_retreat("forced")
 		
 		if not boss_spawned:
 			spawn_timer += delta
@@ -166,12 +234,13 @@ func tick(delta: float) -> Dictionary:
 					result.events.append({"type": "enemy_spawn", "data": enemy_data})
 	else:
 		spawn_timer += delta
-		# 倍率 <1 刷得更快，>1 更慢（测试图请填 0.5~0.8）
-		var retreat_mult: float = float(map_data.get("retreat_spawn_interval_mult", 0.85))
+		var profile: Dictionary = RetreatSpawnService.get_spawn_profile(self)
+		retreat_spawn_tier = str(profile.get("tier", ""))
+		var retreat_mult: float = float(profile.get("interval_mult", 1.15))
 		var interval: float = spawn_interval * retreat_mult * _rng.randf_range(0.75, 1.05)
 		if spawn_timer >= interval:
 			spawn_timer = 0.0
-			var pack: int = maxi(1, int(map_data.get("retreat_spawn_pack", 2)))
+			var pack: int = int(profile.get("pack", 1))
 			for _pack_i in range(pack):
 				var enemy_data: Dictionary = _spawn_random_enemy()
 				if enemy_data.is_empty():
@@ -191,11 +260,44 @@ func tick(delta: float) -> Dictionary:
 	result.min_personal_stability = stability.get_min_personal_stability()
 	result.stability_pressure = stability.get_team_cost_multiplier()
 	result.boss_chase_active = boss_chase_active
+	result.guard_chase_active = guard_chase_active
 	result.boss_chase_gap = get_boss_chase_gap()
+	result.chase_pressure = chase_pressure
+	result.chase_counter_ready = BossChaseService.can_counter_strike(self)
+	result.chase_counter_cooldown = _chase_counter_cooldown
+	result.chase_stagger_charge = chase_stagger_charge
+	result.chase_stagger_ready = chase_stagger_charge >= 0.92 and chase_combat_in_progress
+	result.chase_combat_in_progress = chase_combat_in_progress
+	result.chase_deep_counter_ready = BossChaseService.can_deep_counter_strike(self)
+	result.chase_deep_counter_cooldown = _chase_deep_counter_cooldown
+	result.retreat_spawn_tier = retreat_spawn_tier
+	result.retreat_spawn_label = RetreatSpawnService.get_spawn_profile(self).get("label", "")
+	result.shield_damage_mult = RetreatSpawnService.get_shield_damage_mult(self)
 	result.retreat_shield = retreat_shield_current
 	result.retreat_shield_max = retreat_shield_max
+	result.equip_shield = equip_shield_current
+	result.equip_shield_max = equip_shield_max
+	result.material_shield = material_shield_current
+	result.material_shield_max = material_shield_max
+	result.carry_value = CarryValueService.compute(self, GameManager.auto_retreat_safe_only if GameManager else false)
+	result.carry_value_threshold = AutoRetreatService.get_value_threshold(self)
+	result.extract_line_label = get_extract_line_label()
+	result.has_extract_line = has_active_extract_line()
+	_apply_loot_stats_to_dict(result)
 	
 	return result
+
+
+func _apply_loot_stats_to_dict(result: Dictionary, manual_settle: bool = false) -> void:
+	if manual_settle:
+		total_loot = RunLootService.collect_loot_for_settlement(self, true)
+	else:
+		_sync_total_loot_cache()
+	result.total_loot = total_loot.duplicate()
+	result.safe_loot_count = safe_loot.item_count() if safe_loot else 0
+	result.exposed_loot_count = exposed_loot.item_count() if exposed_loot else 0
+	result.safe_loot_fill = safe_loot.get_fill_ratio() if safe_loot else 0.0
+	result.exposed_loot_fill = exposed_loot.get_fill_ratio() if exposed_loot else 0.0
 
 
 func _build_enemy_pool() -> void:
@@ -230,18 +332,26 @@ func _spawn_random_enemy() -> Dictionary:
 
 
 func _spawn_boss() -> Dictionary:
-	var boss_id = map_data.get("boss", "")
+	return _spawn_boss_from_id(str(map_data.get("boss", "")), "boss")
+
+
+func _spawn_boss_from_id(boss_id: String, uid_prefix: String) -> Dictionary:
+	if boss_id == "":
+		return {}
 	var tpl = DataLoader.enemy_template(boss_id)
 	if tpl.is_empty():
 		return {}
 	var instance = tpl.duplicate(true)
-	instance.uid = "boss_%s" % boss_id
+	instance.uid = "%s_%s" % [uid_prefix, boss_id]
 	instance["is_boss"] = true
 	var boss_level: int = int(tpl.get("level", 10))
 	instance.stats = _scale_enemy_stats(instance.stats, boss_level + 2, tpl.get("level", 1))
 	var map_mult: float = float(map_data.get("enemy_stat_mult", 1.0))
 	if absf(map_mult - 1.0) > 0.001:
 		instance.stats = _multiply_enemy_stats(instance.stats, map_mult)
+	var chase_mult: float = float(map_data.get("chase_boss_stat_mult", 1.0))
+	if uid_prefix == "chase" and absf(chase_mult - 1.0) > 0.001:
+		instance.stats = _multiply_enemy_stats(instance.stats, chase_mult)
 	return instance
 
 
@@ -271,28 +381,126 @@ func register_enemy_defeat(enemy_data: Dictionary) -> void:
 	
 	# 掉落
 	var drop = _roll_loot(enemy_data)
-	if drop:
-		total_loot.append(drop)
+	if drop is Equipment:
+		_add_run_loot(drop)
 		loot_dropped.emit(drop, gold)
+	elif drop is RunMaterial:
+		_add_run_material(drop)
+		emit_signal("run_event", "material_dropped", {"name": drop.item_name, "value": drop.material_value})
 	
-	if enemy_data.get("is_boss", false) and not enemy_data.get("is_chase_encounter", false):
+	if (
+		enemy_data.get("is_boss", false)
+		and not enemy_data.get("is_chase_encounter", false)
+		and not enemy_data.get("is_extract_guard", false)
+	):
 		boss_defeated = true
 		stability.on_boss_killed()
+	if not enemy_data.get("is_extract_guard", false):
+		ExtractItemService.try_drop_on_defeat(self, enemy_data)
 
 
-func register_chase_boss_defeat(enemy_data: Dictionary) -> void:
-	enemies_defeated += 1
-	var exp_amount: int = int(enemy_data.get("exp_reward", 10))
-	var gold = enemy_data.get("gold_reward", 5)
+func register_chase_deep_counter_repelled(enemy_data: Dictionary) -> void:
+	var exp_amount: int = int(float(enemy_data.get("exp_reward", 10)) * 0.55)
+	var gold: int = int(float(enemy_data.get("gold_reward", 5)) * 0.4)
 	total_exp_earned += exp_amount
 	total_gold_earned += gold
-	var drop = _roll_loot(enemy_data)
-	if drop:
-		total_loot.append(drop)
-		loot_dropped.emit(drop, gold)
+	emit_signal(
+		"run_event",
+		"chase_deep_counter_repelled",
+		{"exp": exp_amount, "gold": gold, "bonus": true}
+	)
 
 
-func _roll_loot(enemy_data: Dictionary) -> Equipment:
+func register_chase_stagger_repelled(enemy_data: Dictionary) -> void:
+	var exp_amount: int = int(float(enemy_data.get("exp_reward", 10)) * 0.45)
+	var gold: int = int(float(enemy_data.get("gold_reward", 5)) * 0.35)
+	total_exp_earned += exp_amount
+	total_gold_earned += gold
+	chase_stagger_repelled_count += 1
+	emit_signal("run_event", "chase_stagger_repelled", {"exp": exp_amount, "gold": gold})
+
+
+func tick_chase_stagger_charge(delta: float) -> void:
+	if not chase_combat_in_progress:
+		chase_stagger_charge = 0.0
+		chase_stagger_holding = false
+		return
+	if not chase_stagger_holding:
+		chase_stagger_charge = maxf(0.0, chase_stagger_charge - delta * 0.35)
+		return
+	var rate: float = float(map_data.get("chase_stagger_charge_rate", 0.9))
+	chase_stagger_charge = minf(1.0, chase_stagger_charge + delta * rate)
+
+
+func register_chase_boss_kill(enemy_data: Dictionary) -> void:
+	enemies_defeated += 1
+	var table: Dictionary = _get_chase_drop_table()
+	var exp_mult: float = float(table.get("exp_mult", 1.0)) if not table.is_empty() else 1.0
+	var gold_mult: float = float(table.get("gold_mult", 1.0)) if not table.is_empty() else 1.0
+	var exp_amount: int = int(float(enemy_data.get("exp_reward", 10)) * exp_mult)
+	var gold: int = int(float(enemy_data.get("gold_reward", 5)) * gold_mult)
+	total_exp_earned += exp_amount
+	total_gold_earned += gold
+	_roll_chase_kill_loot(enemy_data, table)
+	boss_defeated = true
+	boss_chase_active = false
+	chase_combat_in_progress = false
+	if stability != null:
+		stability.on_boss_killed()
+	emit_signal("run_event", "chase_boss_killed", {"name": enemy_data.get("name", "")})
+
+
+func _get_chase_drop_table() -> Dictionary:
+	var table_id: String = str(map_data.get("chase_drop_table", ""))
+	if table_id == "":
+		return {}
+	return DataLoader.chase_drop_table(table_id)
+
+
+func _roll_chase_kill_loot(enemy_data: Dictionary, table: Dictionary) -> void:
+	var forge_drop: float = 0.0
+	var forge_quality: int = 0
+	if GameManager:
+		forge_drop = GameManager.get_forge_drop_rate_bonus()
+		forge_quality = GameManager.get_forge_quality_bonus()
+	var fake_enemy: Dictionary = enemy_data.duplicate()
+	fake_enemy["is_boss"] = true
+	var got_loot: bool = false
+	if not table.is_empty() and bool(table.get("guaranteed_equipment", false)):
+		var shift: int = int(table.get("quality_shift", 0)) + forge_quality
+		var eq: Equipment = LootSystem.roll_equipment(map_data, fake_enemy, forge_drop, shift)
+		if eq != null:
+			_add_run_loot(eq)
+			loot_dropped.emit(eq, 0)
+			got_loot = true
+	if not got_loot:
+		var drop = _roll_loot(fake_enemy)
+		if drop is Equipment:
+			_add_run_loot(drop)
+			loot_dropped.emit(drop, 0)
+		elif drop is RunMaterial:
+			_add_run_material(drop)
+			emit_signal("run_event", "material_dropped", {"name": drop.item_name, "value": drop.material_value})
+	elif _rng.randf() < LootSystem.get_material_drop_chance(map_data, fake_enemy):
+		var mat: RunMaterial = LootSystem.roll_material(map_data, fake_enemy)
+		if mat != null:
+			_add_run_material(mat)
+			emit_signal("run_event", "material_dropped", {"name": mat.item_name, "value": mat.material_value})
+
+
+func _add_run_loot(equip: Equipment) -> void:
+	var placed: Dictionary = RunLootService.add_equipment_drop(self, equip)
+	if placed.get("ok", false):
+		_sync_total_loot_cache()
+	else:
+		push_warning("WorldRun: 掉落 %s 未能放入安全箱/外露网格" % equip.item_name)
+
+
+func _sync_total_loot_cache() -> void:
+	total_loot = RunLootService.collect_all_equipment(self)
+
+
+func _roll_loot(enemy_data: Dictionary) -> Variant:
 	var forge_drop: float = 0.0
 	var forge_quality: int = 0
 	if GameManager:
@@ -301,11 +509,72 @@ func _roll_loot(enemy_data: Dictionary) -> Equipment:
 	var drop_chance: float = LootSystem.get_drop_chance(map_data, enemy_data, forge_drop)
 	if _rng.randf() >= drop_chance:
 		return null
+	if _rng.randf() < LootSystem.get_material_drop_chance(map_data, enemy_data):
+		var mat: RunMaterial = LootSystem.roll_material(map_data, enemy_data)
+		if mat != null:
+			return mat
 	return LootSystem.roll_equipment(map_data, enemy_data, forge_drop, forge_quality)
+
+
+func get_extract_line_label() -> String:
+	if pending_extract_guard != null:
+		return "撤离物·待战守卫: %s" % pending_extract_guard.item_name
+	var names: PackedStringArray = []
+	if safe_loot:
+		for it in safe_loot.get_all_extract_items():
+			names.append(it.item_name)
+	if exposed_loot:
+		for it in exposed_loot.get_all_extract_items():
+			if it.item_name not in names:
+				names.append(it.item_name)
+	if names.is_empty():
+		return ""
+	if last_extract_item_name != "" and last_extract_item_name not in names:
+		names.append(last_extract_item_name)
+	return "撤离物: %s" % ", ".join(names)
+
+
+func has_active_extract_line() -> bool:
+	if pending_extract_guard != null:
+		return true
+	if safe_loot:
+		for _it in safe_loot.get_all_extract_items():
+			return true
+	if exposed_loot:
+		for _it in exposed_loot.get_all_extract_items():
+			return true
+	return false
+
+
+func build_extract_guard_encounter() -> Dictionary:
+	var guard_id: String = str(map_data.get("extract_guard", map_data.get("boss", "")))
+	var tpl = DataLoader.enemy_template(guard_id)
+	if tpl.is_empty():
+		return _spawn_boss()
+	var instance = tpl.duplicate(true)
+	instance.uid = "extract_guard_%s" % guard_id
+	instance["is_boss"] = true
+	instance["is_extract_guard"] = true
+	instance["is_chase_encounter"] = false
+	var lvl: int = int(tpl.get("level", 8)) + 1
+	instance.stats = _scale_enemy_stats(instance.stats, lvl, tpl.get("level", 1))
+	var mult: float = float(map_data.get("extract_guard_stat_mult", 1.1))
+	if absf(mult - 1.0) > 0.001:
+		instance.stats = _multiply_enemy_stats(instance.stats, mult)
+	instance.name = "宝库守卫·" + str(instance.get("name", guard_id))
+	return instance
+
+
+func _add_run_material(mat: RunMaterial) -> void:
+	var placed: Dictionary = RunLootService.add_material_drop(self, mat)
+	if not placed.get("ok", false):
+		push_warning("WorldRun: 物资 %s 未能放入网格" % mat.item_name)
 
 
 func on_member_down() -> void:
 	stability.on_member_down()
+	if squad != null:
+		NearDeathRunService.assign_carry_support(squad)
 
 
 func on_member_retreat() -> void:
@@ -313,27 +582,39 @@ func on_member_retreat() -> void:
 
 
 func is_retreat_shield_active() -> bool:
-	return is_retreating and retreat_shield_current > 0
+	return RetreatShieldService.is_active(self)
 
 
-## 返程受击：护盾存在时吸收伤害；护盾破碎后才可能掉战利品
+## 返程受击：先扣装备盾再扣物资盾；皆破后可能掉外露装备
 func on_retreat_ally_hit(damage: int) -> bool:
 	if not is_retreating or damage <= 0:
 		return false
-	if retreat_shield_current > 0:
-		var before: int = retreat_shield_current
-		retreat_shield_current = maxi(0, retreat_shield_current - damage)
+	var shield_mult: float = RetreatSpawnService.get_shield_damage_mult(self)
+	if shield_mult > 1.001:
+		damage = maxi(1, int(float(damage) * shield_mult))
+	if RetreatShieldService.is_active(self):
+		var hit: Dictionary = RetreatShieldService.apply_damage(self, damage)
 		emit_signal(
 			"run_event",
 			"retreat_shield_hit",
 			{
-				"absorbed": mini(before, damage),
+				"absorbed": hit.get("absorbed", 0),
 				"shield": retreat_shield_current,
 				"shield_max": retreat_shield_max,
+				"equip_shield": equip_shield_current,
+				"material_shield": material_shield_current,
 			}
 		)
-		if before > 0 and retreat_shield_current <= 0:
-			emit_signal("run_event", "retreat_shield_broken", {"shield_max": retreat_shield_max})
+		if hit.get("broken", false):
+			emit_signal(
+				"run_event",
+				"retreat_shield_broken",
+				{
+					"shield_max": retreat_shield_max,
+					"equip_shield_max": equip_shield_max,
+					"material_shield_max": material_shield_max,
+				}
+			)
 		return true
 	try_drop_loot_on_retreat_hit()
 	return false
@@ -341,41 +622,55 @@ func on_retreat_ally_hit(damage: int) -> bool:
 
 ## 护盾破碎后：概率丢弃本次探险尚未结算的掉落
 func try_drop_loot_on_retreat_hit() -> Dictionary:
-	if not is_retreating or total_loot.is_empty():
+	if not is_retreating:
 		return {}
 	if is_retreat_shield_active():
+		return {}
+	if exposed_loot == null or exposed_loot.is_empty():
 		return {}
 	var chance: float = float(map_data.get("retreat_hit_drop_chance", 0.14))
 	if _rng.randf() >= chance:
 		return {}
-	var idx: int = _rng.randi() % total_loot.size()
-	var item: Equipment = total_loot[idx]
-	total_loot.remove_at(idx)
+	var item: Equipment = exposed_loot.remove_random_equipment()
+	if item == null:
+		return {}
 	run_loot_lost_count += 1
+	_sync_total_loot_cache()
+	var exposed_remaining: int = exposed_loot.item_count() if exposed_loot else 0
 	emit_signal(
 		"run_event",
 		"loot_lost_on_retreat",
-		{"item_name": item.item_name, "quality_name": item.quality_name, "remaining": total_loot.size()}
+		{
+			"item_name": item.item_name,
+			"quality_name": item.quality_name,
+			"remaining": exposed_remaining,
+		}
 	)
 	return {"item": item, "item_name": item.item_name}
 
 
 func _prime_retreat_spawn_timer() -> void:
-	var retreat_mult: float = float(map_data.get("retreat_spawn_interval_mult", 0.85))
+	var profile: Dictionary = RetreatSpawnService.get_spawn_profile(self)
+	var retreat_mult: float = float(profile.get("interval_mult", 1.15))
 	spawn_timer = spawn_interval * retreat_mult * 0.45
 
 
 func _queue_retreat_opening_ambush() -> void:
 	_retreat_opening_spawns.clear()
-	var opening: int = maxi(1, int(map_data.get("retreat_start_ambush", 1)))
+	var opening: int = RetreatSpawnService.opening_ambush_count(self)
 	for _i in range(opening):
 		var enemy_data: Dictionary = _spawn_random_enemy()
 		if not enemy_data.is_empty():
 			_retreat_opening_spawns.append(enemy_data)
 
 
-func manual_withdraw() -> void:
-	begin_retreat("manual")
+## 手动斩仓：不返程，仅安全箱进结算；外露已在调用前舍弃
+func prepare_manual_withdraw() -> int:
+	if not is_active or is_retreating:
+		return 0
+	retreat_reason = "manual"
+	manual_loot_abandoned = RunLootService.abandon_exposed_loot(self)
+	return manual_loot_abandoned
 
 
 func begin_retreat(reason: String) -> void:
@@ -389,7 +684,14 @@ func begin_retreat(reason: String) -> void:
 	_prime_retreat_spawn_timer()
 	_queue_retreat_opening_ambush()
 	_init_retreat_shield(reason)
+	guard_chase_active = RetreatSpawnService.should_activate_guard_chase(self, reason)
 	_try_activate_boss_chase()
+	if guard_chase_active and not boss_chase_active:
+		emit_signal(
+			"run_event",
+			"guard_chase_started",
+			{"reason": reason, "spawn_tier": RetreatSpawnService.TIER_CHASE}
+		)
 	emit_signal(
 		"run_event",
 		"retreat_started",
@@ -403,40 +705,20 @@ func begin_retreat(reason: String) -> void:
 
 
 func refresh_retreat_shield(reason: String) -> void:
-	_init_retreat_shield(reason)
+	RetreatShieldService.init_shields(self, reason, is_retreating)
 
 
 func _init_retreat_shield(reason: String) -> void:
-	retreat_shield_max = 0
-	retreat_shield_current = 0
-	if squad == null:
-		return
-	var anchor: Mercenary = squad.get_retreat_shield_anchor()
-	if anchor == null or not anchor.is_alive:
-		return
-	var mult: float = 1.0
-	match reason:
-		"manual":
-			mult = float(map_data.get("retreat_shield_mult_manual", 0.6))
-		"forced", "emergency":
-			mult = float(map_data.get("retreat_shield_mult", 1.0))
-		_:
-			mult = float(map_data.get("retreat_shield_mult", 1.0))
-	retreat_shield_max = maxi(1, int(float(StatResolver.get_max_hp(anchor)) * mult))
-	retreat_shield_current = retreat_shield_max
-	emit_signal(
-		"run_event",
-		"retreat_shield_started",
-		{"shield": retreat_shield_current, "shield_max": retreat_shield_max, "reason": reason}
-	)
+	RetreatShieldService.init_shields(self, reason, false)
 
 
-func _resolve_first_retreat_leg(reason: String) -> float:
+func _resolve_first_retreat_leg(_reason: String) -> float:
 	var base_dest: float = retreat_final_destination
-	if reason == "manual" and map_data.has("extract_distance"):
-		var extract: float = float(map_data.extract_distance)
-		if distance_traveled > extract + RETREAT_ARRIVE_EPSILON:
-			return maxf(base_dest, extract)
+	if not map_data.has("extract_distance"):
+		return base_dest
+	var extract: float = float(map_data.extract_distance)
+	if distance_traveled > extract + RETREAT_ARRIVE_EPSILON:
+		return maxf(base_dest, extract)
 	return base_dest
 
 
@@ -449,23 +731,22 @@ func _update_boss_zone_flag() -> void:
 
 
 func _try_activate_boss_chase() -> void:
-	if not _should_boss_chase_on_retreat():
+	if not BossChaseService.should_start_chase(self):
 		return
+	chase_pressure = BossChaseService.compute_pressure(self)
 	boss_chase_active = true
 	var offset: float = float(map_data.get("boss_chase_start_offset", 90.0))
 	boss_chase_position = maxf(distance_traveled + offset, max_distance * 0.92)
-	_chase_combat_cooldown = 2.0
+	_chase_combat_cooldown = 2.0 / BossChaseService.get_catch_cooldown_mult(self)
 	emit_signal(
 		"run_event",
 		"boss_chase_started",
-		{"gap": get_boss_chase_gap(), "position": boss_chase_position}
+		{
+			"gap": get_boss_chase_gap(),
+			"position": boss_chase_position,
+			"pressure": chase_pressure,
+		}
 	)
-
-
-func _should_boss_chase_on_retreat() -> bool:
-	if bool(map_data.get("disable_boss_chase", false)):
-		return false
-	return boss_spawned or boss_zone_reached
 
 
 func get_boss_chase_gap() -> float:
@@ -474,12 +755,23 @@ func get_boss_chase_gap() -> float:
 	return maxf(0.0, boss_chase_position - distance_traveled)
 
 
+func try_chase_counter_strike() -> Dictionary:
+	var result: Dictionary = BossChaseService.try_counter_strike(self)
+	if result.get("ok", false):
+		emit_signal("run_event", "boss_chase_counter", result)
+	return result
+
+
 func tick_boss_chase(delta: float) -> void:
 	if not boss_chase_active or not is_retreating:
 		return
+	BossChaseService.tick_counter_cooldown(self, delta)
+	BossChaseService.tick_deep_counter_cooldown(self, delta)
+	chase_pressure = BossChaseService.compute_pressure(self)
 	if _chase_combat_cooldown > 0.0:
 		_chase_combat_cooldown = maxf(0.0, _chase_combat_cooldown - delta)
 	var speed: float = float(map_data.get("boss_chase_speed", 118.0))
+	speed *= BossChaseService.get_chase_speed_mult(self)
 	if chase_combat_in_progress:
 		speed *= float(map_data.get("boss_chase_combat_mult", 1.4))
 	boss_chase_position -= speed * delta
@@ -490,6 +782,7 @@ func tick_boss_chase(delta: float) -> void:
 		if _chase_stability_tick >= 1.0 and stability != null:
 			_chase_stability_tick = 0.0
 			var extra: int = 2 if gap <= CHASE_CATCH_GAP else 1
+			extra = int(ceilf(float(extra) * BossChaseService.get_stability_penalty_mult(self)))
 			stability.modify_team_stability(-extra)
 
 
@@ -502,30 +795,78 @@ func should_trigger_chase_combat() -> bool:
 
 
 func build_chase_boss_encounter() -> Dictionary:
-	var data: Dictionary = _spawn_boss()
+	var chase_id: String = str(map_data.get("chase_boss_id", map_data.get("boss", "")))
+	var data: Dictionary = _spawn_boss_from_id(chase_id, "chase")
+	if data.is_empty():
+		data = _spawn_boss()
+	if data.is_empty():
+		return {}
 	data["is_boss"] = true
 	data["is_chase_encounter"] = true
-	data["name"] = "追击中·" + str(data.get("name", "首领"))
+	var tpl_name: String = str(data.get("name", "首领"))
+	data["name"] = "追击中·%s" % tpl_name
 	return data
 
 
-func on_chase_boss_repelled() -> void:
+func on_chase_boss_repelled(push_mult: float = 1.0) -> Dictionary:
 	chase_combat_in_progress = false
-	var push: float = float(map_data.get("boss_chase_pushback", 140.0))
+	var repel_loot: Dictionary = _try_roll_chase_repel_loot()
+	var rewards: Dictionary = BossChaseService.grant_repelled_rewards(self)
+	var push: float = float(map_data.get("boss_chase_pushback", 140.0)) * maxf(1.0, push_mult)
 	boss_chase_position = distance_traveled + push
 	boss_chase_position = minf(boss_chase_position, max_distance)
-	_chase_combat_cooldown = 10.0
+	_chase_combat_cooldown = 10.0 / BossChaseService.get_catch_cooldown_mult(self)
 	emit_signal(
 		"run_event",
 		"boss_chase_repelled",
-		{"gap": get_boss_chase_gap(), "pushback": push}
+		{
+			"gap": get_boss_chase_gap(),
+			"pushback": push,
+			"exp": rewards.get("exp", 0),
+			"gold": rewards.get("gold", 0),
+			"counter": push_mult > 1.01,
+			"repel_loot": repel_loot,
+		}
 	)
+	return rewards
+
+
+func _try_roll_chase_repel_loot() -> Dictionary:
+	if boss_defeated:
+		return {}
+	var table: Dictionary = _get_chase_drop_table()
+	if table.is_empty():
+		return {}
+	var chance: float = float(table.get("repel_equipment_chance", 0.0))
+	if chance <= 0.001 or _rng.randf() >= chance:
+		return {}
+	var forge_drop: float = 0.0
+	var forge_quality: int = 0
+	if GameManager:
+		forge_drop = GameManager.get_forge_drop_rate_bonus()
+		forge_quality = GameManager.get_forge_quality_bonus()
+	var fake_enemy: Dictionary = {"is_boss": true, "exp_reward": 8, "gold_reward": 4}
+	var shift: int = maxi(0, int(table.get("quality_shift", 0)) - 1) + forge_quality
+	var eq: Equipment = LootSystem.roll_equipment(map_data, fake_enemy, forge_drop, shift)
+	if eq == null:
+		return {}
+	var placed: Dictionary = RunLootService.add_equipment_drop(self, eq)
+	if not placed.get("ok", false):
+		return {}
+	loot_dropped.emit(eq, 0)
+	emit_signal(
+		"run_event",
+		"chase_repel_loot",
+		{"item_name": eq.item_name, "quality": eq.quality_name, "where": placed.get("where", "")}
+	)
+	return {"item_name": eq.item_name, "where": placed.get("where", "")}
 
 
 func on_chase_boss_catch_penalty() -> void:
 	chase_combat_in_progress = false
 	if stability != null:
-		stability.modify_team_stability(-22)
+		var pen: int = int(ceilf(22.0 * BossChaseService.get_stability_penalty_mult(self)))
+		stability.modify_team_stability(-pen)
 	boss_chase_position = distance_traveled + 35.0
 	_chase_combat_cooldown = 14.0
 	emit_signal("run_event", "boss_chase_penalty", {"gap": get_boss_chase_gap()})
@@ -534,8 +875,7 @@ func on_chase_boss_catch_penalty() -> void:
 func _advance_movement(delta: float) -> void:
 	if is_retreating:
 		var speed: float = MOVE_SPEED_RETREAT * float(map_data.get("retreat_speed_mult", 1.0))
-		if squad != null and squad.has_any_member_near_death():
-			speed *= NEAR_DEATH_RETREAT_SPEED_MULT
+		speed *= NearDeathRunService.get_retreat_speed_multiplier(self)
 		distance_traveled = maxf(retreat_destination, distance_traveled - speed * delta)
 	else:
 		var adv: float = MOVE_SPEED_ADVANCE * float(map_data.get("advance_speed_mult", 1.0))
@@ -594,6 +934,11 @@ func sync_stability_to_manager() -> void:
 func end_run(forced: bool = false) -> Dictionary:
 	sync_stability_to_manager()
 	is_active = false
+	var manual: bool = retreat_reason == "manual"
+	var at_camp: bool = distance_traveled <= retreat_final_destination + RETREAT_ARRIVE_EPSILON
+	var extract_clear: bool = (boss_defeated or extract_guard_cleared) and not manual
+	var completed_retreat: bool = is_retreating and at_camp
+	var evade_bonus: Dictionary = BossChaseService.grant_evade_bonus(self) if completed_retreat else {}
 	var result = {
 		"map_id": map_id,
 		"distance": distance_traveled,
@@ -601,19 +946,34 @@ func end_run(forced: bool = false) -> Dictionary:
 		"total_gold": total_gold_earned,
 		"total_exp": total_exp_earned,
 		"squad_member_ids": squad_member_ids.duplicate(),
-		"total_loot": total_loot.duplicate(),
 		"squad_kills": squad.get_total_kills(),
-		"forced_withdraw": forced,
-		"completed_retreat": is_retreating or forced,
+		"forced_withdraw": forced or manual,
+		"manual_withdraw": manual,
+		"extract_clear": extract_clear,
+		"run_success": extract_clear or (completed_retreat and squad.has_anyone_alive() and not manual),
+		"completed_retreat": completed_retreat,
 		"retreat_origin": retreat_origin_distance,
 		"retreat_final_destination": retreat_final_destination,
 		"boss_defeated": boss_defeated,
-		"loot_lost_on_retreat": run_loot_lost_count,
+		"chase_pressure": chase_pressure,
+		"chase_boss_repelled": chase_boss_repelled_count,
+		"chase_evade_exp": evade_bonus.get("exp", 0),
+		"chase_counter_uses": chase_counter_uses,
+		"chase_stagger_repelled": chase_stagger_repelled_count,
+		"chase_deep_counter_uses": chase_deep_counter_uses,
+		"extract_guard_cleared": extract_guard_cleared,
+		"last_extract_item_name": last_extract_item_name,
+		"retreat_spawn_tier": retreat_spawn_tier,
 		"retreat_reason": retreat_reason,
-		"emergency_retreat": retreat_reason == "emergency",
+		"loot_lost_on_retreat": run_loot_lost_count,
+		"loot_abandoned_manual": manual_loot_abandoned,
+		"emergency_retreat": retreat_reason in ["emergency", "combat_fail"],
+		"equip_shield_max": equip_shield_max,
+		"material_shield_max": material_shield_max,
 		"squad_alive": squad.get_alive_count() > 0,
 		"player_alive": squad.has_anyone_alive(),
 		"level_up_log": []
 	}
+	_apply_loot_stats_to_dict(result, manual)
 	run_completed.emit(result)
 	return result

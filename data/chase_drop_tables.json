@@ -1,0 +1,25 @@
+{
+  "tables": {
+    "chase_grassland": {
+      "guaranteed_equipment": true,
+      "quality_shift": 1,
+      "gold_mult": 1.25,
+      "exp_mult": 1.15,
+      "repel_equipment_chance": 0.12
+    },
+    "chase_forest": {
+      "guaranteed_equipment": true,
+      "quality_shift": 1,
+      "gold_mult": 1.3,
+      "exp_mult": 1.2,
+      "repel_equipment_chance": 0.14
+    },
+    "chase_cave": {
+      "guaranteed_equipment": true,
+      "quality_shift": 2,
+      "gold_mult": 1.35,
+      "exp_mult": 1.25,
+      "repel_equipment_chance": 0.16
+    }
+  }
+}

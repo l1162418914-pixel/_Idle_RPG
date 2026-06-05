@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "id": "sealed_relic",
+      "name": "封存遗物",
+      "retreat_chance": 0.68,
+      "carry_value": 55,
+      "grid_w": 1,
+      "grid_h": 1,
+      "bonus_gold": 35,
+      "bonus_exp": 20
+    },
+    {
+      "id": "vault_shard",
+      "name": "宝库碎片",
+      "retreat_chance": 0.75,
+      "carry_value": 80,
+      "grid_w": 1,
+      "grid_h": 2,
+      "bonus_gold": 60,
+      "bonus_exp": 35
+    },
+    {
+      "id": "spore_sac",
+      "name": "密林孢子囊",
+      "maps": ["forest"],
+      "retreat_chance": 0.7,
+      "carry_value": 62,
+      "grid_w": 1,
+      "grid_h": 1,
+      "bonus_gold": 48,
+      "bonus_exp": 28
+    },
+    {
+      "id": "heartwood_relic",
+      "name": "心木遗物",
+      "maps": ["forest"],
+      "retreat_chance": 0.76,
+      "carry_value": 88,
+      "grid_w": 1,
+      "grid_h": 2,
+      "bonus_gold": 72,
+      "bonus_exp": 42
+    },
+    {
+      "id": "void_crystal",
+      "name": "幽晶簇",
+      "maps": ["cave"],
+      "retreat_chance": 0.72,
+      "carry_value": 78,
+      "grid_w": 1,
+      "grid_h": 1,
+      "bonus_gold": 58,
+      "bonus_exp": 38
+    },
+    {
+      "id": "lich_phylactery_shard",
+      "name": "魂匣残片",
+      "maps": ["cave"],
+      "retreat_chance": 0.8,
+      "carry_value": 105,
+      "grid_w": 2,
+      "grid_h": 1,
+      "bonus_gold": 95,
+      "bonus_exp": 55
+    }
+  ]
+}

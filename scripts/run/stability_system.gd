@@ -89,10 +89,18 @@ func on_ally_hit(damage: int, victim: CombatEntity) -> void:
 		HIT_STABILITY_MAX
 	)
 	var team_loss: int = maxi(1, int(ceil(float(loss) * TEAM_HIT_SHARE * _stability_loss_mult)))
-	_apply_team_loss(team_loss)
 	if victim.source_merc != null:
-		var personal_loss: int = maxi(1, int(ceil(float(loss) * _stability_loss_mult)))
-		_apply_personal_loss(victim.source_merc as Mercenary, personal_loss)
+		var merc: Mercenary = victim.source_merc as Mercenary
+		var scar_mult: float = merc.get_scar_stability_loss_mult()
+		var team_scar: float = 1.0 + (scar_mult - 1.0) * 0.35
+		team_loss = maxi(1, int(ceil(float(team_loss) * team_scar)))
+		var personal_loss: int = maxi(
+			1, int(ceil(float(loss) * _stability_loss_mult * scar_mult))
+		)
+		_apply_team_loss(team_loss)
+		_apply_personal_loss(merc, personal_loss)
+	else:
+		_apply_team_loss(team_loss)
 
 
 func tick(delta: float) -> void:

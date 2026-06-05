@@ -1,6 +1,6 @@
 # 7/7 Boss 追击 · 讨论定稿
 
-> **状态：未实现**（现码：追击复用 `_spawn_boss()`；胜=击退继续返程，不设 `boss_defeated`）。以本文档为准。
+> **状态：已实现** — 核心追击、返程反击按钮、**接战蓄力僵持击退**（按住蓄力→松手推远，不击杀）；密林/洞穴已配 `chase_boss_id`。
 
 ## 一、与区域 Boss 的关系
 
@@ -66,8 +66,11 @@ chase_pressure = clamp(
 | **击退** | Boss 被推远、`on_chase_boss_repelled`；**继续返程**；可给 **逃脱/击退经验**（见 §四） |
 | **接战失利** | `on_chase_boss_catch_penalty`；稳定大跌；Boss 再逼近；可进濒死/战败返程线 |
 
-> **后续：反击机制**（planned）  
-> 追击阶段将加入 **反击** 玩法（例如返程中主动接战、蓄力反击、降低 Boss 追击进度等）。上线后可在「击退 / 僵持 / 击杀」之间增加交互，**击杀结局仍按本节与区域 Boss 相同**，不在此改语义。
+> **反击（已实现）**  
+> - **返程反击**：距离在接战阈值外、警告距离内时点 **「追击反击」**（耗稳定、推远、击退经验、CD）。  
+> - **僵持击退**：被追上**接战**时按住 **「蓄力击退」**，蓄满松手 → 首领存活被推远、部分经验、**继续返程**（非击杀）。  
+> - **深度反击**：接战僵持中，僵持蓄力达 `chase_deep_counter_min_charge` 后可点 **「深度反击」** → 重创首领 HP（不低于 `chase_deep_counter_hp_floor`）、更高稳定消耗、推远、**继续返程**（非击杀）。  
+> **击杀** 仍仅通过接战全灭追击首领触发直接通关。
 
 ---
 
@@ -82,7 +85,7 @@ chase_pressure = clamp(
 
 - `build_chase_boss_encounter()` 读 **`chase_boss_id`**，不再默认等于区域 `boss`。
 - **击杀** 走 `chase_drop_table`（可叠加区域 Boss 掉落或二选一，实现时定）+ 正常 Boss 结算 + **解锁下一图**；**刷特定追击首领** = 选图 → 深推 → 撤离 → 追击战 → **击杀**。
-- **击退** 是否掉部分 chase 掉落：实现时可选；默认可 **仅击杀** 掉专属表，击退只给经验。
+- **击退**：`chase_drop_tables` 的 `repel_equipment_chance`（草原 12% / 密林 14% / 洞穴 16%）可在击退时额外 roll 一件偏低品质装备；**击杀** 仍走 guaranteed 专属表。
 
 ### 逃脱 / 击退经验（建议 E3，待数值）
 
@@ -113,7 +116,7 @@ chase_pressure = clamp(
 | `register_chase_boss_defeat` 不设 `boss_defeated` | 击杀应设 defeat 纪录 + 结算 |
 | `build_chase_boss_encounter` = `_spawn_boss()` | 用 `chase_boss_id` |
 | 无 `chase_pressure` | 按 §二 缩放 |
-| 无反击 | **后续版本** |
+| 无反击 | 返程反击 + 僵持击退 + 深度反击 |
 
 ---
 
@@ -123,6 +126,6 @@ chase_pressure = clamp(
 2. 战斗胜负分支：**击杀 → 直接结算**；未击杀 → 击退/惩罚 + 继续返程  
 3. `chase_pressure` 缩放速度与刷怪  
 4. 逃脱/击退经验  
-5. **反击机制**（独立里程碑）
+5. **反击机制**（返程 / 僵持 / 深度）
 
 参见 [design-retreat.md](design-retreat.md)、[design-near-death.md](design-near-death.md)。

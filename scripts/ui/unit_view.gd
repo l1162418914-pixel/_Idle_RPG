@@ -44,7 +44,10 @@ func setup(entity: CombatEntity) -> void:
 	# 名称
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if entity.is_downed():
+	if entity.is_awakening():
+		_name_label.text = "%s (觉醒)" % unit_name
+		modulate = Color(1.0, 0.82, 0.25)
+	elif entity.is_downed():
 		_name_label.text = "%s (濒死)" % unit_name
 		modulate = Color(0.72, 0.72, 0.78)
 	else:

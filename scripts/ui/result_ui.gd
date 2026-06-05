@@ -11,6 +11,7 @@ extends Control
 var _last_result: Dictionary = {}
 var _auto_continue_timer: Timer = null
 var _stop_auto_button: Button = null
+var _redeploy_button: Button = null
 
 
 func _ready() -> void:
@@ -22,6 +23,21 @@ func _ready() -> void:
 		equip_all_button.pressed.connect(_on_equip_all_pressed)
 	_setup_auto_continue_timer()
 	_setup_stop_auto_button()
+	_setup_redeploy_button()
+
+
+func _setup_redeploy_button() -> void:
+	if return_button == null:
+		return
+	var parent: Node = return_button.get_parent()
+	if parent == null:
+		return
+	_redeploy_button = Button.new()
+	_redeploy_button.text = "同地图再战"
+	_redeploy_button.tooltip_text = "领取本次奖励后立即再出征（当前地图，沿用编队快照补员）"
+	_redeploy_button.pressed.connect(_on_redeploy_pressed)
+	parent.add_child(_redeploy_button)
+	parent.move_child(_redeploy_button, return_button.get_index())
 
 
 func _setup_stop_auto_button() -> void:
@@ -58,12 +74,18 @@ func _show_result(result: Dictionary) -> void:
 	
 	var player_alive: bool = result.get("player_alive", false)
 	var forced: bool = result.get("forced_withdraw", false)
+	var manual: bool = result.get("manual_withdraw", false)
 	var boss: bool = result.get("boss_defeated", false)
-	var success: bool = player_alive and not forced
+	var extract_clear: bool = result.get("extract_clear", false)
+	var success: bool = result.get("run_success", player_alive and not forced)
 	
 	var title := ""
-	if boss:
+	if extract_clear and boss:
 		title = "Boss讨伐成功!"
+	elif extract_clear:
+		title = "宝库守卫战胜利!"
+	elif manual:
+		title = "手动斩仓撤离"
 	elif not player_alive:
 		title = "全军覆没"
 	elif forced:
@@ -92,6 +114,46 @@ func _show_result(result: Dictionary) -> void:
 		]
 		if lost_on_retreat > 0:
 			stats_text += "\n返程遗失装备: %d 件" % lost_on_retreat
+		var rr: String = str(result.get("retreat_reason", ""))
+		if rr != "":
+			stats_text += "\n返程原因: %s" % _retreat_reason_label(rr)
+		if result.get("completed_retreat", false):
+			stats_text += "\n已完整抵营返程"
+		var evade_xp: int = int(result.get("chase_evade_exp", 0))
+		if evade_xp > 0:
+			stats_text += "\n追击逃脱奖励: +%d 经验" % evade_xp
+		var chase_p: float = float(result.get("chase_pressure", 0.0))
+		if chase_p > 0.05 and (
+			bool(result.get("boss_defeated", false))
+			or int(result.get("chase_boss_repelled", 0)) > 0
+			or str(result.get("retreat_spawn_tier", "")) == "chase"
+		):
+			stats_text += "\n追击压力峰值: %d%%" % int(round(chase_p * 100.0))
+		var repelled: int = int(result.get("chase_boss_repelled", 0))
+		if repelled > 0 and not result.get("boss_defeated", false):
+			stats_text += "\n追击击退次数: %d" % repelled
+		var counters: int = int(result.get("chase_counter_uses", 0))
+		if counters > 0:
+			stats_text += "\n追击反击: %d 次" % counters
+		var stag: int = int(result.get("chase_stagger_repelled", 0))
+		if stag > 0:
+			stats_text += "\n僵持击退: %d 次" % stag
+		var deep_n: int = int(result.get("chase_deep_counter_uses", 0))
+		if deep_n > 0:
+			stats_text += "\n深度反击: %d 次" % deep_n
+		var tier: String = str(result.get("retreat_spawn_tier", ""))
+		if tier == "chase":
+			stats_text += "\n返程阶段: 追击加压刷怪"
+		elif tier == "sparse" and rr != "":
+			stats_text += "\n返程阶段: 稀疏刷怪"
+		if result.get("extract_guard_cleared", false):
+			stats_text += "\n宝库守卫: 已击退"
+		var last_ext: String = str(result.get("last_extract_item_name", ""))
+		if last_ext != "" and not result.get("extract_guard_cleared", false):
+			stats_text += "\n本趟撤离物: %s" % last_ext
+		var abandoned: int = int(result.get("loot_abandoned_manual", 0))
+		if abandoned > 0:
+			stats_text += "\n斩仓舍弃外露: %d 件（仅安全箱带回）" % abandoned
 		if result.get("near_death_penalty", false):
 			stats_text += "\n全队濒死（需在大营休养至满血，撤离失败才会阵亡）"
 		if GameManager.last_run_stability_note != "":
@@ -108,6 +170,33 @@ func _show_result(result: Dictionary) -> void:
 	_refresh_loot(result.get("total_loot", []))
 	_update_equip_all_button()
 	_maybe_schedule_auto_continue(result)
+	_update_redeploy_button(result)
+
+
+func _update_redeploy_button(result: Dictionary) -> void:
+	if _redeploy_button == null:
+		return
+	var ok: bool = (
+		result.get("player_alive", false)
+		and not result.get("manual_withdraw", false)
+		and not GameManager.is_recovery_lock_active()
+	)
+	_redeploy_button.visible = ok
+	var map_id: String = str(result.get("map_id", GameManager.selected_map_id))
+	var md: Dictionary = DataLoader.map_data(map_id)
+	var map_name: String = str(md.get("name", map_id))
+	_redeploy_button.text = "再战·%s" % map_name
+	_redeploy_button.disabled = not ok
+
+
+func _on_redeploy_pressed() -> void:
+	if _auto_continue_timer:
+		_auto_continue_timer.stop()
+	GameManager.stop_auto_run()
+	var code: int = GameManager.redeploy_same_map()
+	if code != 0 and loot_status_label:
+		loot_status_label.text = GameManager.get_run_start_error_message(code)
+		loot_status_label.modulate = Color.ORANGE_RED
 
 
 func _refresh_loot(loot: Array) -> void:
@@ -255,6 +344,17 @@ func _on_stop_auto_pressed() -> void:
 	if result_label:
 		result_label.text = result_label.text.replace("\n\n[自动] 1.5秒后回城并再次出征…", "")
 		result_label.text += "\n\n[已停止自动出征]"
+
+
+func _retreat_reason_label(reason: String) -> String:
+	match reason:
+		"forced": return "稳定度过低"
+		"auto_value": return "携带价值达标"
+		"auto_rule": return "自动规则"
+		"manual": return "手动斩仓"
+		"combat_fail": return "战斗失利"
+		"emergency": return "紧急撤离"
+		_: return reason
 
 
 func _on_return_pressed() -> void:

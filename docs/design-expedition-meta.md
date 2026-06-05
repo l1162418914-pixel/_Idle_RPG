@@ -1,6 +1,6 @@
 # 出征元系统（1/7 与编队）· 讨论定稿
 
-> 未实现。与 [design-retreat.md](design-retreat.md)、[design-near-death.md](design-near-death.md) 配合阅读。
+> **状态：已实现（核心）** — 双半组、养伤锁、基地编队 UI、自动补员；战间替补上阵已落地。
 
 ## 挂机 A+B
 

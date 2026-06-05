@@ -12,6 +12,8 @@ extends Control
 
 var _equipment_ui: Control = null
 var _auto_run_check: CheckButton = null
+var _formation_ui: VBoxContainer = null
+var _redeploy_btn: Button = null
 
 
 func _ready() -> void:
@@ -26,6 +28,8 @@ func _ready() -> void:
 	GameManager.squad_stability_changed.connect(_on_squad_stability_changed)
 	GameManager.run_start_failed.connect(_on_run_start_failed)
 	_ensure_auto_run_toggle()
+	_ensure_redeploy_button()
+	_ensure_formation_panel()
 	_refresh()
 
 
@@ -39,6 +43,25 @@ func _on_squad_stability_changed(_value: int) -> void:
 		_refresh()
 
 
+func _ensure_formation_panel() -> void:
+	if _formation_ui:
+		return
+	var content: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content
+	if content == null:
+		return
+	var script_res: Script = load("res://scripts/ui/formation_ui.gd")
+	if script_res == null:
+		return
+	_formation_ui = VBoxContainer.new()
+	_formation_ui.set_script(script_res)
+	_formation_ui.name = "FormationPanel"
+	content.add_child(_formation_ui)
+	content.move_child(_formation_ui, 0)
+	var sep := HSeparator.new()
+	content.add_child(sep)
+	content.move_child(sep, 1)
+
+
 func _ensure_auto_run_toggle() -> void:
 	if _auto_run_check or action_buttons == null:
 		return
@@ -48,6 +71,24 @@ func _ensure_auto_run_toggle() -> void:
 	_auto_run_check.toggled.connect(_on_auto_run_toggled)
 	action_buttons.add_child(_auto_run_check)
 	action_buttons.move_child(_auto_run_check, 0)
+
+
+func _ensure_redeploy_button() -> void:
+	if _redeploy_btn or action_buttons == null:
+		return
+	_redeploy_btn = Button.new()
+	_redeploy_btn.text = "再战上次地图"
+	_redeploy_btn.tooltip_text = "按上次选择的地图与编队快照立即出征（不进准备界面）"
+	_redeploy_btn.pressed.connect(_on_redeploy_base_pressed)
+	action_buttons.add_child(_redeploy_btn)
+	action_buttons.move_child(_redeploy_btn, 1)
+
+
+func _on_redeploy_base_pressed() -> void:
+	var code: int = GameManager.redeploy_same_map()
+	if code != 0 and status_label:
+		status_label.text = GameManager.get_run_start_error_message(code)
+		status_label.modulate = Color.ORANGE_RED
 
 
 func _on_auto_run_toggled(enabled: bool) -> void:
@@ -84,13 +125,38 @@ func _refresh() -> void:
 		_auto_run_check.set_block_signals(true)
 		_auto_run_check.button_pressed = GameManager.auto_run_preferred
 		_auto_run_check.set_block_signals(false)
+	if _redeploy_btn:
+		var can: bool = (
+			not GameManager.is_recovery_lock_active()
+			and GameManager.is_map_unlocked(GameManager.selected_map_id)
+			and GameManager.player != null
+			and GameManager.player.can_join_squad()
+		)
+		_redeploy_btn.disabled = not can
+		var md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
+		_redeploy_btn.text = "再战·%s" % str(md.get("name", GameManager.selected_map_id))
 	
 	_show_run_return_notice()
+	_show_formation_status()
+	if _formation_ui and _formation_ui.has_method("_refresh"):
+		_formation_ui._refresh()
 	_refresh_maps_panel()
 	_refresh_buildings()
 	_refresh_roster()
 	_refresh_dead_roster()
 	_append_infirmary_status()
+
+
+func _show_formation_status() -> void:
+	if not status_label:
+		return
+	var base: String = SquadFormationService.get_formation_summary(GameManager)
+	if GameManager.is_recovery_lock_active():
+		status_label.text = base
+		status_label.modulate = Color.ORANGE_RED
+	elif status_label.text.find("无法出征") < 0:
+		status_label.text = base
+		status_label.modulate = Color(0.85, 0.95, 1.0)
 
 
 func _show_run_return_notice() -> void:
@@ -146,7 +212,7 @@ func _refresh_roster() -> void:
 	
 	var player = GameManager.player
 	if player and player.is_alive:
-		_add_alive_row("[主角]", player, "", "player")
+		_add_alive_row("[主角]", player, "", player.merc_id)
 	
 	for e in GameManager.elite_roster:
 		if e.is_alive:
@@ -214,6 +280,11 @@ func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: St
 		extra = " [休整·满血后可出征]"
 	elif merc.current_hp < max_hp:
 		extra = " [负伤]"
+	if merc.scar_stacks > 0:
+		var scar_fx: String = merc.get_scar_effect_summary()
+		extra += " 伤痕×%d" % merc.scar_stacks
+		if scar_fx != "":
+			extra += " (%s)" % scar_fx
 	label.text = "%s %s %s HP:%d/%d 个人稳:%d ATK:%d%s" % [
 		tag, merc.merc_name, _level_exp_text(merc), merc.current_hp, max_hp, merc.personal_stability, atk, extra
 	]
@@ -228,6 +299,13 @@ func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: St
 	else:
 		label.modulate = Color.WHITE
 	row.add_child(label)
+	if merc.scar_stacks > 0:
+		var scar_btn := Button.new()
+		scar_btn.text = "消伤×%d" % merc.scar_stacks
+		scar_btn.tooltip_text = "医疗室清除伤痕（%d 金币）" % GameManager.get_scar_treatment_cost(merc)
+		scar_btn.custom_minimum_size = Vector2(72, 24)
+		scar_btn.pressed.connect(_on_treat_scars_pressed.bind(merc_id))
+		row.add_child(scar_btn)
 	if merc_type != "" and merc_type != "player":
 		var btn := Button.new()
 		btn.text = "解雇"
@@ -289,6 +367,27 @@ func _on_revive_pressed(merc_type: String, merc_id: String) -> void:
 	_refresh()
 
 
+func _on_treat_scars_pressed(merc_id: String) -> void:
+	var code: int = GameManager.treat_mercenary_scars(merc_id)
+	if status_label == null:
+		_refresh()
+		return
+	match code:
+		0:
+			status_label.text = "已清除伤痕"
+			status_label.modulate = Color.GREEN
+		-2:
+			status_label.text = "该单位无伤痕"
+			status_label.modulate = Color.YELLOW
+		-3:
+			status_label.text = "金币不足，无法消伤痕"
+			status_label.modulate = Color.ORANGE_RED
+		_:
+			status_label.text = "消伤痕失败"
+			status_label.modulate = Color.ORANGE_RED
+	_refresh()
+
+
 func _on_dismiss_pressed(btn: Button) -> void:
 	var merc_type: String = btn.get_meta("merc_type", "")
 	var merc_id: String = btn.get_meta("merc_id", "")
@@ -312,54 +411,79 @@ func _refresh_maps_panel() -> void:
 		child.queue_free()
 	
 	var base_lv: int = GameManager.get_unlock_level()
+	var prod_maps: Array = []
+	var test_maps: Array = []
 	for m in GameManager.get_all_maps_sorted():
-		var map_id: String = str(m.get("map_id", ""))
-		if map_id == "":
-			continue
-		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 32)
-		
-		var name: String = str(m.get("name", map_id))
-		var danger: int = int(m.get("danger_level", 1))
-		var btn := Button.new()
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		
-		if GameManager.is_map_unlocked(map_id):
-			btn.text = "%s  危险%d  [已解锁]" % [name, danger]
-			if danger >= 8:
-				btn.text = "%s  [极难]" % name
-			btn.pressed.connect(_on_map_selected.bind(map_id))
+		if TestScenarioService.is_test_map(m):
+			test_maps.append(m)
 		else:
-			btn.text = "%s  🔒" % name
-			btn.disabled = true
-			var reason: String = GameManager.get_map_lock_reason(map_id)
-			btn.tooltip_text = reason
-			btn.modulate = Color(0.55, 0.55, 0.55)
-		
-		var desc: String = str(m.get("description", ""))
-		if desc != "" and GameManager.is_map_unlocked(map_id):
-			btn.tooltip_text = desc
-		
-		row.add_child(btn)
-		
-		var info := Label.new()
-		info.custom_minimum_size = Vector2(72, 0)
-		info.add_theme_font_size_override("font_size", 10)
-		if GameManager.is_map_unlocked(map_id):
-			info.text = "Boss %.0fm" % float(m.get("boss_distance", 600))
-		else:
-			info.text = "Lv.%d" % int(m.get("unlock_base_level", 1))
-		info.modulate = Color.DIM_GRAY
-		row.add_child(info)
-		
-		maps_list.add_child(row)
-	
+			prod_maps.append(m)
+	for m in prod_maps:
+		_add_map_row(m)
+	if not test_maps.is_empty():
+		var sep := Label.new()
+		sep.text = "—— 测试 / 演练地图 ——"
+		sep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sep.add_theme_font_size_override("font_size", 11)
+		sep.modulate = Color(0.65, 0.75, 0.85)
+		maps_list.add_child(sep)
+		test_maps.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("test_priority", 99)) < int(b.get("test_priority", 99))
+		)
+		for m in test_maps:
+			_add_map_row(m)
 	var hint := Label.new()
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.text = "基地总等级 %d（各建筑等级之和）| 击败上一区域 Boss 解锁下一图" % base_lv
 	hint.modulate = Color.DIM_GRAY
 	maps_list.add_child(hint)
+
+
+func _add_map_row(m: Dictionary) -> void:
+	if maps_list == null:
+		return
+	var map_id: String = str(m.get("map_id", ""))
+	if map_id == "":
+		return
+	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 32)
+	var name: String = str(m.get("name", map_id))
+	if TestScenarioService.is_test_map(m):
+		name = "【测试】%s" % name
+	var danger: int = int(m.get("danger_level", 1))
+	var btn := Button.new()
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	if GameManager.is_map_unlocked(map_id):
+		btn.text = "%s  危险%d  [已解锁]" % [name, danger]
+		if danger >= 8:
+			btn.text = "%s  [极难]" % name
+		if GameManager.is_recovery_lock_active():
+			btn.disabled = true
+			btn.tooltip_text = "全队养伤锁：请先在编队面板查看恢复进度"
+			btn.modulate = Color(0.45, 0.45, 0.5)
+		else:
+			btn.pressed.connect(_on_map_selected.bind(map_id))
+	else:
+		btn.text = "%s  🔒" % name
+		btn.disabled = true
+		var reason: String = GameManager.get_map_lock_reason(map_id)
+		btn.tooltip_text = reason
+		btn.modulate = Color(0.55, 0.55, 0.55)
+	var desc: String = str(m.get("description", ""))
+	if desc != "" and GameManager.is_map_unlocked(map_id):
+		btn.tooltip_text = desc
+	row.add_child(btn)
+	var info := Label.new()
+	info.custom_minimum_size = Vector2(72, 0)
+	info.add_theme_font_size_override("font_size", 10)
+	if GameManager.is_map_unlocked(map_id):
+		info.text = "Boss %.0fm" % float(m.get("boss_distance", 600))
+	else:
+		info.text = "Lv.%d" % int(m.get("unlock_base_level", 1))
+	info.modulate = Color.DIM_GRAY
+	row.add_child(info)
+	maps_list.add_child(row)
 
 
 func _on_map_selected(map_id: String) -> void:

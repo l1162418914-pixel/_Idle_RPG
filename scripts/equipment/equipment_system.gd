@@ -4,15 +4,15 @@ class_name EquipmentSystem
 ## apply_to 仅刷新 Mercenary 基础属性（模板+成长）
 
 
-static func apply_to(merc: Mercenary) -> void:
+static func apply_to(merc) -> void:
 	merc.refresh_base_stats()
 
 
-static func calc_equipment_bonus(merc: Mercenary, stat: String):
+static func calc_equipment_bonus(merc, stat: String):
 	return _calc_equipment_bonus(merc, stat)
 
 
-static func _calc_equipment_bonus(merc: Mercenary, stat: String):
+static func _calc_equipment_bonus(merc, stat: String):
 	var total := 0.0
 	for slot in merc.equipment_slots:
 		var item = merc.equipment_slots[slot]

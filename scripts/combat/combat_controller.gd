@@ -43,7 +43,14 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 		var e := CombatEntity.new()
 		e.init_from_merc(m, "ally_")
 		e.position = ALLY_SPAWN_X + i * ally_formation_gap
-		if m.is_near_death:
+		if m.is_awakening:
+			e.current_hp = maxi(1, m.current_hp)
+			e.action_state = CombatEntity.ActionState.AWAKENING
+			var cfg: Dictionary = DataLoader.near_death_config().get("awakening", {})
+			e.awakening_timer = m.awakening_time_left
+			e.patk = maxi(1, int(float(e.patk) * float(cfg.get("damage_mult", 1.75))))
+			e.attack_speed *= float(cfg.get("attack_speed_mult", 1.25))
+		elif m.is_near_death:
 			e.current_hp = maxi(1, m.current_hp)
 			e.action_state = CombatEntity.ActionState.DOWNED
 		e.on_death.connect(_on_ally_death)
@@ -92,6 +99,10 @@ func tick(delta: float) -> Dictionary:
 	
 	# 更新所有实体
 	for entity in allies:
+		if entity.is_awakening():
+			if NearDeathAwakeningService.tick_combat(entity, delta):
+				_entity_tick(entity, enemies, delta, events, true)
+			continue
 		_entity_tick(entity, enemies, delta, events, true)
 	
 	for entity in enemies:
@@ -207,7 +218,9 @@ func _ally_retreat_march_tick(
 	delta: float,
 	events: Array
 ) -> void:
-	if entity.is_downed() or (entity.source_merc != null and entity.source_merc.is_near_death):
+	if entity.is_awakening():
+		pass
+	elif entity.is_downed() or (entity.source_merc != null and entity.source_merc.is_near_death):
 		return
 	_drift_homeward(entity, delta)
 	if _try_cast_active_skill(entity, opponents, ally_list, events):

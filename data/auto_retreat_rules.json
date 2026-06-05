@@ -1,0 +1,23 @@
+{
+  "defaults": {
+    "value_enabled": true,
+    "value_safe_only": false,
+    "global_value_threshold": 380
+  },
+  "rules": [
+    {
+      "id": "safe_nearly_full",
+      "enabled": true,
+      "type": "safe_fill_ratio",
+      "threshold": 0.92,
+      "reason": "auto_rule"
+    },
+    {
+      "id": "exposed_nearly_full",
+      "enabled": true,
+      "type": "exposed_fill_ratio",
+      "threshold": 0.95,
+      "reason": "auto_rule"
+    }
+  ]
+}

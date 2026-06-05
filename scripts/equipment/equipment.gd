@@ -2,6 +2,9 @@ extends Resource
 class_name Equipment
 ## 装备 — 7品质 + 前后缀 + 基础属性
 
+const _SCRIPT := preload("res://scripts/equipment/equipment.gd")
+const _LootFootprint = preload("res://scripts/inventory/loot_footprint.gd")
+
 @export var slot: String = ""
 @export var quality: int = 1
 @export var quality_name: String = ""
@@ -11,6 +14,11 @@ class_name Equipment
 @export var item_id: String = ""
 ## 套装 id（可选，见 equipment_sets.json）
 @export var set_id: String = ""
+## 本趟网格占格（宽×高），见 LootFootprint
+@export var grid_w: int = 1
+@export var grid_h: int = 1
+## 返程护盾 CD：>0 时该件不提供护盾贡献
+@export var shield_cd_runs_left: int = 0
 
 
 static func generate(slot_id: String, quality_tier: int = -1, base_level: int = 1) -> Equipment:
@@ -23,7 +31,7 @@ static func generate_with_options(
 	base_level: int,
 	set_id: String = ""
 ) -> Equipment:
-	var equip = Equipment.new()
+	var equip: Equipment = _SCRIPT.new()
 	equip.slot = slot_id
 	equip.set_id = set_id
 	
@@ -56,10 +64,11 @@ static func generate_with_options(
 	var slot_name = DataLoader.equipment_slot(slot_id).get("name", slot_id)
 	equip.item_name = equip.prefix_name + equip.quality_name + "·" + slot_name
 	if set_id != "":
-		var set_name: String = EquipmentSetRegistry.get_set_name(set_id)
+		var set_name: String = DataLoader.equipment_set_name(set_id)
 		if set_name != "":
 			equip.item_name += "·" + set_name
 	equip.item_id = "eq_%s_%d_%d" % [slot_id, quality_tier, randi()]
+	_LootFootprint.assign_for_equipment(equip)
 	
 	return equip
 
@@ -93,12 +102,15 @@ func to_dict() -> Dictionary:
 		"quality_name": quality_name,
 		"prefix_name": prefix_name,
 		"set_id": set_id,
+		"grid_w": grid_w,
+		"grid_h": grid_h,
+		"shield_cd_runs_left": shield_cd_runs_left,
 		"stats": stats.duplicate()
 	}
 
 
 static func from_dict(data: Dictionary) -> Equipment:
-	var eq = Equipment.new()
+	var eq: Equipment = _SCRIPT.new()
 	eq.item_id = data.get("item_id", "")
 	eq.item_name = data.get("item_name", "")
 	eq.slot = data.get("slot", "")
@@ -106,5 +118,8 @@ static func from_dict(data: Dictionary) -> Equipment:
 	eq.quality_name = data.get("quality_name", "")
 	eq.prefix_name = data.get("prefix_name", "")
 	eq.set_id = data.get("set_id", "")
+	eq.grid_w = maxi(1, int(data.get("grid_w", 1)))
+	eq.grid_h = maxi(1, int(data.get("grid_h", 1)))
+	eq.shield_cd_runs_left = maxi(0, int(data.get("shield_cd_runs_left", 0)))
 	eq.stats = data.get("stats", {}).duplicate()
 	return eq

@@ -124,6 +124,17 @@
       "is_boss": true
     },
     {
+      "template_id": "grassland_stalker",
+      "name": "草原追猎者",
+      "level": 4,
+      "stats": { "hp": 150, "patk": 12, "pdef": 4, "spd": 3, "attack_range": 70 },
+      "exp_reward": 85,
+      "gold_reward": 45,
+      "atk_type": "physical",
+      "sprite": "wolf",
+      "is_boss": true
+    },
+    {
       "template_id": "goblin_chief",
       "name": "哥布林酋长",
       "level": 4,
@@ -132,6 +143,28 @@
       "gold_reward": 60,
       "atk_type": "physical",
       "sprite": "goblin_chief",
+      "is_boss": true
+    },
+    {
+      "template_id": "forest_stalker",
+      "name": "密林追猎者",
+      "level": 8,
+      "stats": { "hp": 280, "patk": 22, "pdef": 12, "spd": 2, "attack_range": 75 },
+      "exp_reward": 120,
+      "gold_reward": 70,
+      "atk_type": "physical",
+      "sprite": "treant",
+      "is_boss": true
+    },
+    {
+      "template_id": "cave_shade",
+      "name": "洞窟影追",
+      "level": 11,
+      "stats": { "hp": 320, "matk": 28, "pdef": 14, "mdef": 18, "spd": 3, "attack_range": 85 },
+      "exp_reward": 180,
+      "gold_reward": 95,
+      "atk_type": "magic",
+      "sprite": "lich",
       "is_boss": true
     },
     {

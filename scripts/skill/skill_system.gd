@@ -5,7 +5,7 @@ class_name SkillSystem
 
 # ─── 被动技能总加成（按属性聚合）─────────────────────
 
-static func get_passive_bonus(merc: Mercenary, stat: String):
+static func get_passive_bonus(merc, stat: String):
 	var total := 0.0
 	for skill_id in merc.passive_skills:
 		var skill_data = DataLoader.skill_template(skill_id)

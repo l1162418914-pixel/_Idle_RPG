@@ -3,7 +3,7 @@ extends RefCounted
 ## CombatEntity — 横版战斗中单个实体的运行时数据
 
 enum Team { ALLY, ENEMY }
-enum ActionState { IDLE, MOVING, ATTACKING, DEAD, DOWNED }
+enum ActionState { IDLE, MOVING, ATTACKING, DEAD, DOWNED, AWAKENING }
 
 var entity_id: String = ""
 var team: int = Team.ALLY
@@ -38,6 +38,9 @@ var display_name: String = ""
 var combat_damage_dealt: int = 0
 var combat_damage_taken: int = 0
 var combat_kills: int = 0
+var awakening_timer: float = 0.0
+var is_boss: bool = false
+var is_chase_encounter: bool = false
 
 signal on_death(entity_id: String)
 
@@ -119,6 +122,8 @@ func init_from_enemy(data: Dictionary) -> void:
 	move_speed = 18.0 + spd * 0.85
 	
 	is_facing_right = false
+	is_boss = bool(data.get("is_boss", false))
+	is_chase_encounter = bool(data.get("is_chase_encounter", false))
 
 
 ## 技能直接伤害（简化，不走普攻闪避公式）
@@ -176,8 +181,16 @@ func is_downed() -> bool:
 	return action_state == ActionState.DOWNED
 
 
+func is_awakening() -> bool:
+	return action_state == ActionState.AWAKENING
+
+
 func is_incapacitated() -> bool:
-	return is_dead() or is_downed()
+	if is_dead():
+		return true
+	if is_awakening():
+		return false
+	return is_downed()
 
 
 func can_fight() -> bool:
@@ -191,6 +204,8 @@ func _try_enter_downed_instead_of_death() -> bool:
 	action_state = ActionState.DOWNED
 	if source_merc != null:
 		source_merc.enter_near_death_state(0.05)
+		if GameManager.current_run != null:
+			NearDeathAwakeningService.try_trigger_on_downed(source_merc, self)
 	# 濒死不算战斗实体死亡，不 emit on_death（否则会清掉 CombatView）
 	return true
 
