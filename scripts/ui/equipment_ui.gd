@@ -160,6 +160,12 @@ func _refresh_stats() -> void:
 func _refresh_inventory() -> void:
 	for child in inventory_list.get_children():
 		child.queue_free()
+
+	var cap: int = GameManager.get_inventory_capacity()
+	var used: int = GameManager.inventory.size()
+	var inv_title := left_panel.get_node_or_null("InvTitle") as Label
+	if inv_title:
+		inv_title.text = "背包 (%d/%d)" % [used, cap]
 	
 	if GameManager.inventory.is_empty():
 		var empty := Label.new()
@@ -250,6 +256,11 @@ func _equip_from_inventory(merc: Mercenary, item: Equipment) -> bool:
 		return false
 	
 	var old: Equipment = merc.equipment_slots[item.slot]
+	if old != null and not GameManager.inventory.can_add():
+		GameManager.inventory.add(item)
+		status_label.text = "背包已满，无法替换装备"
+		status_label.modulate = Color.ORANGE_RED
+		return false
 	if old != null:
 		GameManager.inventory.add(old)
 	merc.equip(item)
@@ -262,8 +273,18 @@ func _unequip_to_inventory(merc: Mercenary, slot_id: String) -> bool:
 	var item: Equipment = merc.equipment_slots[slot_id]
 	if item == null:
 		return false
+	if not GameManager.inventory.can_add():
+		status_label.text = "背包已满 (%d/%d)，无法卸下" % [
+			GameManager.inventory.size(), GameManager.get_inventory_capacity()
+		]
+		status_label.modulate = Color.ORANGE_RED
+		return false
 	merc.unequip(slot_id)
-	GameManager.inventory.add(item)
+	if not GameManager.inventory.add(item):
+		merc.equip(item)
+		status_label.text = "背包已满，卸下失败"
+		status_label.modulate = Color.ORANGE_RED
+		return false
 	return true
 
 

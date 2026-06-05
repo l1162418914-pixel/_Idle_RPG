@@ -8,8 +8,23 @@ var items: Array[Equipment] = []
 
 # ─── 增删 ─────────────────────────────────────────────
 
-func add(item: Equipment) -> void:
+func add(item: Equipment) -> bool:
+	if not can_add():
+		return false
 	items.append(item)
+	return true
+
+
+func can_add() -> bool:
+	return items.size() < _capacity()
+
+
+func free_slots() -> int:
+	return maxi(0, _capacity() - items.size())
+
+
+func _capacity() -> int:
+	return GameManager.get_inventory_capacity()
 
 
 func remove(item: Equipment) -> bool:

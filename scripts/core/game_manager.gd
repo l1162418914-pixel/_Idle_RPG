@@ -395,8 +395,10 @@ func apply_run_rewards(result: Dictionary) -> void:
 	last_run_loot_log.clear()
 	for item in result.get("total_loot", []):
 		if item is Equipment:
-			inventory.add(item)
-			last_run_loot_log.append("[%s] %s" % [item.quality_name, item.item_name])
+			if inventory.add(item):
+				last_run_loot_log.append("[%s] %s" % [item.quality_name, item.item_name])
+			else:
+				last_run_loot_log.append("[仓库已满] %s（未入仓）" % item.item_name)
 	_run_rewards_applied = true
 
 
@@ -448,6 +450,16 @@ func sell_inventory_junk(max_quality: int = 1) -> Dictionary:
 	if SaveManager and is_instance_valid(SaveManager):
 		SaveManager.save_game()
 	return {"gold": gold_gain, "count": count}
+
+
+func get_inventory_capacity() -> int:
+	var lv: int = get_building_level("warehouse")
+	var bdata: Dictionary = DataLoader.building_data("warehouse")
+	if bdata.has("effects") and bdata.effects.has("inventory_slots"):
+		var arr: Array = bdata.effects.inventory_slots
+		if lv > 0 and lv <= arr.size():
+			return int(arr[lv - 1])
+	return 30
 
 
 func get_forge_quality_bonus() -> int:

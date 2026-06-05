@@ -2,11 +2,14 @@ extends VBoxContainer
 class_name UnitView
 ## UnitView — 战斗场景中单个单位（佣兵/敌人）的视觉表现
 
+const RANGED_ATTACK_RANGE := 60.0
+
 var entity_id: String = ""
 var unit_name: String = ""
 var max_hp: int = 100
 var current_hp: int = 100
 var is_dead: bool = false
+var is_ranged: bool = false
 
 var _sprite_rect: ColorRect = null
 var _name_label: Label = null
@@ -30,6 +33,7 @@ func setup(entity: CombatEntity) -> void:
 	max_hp = entity.max_hp
 	current_hp = entity.current_hp
 	is_dead = false
+	is_ranged = entity.attack_range >= RANGED_ATTACK_RANGE
 
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	custom_minimum_size = Vector2(60, 0)
@@ -39,19 +43,22 @@ func setup(entity: CombatEntity) -> void:
 	_sprite_rect = ColorRect.new()
 	_sprite_rect.custom_minimum_size = SPRITE_SIZE
 	_sprite_rect.color = _pick_color(entity.entity_id, entity.team)
+	if is_ranged:
+		_sprite_rect.color = _sprite_rect.color.lerp(Color(0.95, 0.85, 0.35), 0.25)
 	add_child(_sprite_rect)
 
 	# 名称
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var name_suffix := " [远]" if is_ranged else ""
 	if entity.is_awakening():
-		_name_label.text = "%s (觉醒)" % unit_name
+		_name_label.text = "%s (觉醒)%s" % [unit_name, name_suffix]
 		modulate = Color(1.0, 0.82, 0.25)
 	elif entity.is_downed():
-		_name_label.text = "%s (濒死)" % unit_name
+		_name_label.text = "%s (濒死)%s" % [unit_name, name_suffix]
 		modulate = Color(0.72, 0.72, 0.78)
 	else:
-		_name_label.text = unit_name
+		_name_label.text = unit_name + name_suffix
 	_name_label.add_theme_font_size_override("font_size", 10)
 	_name_label.clip_text = true
 	add_child(_name_label)
@@ -100,7 +107,8 @@ func set_downed_visual() -> void:
 		return
 	modulate = Color(0.72, 0.72, 0.78)
 	if _name_label and not "(濒死)" in _name_label.text:
-		_name_label.text = "%s (濒死)" % unit_name
+		var suffix := " [远]" if is_ranged else ""
+		_name_label.text = "%s (濒死)%s" % [unit_name, suffix]
 
 
 func update_hp(new_current: int, new_max: int) -> void:
@@ -136,6 +144,36 @@ func play_attack_flash() -> void:
 	var original := _sprite_rect.color
 	tween.tween_property(_sprite_rect, "color", Color.WHITE, 0.08)
 	tween.tween_property(_sprite_rect, "color", original, 0.10)
+
+
+func play_skill_flash() -> void:
+	if is_dead or _sprite_rect == null:
+		return
+	var tween := create_tween()
+	var original := _sprite_rect.color
+	tween.tween_property(_sprite_rect, "color", Color(0.35, 0.95, 1.0), 0.10)
+	tween.tween_property(_sprite_rect, "color", original, 0.14)
+
+
+func play_ranged_strike(target: UnitView, projectile_layer: Control) -> void:
+	if is_dead or _sprite_rect == null:
+		return
+	if target == null or target._sprite_rect == null or projectile_layer == null:
+		play_attack_flash()
+		return
+	var proj := ColorRect.new()
+	proj.color = Color(1.0, 0.88, 0.25)
+	proj.custom_minimum_size = Vector2(10, 4)
+	proj.size = Vector2(10, 4)
+	proj.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	projectile_layer.add_child(proj)
+	var start := _sprite_rect.global_position + SPRITE_SIZE * 0.5 - Vector2(5, 2)
+	var end := target._sprite_rect.global_position + SPRITE_SIZE * 0.5 - Vector2(5, 2)
+	proj.global_position = start
+	var tween := proj.create_tween()
+	tween.tween_property(proj, "global_position", end, 0.14)
+	tween.tween_callback(proj.queue_free)
+	play_attack_flash()
 
 
 func play_hit_flash() -> void:

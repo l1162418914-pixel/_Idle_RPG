@@ -15,10 +15,10 @@ const SPEED_VERY_SLOW: float = 0.25
 const HP_MULT: float = 5.0
 const DAMAGE_MULT: float = 0.3
 
-## 战斗日志逐条显示间隔（秒，与战斗速度无关）
+## 战斗日志逐条显示间隔（秒，基准为 1.0x 战斗速度）
 const LOG_LINE_INTERVAL: float = 0.25
 
-static var current_speed_mode: int = SpeedMode.SLOW
+static var current_speed_mode: int = SpeedMode.NORMAL
 
 
 static func is_enabled() -> bool:
@@ -36,7 +36,7 @@ static func get_time_scale() -> float:
 
 
 static func log_line_interval() -> float:
-	return LOG_LINE_INTERVAL
+	return LOG_LINE_INTERVAL / maxf(0.25, get_time_scale())
 
 
 static func apply_entity_modifiers(entity: CombatEntity) -> void:

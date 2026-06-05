@@ -3,13 +3,19 @@ class_name CombatView
 ## CombatView — 战斗可视化层。通过 CombatController 信号驱动，
 ## 不修改任何战斗逻辑。支持 1~6 佣兵 vs 1~6 敌人。
 
+const RANGED_ATTACK_RANGE := 60.0
+const MAX_LOG_LINES := 80
+
 var _combat: CombatController = null
 var _unit_views: Dictionary = {}  # entity_id → UnitView
+var _unit_wrappers: Dictionary = {}  # entity_id → HBoxContainer (spacer + view)
 var _log_lines: Array[String] = []
 var _log_queue: Array[String] = []
 var _log_flush_timer: float = 0.0
 var _log_paused: bool = false
+var _log_follow_tail: bool = true
 
+@onready var battlefield_hbox: HBoxContainer = $BattlefieldHBox
 @onready var ally_container: HBoxContainer = $BattlefieldHBox/AllyContainer
 @onready var enemy_container: HBoxContainer = $BattlefieldHBox/EnemyContainer
 @onready var battle_log: RichTextLabel = $BattleLog
@@ -18,11 +24,16 @@ var _log_paused: bool = false
 @onready var btn_speed_very_slow: Button = $DebugToolbar/BtnSpeedVerySlow
 @onready var btn_pause_log: Button = $DebugToolbar/BtnPauseLog
 @onready var btn_resume_log: Button = $DebugToolbar/BtnResumeLog
+@onready var speed_label: Label = $DebugToolbar/SpeedLabel
 @onready var debug_mode_label: Label = $DebugToolbar/DebugModeLabel
 
 
 func _ready() -> void:
 	set_process(true)
+	if battle_log:
+		battle_log.scroll_active = true
+		battle_log.scroll_following = true
+		battle_log.custom_minimum_size = Vector2(0, 120)
 	if btn_speed_normal:
 		btn_speed_normal.pressed.connect(_on_speed_normal)
 	if btn_speed_slow:
@@ -40,6 +51,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if visible and _combat != null and _combat.is_active:
 		_refresh_all_hp_bars()
+		_sync_unit_positions()
 	if not visible or _log_paused or _log_queue.is_empty():
 		return
 	_log_flush_timer -= delta
@@ -119,10 +131,13 @@ func _on_speed_very_slow() -> void:
 
 func _on_pause_log() -> void:
 	_log_paused = true
+	_log_follow_tail = false
 
 
 func _on_resume_log() -> void:
 	_log_paused = false
+	_log_follow_tail = true
+	_scroll_log_to_end()
 
 
 func _refresh_speed_buttons() -> void:
@@ -133,6 +148,8 @@ func _refresh_speed_buttons() -> void:
 		btn_speed_slow.disabled = mode == BattleDebug.SpeedMode.SLOW
 	if btn_speed_very_slow:
 		btn_speed_very_slow.disabled = mode == BattleDebug.SpeedMode.VERY_SLOW
+	if speed_label:
+		speed_label.text = "战斗速度: %s" % BattleDebug.speed_mode_label(mode)
 
 
 func _refresh_debug_label() -> void:
@@ -152,17 +169,18 @@ func _on_combat_started() -> void:
 	_build_unit_views()
 	clear_log()
 	_log_paused = false
+	_log_follow_tail = true
 	_enqueue_log("[color=orange]战斗开始![/color]")
 
 
 func _on_skill_cast(_caster_id: String, _skill_id: String, skill_name: String, log_text: String) -> void:
 	var caster_view: UnitView = _unit_views.get(_caster_id, null)
 	if caster_view:
-		caster_view.play_attack_flash()
+		caster_view.play_skill_flash()
 	if log_text != "":
-		_enqueue_log("[color=cyan]【%s】[/color] %s" % [skill_name, log_text])
+		_enqueue_log("[color=cyan]【技能·%s】[/color] %s" % [skill_name, log_text])
 	else:
-		_enqueue_log("[color=cyan]【%s】[/color]" % skill_name)
+		_enqueue_log("[color=cyan]【技能·%s】[/color]" % skill_name)
 	_refresh_all_hp_bars()
 
 
@@ -174,13 +192,23 @@ func _refresh_all_hp_bars() -> void:
 
 
 func _on_attack_started(attacker_id: String, target_id: String) -> void:
+	var attacker := _find_entity(attacker_id)
 	var attacker_view: UnitView = _unit_views.get(attacker_id, null)
+	var target_view: UnitView = _unit_views.get(target_id, null)
+	var ranged := attacker != null and attacker.attack_range >= RANGED_ATTACK_RANGE
+
 	if attacker_view:
-		attacker_view.play_attack_flash()
+		if ranged:
+			attacker_view.play_ranged_strike(target_view, battlefield_hbox)
+		else:
+			attacker_view.play_attack_flash()
 
 	var a_name := _short_name(attacker_id)
 	var t_name := _short_name(target_id)
-	_enqueue_log("%s → %s" % [a_name, t_name])
+	if ranged:
+		_enqueue_log("[color=yellow][远程][/color] %s → %s" % [a_name, t_name])
+	else:
+		_enqueue_log("%s → %s" % [a_name, t_name])
 
 
 func _on_damage_dealt(attacker_id: String, target_id: String, damage: int) -> void:
@@ -211,6 +239,7 @@ func _on_entity_dead(entity: CombatEntity) -> void:
 	if view:
 		view.play_death()
 		_unit_views.erase(entity.entity_id)
+		_unit_wrappers.erase(entity.entity_id)
 	_enqueue_log("[color=darkred]%s 阵亡![/color]" % _entity_display(entity))
 
 
@@ -248,23 +277,57 @@ func _build_unit_views() -> void:
 		for child in enemies_box.get_children():
 			child.queue_free()
 	_unit_views.clear()
+	_unit_wrappers.clear()
 
 	if _combat == null:
 		return
 
 	for entity in _combat.allies:
-		var view := UnitView.new()
-		view.setup(entity)
-		if allies_box:
-			allies_box.add_child(view)
-		_unit_views[entity.entity_id] = view
-
+		_add_unit_view(entity, allies_box, true)
 	for entity in _combat.enemies:
-		var view := UnitView.new()
-		view.setup(entity)
-		if enemies_box:
-			enemies_box.add_child(view)
-		_unit_views[entity.entity_id] = view
+		_add_unit_view(entity, enemies_box, false)
+
+
+func _add_unit_view(entity: CombatEntity, parent: HBoxContainer, is_ally: bool) -> void:
+	if parent == null:
+		return
+	var wrapper := HBoxContainer.new()
+	wrapper.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrapper.alignment = BoxContainer.ALIGNMENT_END if is_ally else BoxContainer.ALIGNMENT_BEGIN
+	var spacer := Control.new()
+	spacer.name = "PosSpacer"
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.add_child(spacer)
+	var view := UnitView.new()
+	view.setup(entity)
+	wrapper.add_child(view)
+	parent.add_child(wrapper)
+	_unit_views[entity.entity_id] = view
+	_unit_wrappers[entity.entity_id] = wrapper
+	_sync_one_unit_position(entity)
+
+
+func _sync_unit_positions() -> void:
+	if _combat == null:
+		return
+	for entity in _combat.allies:
+		_sync_one_unit_position(entity)
+	for entity in _combat.enemies:
+		_sync_one_unit_position(entity)
+
+
+func _sync_one_unit_position(entity: CombatEntity) -> void:
+	var wrapper: HBoxContainer = _unit_wrappers.get(entity.entity_id, null)
+	if wrapper == null:
+		return
+	var spacer: Control = wrapper.get_node_or_null("PosSpacer") as Control
+	if spacer == null:
+		return
+	var width: float = CombatController.BATTLEFIELD_WIDTH
+	var offset: float = clampf(entity.position / width, 0.0, 1.0) * 72.0
+	if entity.team == CombatEntity.Team.ENEMY:
+		offset = clampf((width - entity.position) / width, 0.0, 1.0) * 48.0
+	spacer.custom_minimum_size = Vector2(offset, 0)
 
 
 func _find_entity(entity_id: String) -> CombatEntity:
@@ -306,12 +369,21 @@ func _flush_one_log_line() -> void:
 	if _log_queue.is_empty():
 		return
 	var line: String = _log_queue.pop_front()
-	if _log_lines.size() >= 50:
+	if _log_lines.size() >= MAX_LOG_LINES:
 		_log_lines.pop_front()
 	_log_lines.append(line)
 	if battle_log:
 		battle_log.text = "\n".join(_log_lines)
-		battle_log.scroll_to_line(battle_log.get_line_count() - 1)
+		if _log_follow_tail:
+			call_deferred("_scroll_log_to_end")
+
+
+func _scroll_log_to_end() -> void:
+	if battle_log == null:
+		return
+	var line_count := battle_log.get_line_count()
+	if line_count > 0:
+		battle_log.scroll_to_line(line_count - 1)
 
 
 func clear_log() -> void:
@@ -332,6 +404,7 @@ func prepare_between_encounters() -> void:
 		if is_instance_valid(view):
 			view.queue_free()
 	_unit_views.clear()
+	_unit_wrappers.clear()
 	visible = true
 	show()
 
@@ -343,4 +416,5 @@ func cleanup() -> void:
 		if is_instance_valid(view):
 			view.queue_free()
 	_unit_views.clear()
+	_unit_wrappers.clear()
 	visible = false
