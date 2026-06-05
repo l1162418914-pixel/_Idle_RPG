@@ -1,6 +1,6 @@
 class_name RunExtractItem
 extends Resource
-## 撤离物：占格；拾取后按 retreat_chance 可能触发守卫战（仅数据；工厂见 run_extract_item_factory.gd）
+## 撤离物：占格；拾取后按 retreat_chance 可能触发守卫战（仅数据；生成见 ExtractItemService）
 
 @export var item_id: String = ""
 @export var item_name: String = ""
