@@ -42,19 +42,19 @@ func get_all_equipment() -> Array[Equipment]:
 	return list
 
 
-func get_all_extract_items() -> Array[RunExtractItem]:
-	var list: Array[RunExtractItem] = []
+func get_all_extract_items() -> Array:
+	var list: Array = []
 	for e in _entries:
-		var it: RunExtractItem = e.get("extract_item")
+		var it = e.get("extract_item")
 		if it != null:
 			list.append(it)
 	return list
 
 
-func get_all_materials() -> Array[RunMaterial]:
-	var list: Array[RunMaterial] = []
+func get_all_materials() -> Array:
+	var list: Array = []
 	for e in _entries:
-		var mat: RunMaterial = e.get("material")
+		var mat = e.get("material")
 		if mat != null:
 			list.append(mat)
 	return list
@@ -158,7 +158,7 @@ func remove_random_equipment() -> Equipment:
 	return removed
 
 
-func can_place_material_at(mat: RunMaterial, at_x: int, at_y: int) -> bool:
+func can_place_material_at(mat, at_x: int, at_y: int) -> bool:
 	if mat == null:
 		return false
 	for cell in _material_cells(at_x, at_y, mat):
@@ -169,7 +169,7 @@ func can_place_material_at(mat: RunMaterial, at_x: int, at_y: int) -> bool:
 	return true
 
 
-func place_extract_auto(item: RunExtractItem) -> bool:
+func place_extract_auto(item) -> bool:
 	if item == null:
 		return false
 	for y in range(height):
@@ -180,7 +180,7 @@ func place_extract_auto(item: RunExtractItem) -> bool:
 	return false
 
 
-func can_place_extract_at(item: RunExtractItem, at_x: int, at_y: int) -> bool:
+func can_place_extract_at(item, at_x: int, at_y: int) -> bool:
 	if item == null:
 		return false
 	for cell in _extract_cells(at_x, at_y, item):
@@ -191,7 +191,7 @@ func can_place_extract_at(item: RunExtractItem, at_x: int, at_y: int) -> bool:
 	return true
 
 
-func place_material_auto(mat: RunMaterial) -> bool:
+func place_material_auto(mat) -> bool:
 	if mat == null:
 		return false
 	for y in range(height):
@@ -208,7 +208,7 @@ func consume_material_value(target: int) -> int:
 		return 0
 	var mats: Array[Dictionary] = []
 	for i in range(_entries.size()):
-		var mat: RunMaterial = _entries[i].get("material")
+		var mat = _entries[i].get("material")
 		if mat != null:
 			mats.append({"index": i, "material": mat, "density": float(mat.material_value) / float(maxi(1, mat.grid_w * mat.grid_h))})
 	mats.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -219,7 +219,7 @@ func consume_material_value(target: int) -> int:
 	for entry in mats:
 		if consumed >= target:
 			break
-		var mat: RunMaterial = entry.material
+		var mat = entry.material
 		consumed += mat.material_value
 		to_remove.append(entry.index)
 	to_remove.sort()
@@ -241,10 +241,10 @@ func _entry_cell_count(entry: Dictionary) -> int:
 	if entry.has("equipment"):
 		return LootFootprint.cell_count(entry.get("equipment"))
 	if entry.has("material"):
-		var mat: RunMaterial = entry.get("material")
+		var mat = entry.get("material")
 		return maxi(1, mat.grid_w * mat.grid_h)
 	if entry.has("extract_item"):
-		var ex: RunExtractItem = entry.get("extract_item")
+		var ex = entry.get("extract_item")
 		return maxi(1, ex.grid_w * ex.grid_h)
 	return 1
 
@@ -261,7 +261,7 @@ func _entry_occupied_cells(entry: Dictionary) -> Array[Vector2i]:
 	return []
 
 
-func _extract_cells(at_x: int, at_y: int, item: RunExtractItem) -> Array[Vector2i]:
+func _extract_cells(at_x: int, at_y: int, item) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	if item == null:
 		return cells
@@ -271,7 +271,7 @@ func _extract_cells(at_x: int, at_y: int, item: RunExtractItem) -> Array[Vector2
 	return cells
 
 
-func _material_cells(at_x: int, at_y: int, mat: RunMaterial) -> Array[Vector2i]:
+func _material_cells(at_x: int, at_y: int, mat) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	if mat == null:
 		return cells
