@@ -17,11 +17,15 @@
 
 ## 开工时
 
+1. 读 **`docs/CTO.md`**（章程）→ **`docs/PROJECT_STATUS.md`**（当前任务）→ **`docs/ARCHITECTURE.md`**（铁律）→ **`docs/TASK_PROTOCOL.md`**（交付模板）。
+2. 再看最近 worklog：
+
 ```powershell
 git pull origin main
-# 看最近一篇
 Get-ChildItem docs\worklogs\*.md | Sort-Object Name -Descending | Select-Object -First 3
 ```
+
+任务完工须按 `TASK_PROTOCOL.md` §三 填写完成模板；CTO 验收后更新 `PROJECT_STATUS.md`。
 
 ## 命名
 
