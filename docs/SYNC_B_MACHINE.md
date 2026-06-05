@@ -1,9 +1,38 @@
-# B 机为主开发（两个月）
+# 双机同步说明
 
-**A 机长期不用**。开发与验收均在 **B 机**；**GitHub `main`** 为唯一真相源。  
-项目路径（B）：`C:\Users\l1162\Desktop\TBH_Idle_RPG`
+**GitHub `main`** 为唯一真相源。
 
-> 若看到「几周 A 为主、B 只 pull」之类旧说明，**以本文为准**。
+## 当前策略（以你最新决定为准）
+
+| 阶段 | 主开发机 | 说明 |
+|------|----------|------|
+| **现在** | **A 机** | 写代码、测玩法、push 均在 A |
+| 暂不用 | B 机 | 已对齐、F5 通过；接手前 `git pull` 即可 |
+| 曾计划 | B 两个月 | 若以后再切 B，见下文「B 机收工」与 `docs/worklogs/` |
+
+**A 机路径（本机）**：`C:\Users\19173\Desktop\TBH_Idle_RPG`  
+**B 机路径（备用）**：`C:\Users\l1162\Desktop\TBH_Idle_RPG`
+
+### A 机日常（当前）
+
+```powershell
+cd C:\Users\19173\Desktop\TBH_Idle_RPG
+git pull origin main
+# 改代码 → Godot F5
+.\tools\check_gdscript_format.ps1
+git add -A
+git commit -m "说明"
+git push origin main
+```
+
+玩法验收：`docs/TEST_SCENARIOS.md`，进度勾选 `docs/ACCEPTANCE_PROGRESS.md`。  
+收工可选：`docs/worklogs/YYYY-MM-DD.md`。
+
+---
+
+## B 机备用（暂不开工时跳过）
+
+以下为 B 机就绪时的流程；**A 为主时不必每天 pull B**。
 
 ---
 
