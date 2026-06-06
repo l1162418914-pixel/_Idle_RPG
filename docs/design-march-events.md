@@ -1,6 +1,6 @@
 # 跑图 · 自动搜索与事件（草案）
 
-> **状态：讨论定案（机制方向）— 未排 TASK**  
+> **状态：M1 已落地（`MarchSearchService` + Toast）；M2～M4 待排**  
 > **前置**：T-RUN-V2 底栏跑图可见（[design-march-visual.md](design-march-visual.md)）；事件逻辑不依赖美术成品。  
 > **总纲**：[GAME_BIBLE.md](GAME_BIBLE.md) · 强化 **C 远征**，不替代接战主轴。
 
@@ -150,7 +150,7 @@ main.gd._on_world_run_event → RunUI / RunMarchView 文案
 
 | 阶段 | 交付 | 依赖 |
 |------|------|------|
-| **M1** | `MarchSearchService` + 1 张测试图搜索池 + log | WorldRun 挂钩 |
+| **M1** | `MarchSearchService` + 1 张测试图搜索池 + log | ✅ `grassland` / `test_01` |
 | **M2** | 距离里程碑 `march_events` + JSON 表 | M1 |
 | **M3** | 返程分池 + 稳定加权 | M2 |
 | **M4** | RunMarchView 事件点表现 | T-RUN-V2 |

@@ -201,6 +201,58 @@ screen_x(entity) = lane_origin + entity.position - scroll_x
 
 ---
 
+## 十二、事件与采集层（T-MARCH-*）
+
+> **状态**：M1/V1 已落地（自动搜索 + 飘字）；V2/V3 骨架已挂接，待 M2 里程碑事件接线。
+
+### 扩展层表
+
+| 层 | 组件 | 作用 |
+|----|------|------|
+| 世界状态 | `RunMarchLane` | 含 `GATHER_BEAT`；搜索不停滚、采集/接战停滚 |
+| 世界画面 | `ParallaxBackdrop` | 同 V2 |
+| 行军画面 | `RunMarchView` | 同 V2 |
+| **搜索反馈** | `MarchSearchToast` | 【搜索】飘字；**不停滚** |
+| **事件标记** | `MarchEventMarkers` | 里程碑色块；跟 `scroll_x`（V2 待 M2 数据） |
+| **采集短演出** | `MarchGatherView` | `GATHER_BEAT` 时替代行军条（V3 待 M2 触发） |
+| 接战画面 | `CombatView` + `BattlefieldSlots` | 同 V3 |
+| 单位表现 | `UnitView` | 同现网 |
+| Boss 压力 | `BossChaseSilhouette` | 同 V5 |
+| 逻辑 | `MarchSearchService` | 每 Δm 搜索池检定 → `march_search_hit` |
+
+### 底栏 Z 序（`RunMarchLane` 子节点）
+
+```
+ParallaxBackdrop → MarchEventMarkers → RunMarchView → MarchGatherView
+→ BossChaseSilhouette → MarchSearchToast（最前）
+```
+
+### 停滚规则
+
+| 插曲 | `distance_traveled` | `scroll_x` | 主画面 |
+|------|---------------------|------------|--------|
+| 自动搜索 | 继续 | 继续 | `RunMarchView` + Toast |
+| 采集 `GATHER_BEAT` | **暂停** | 冻结 | `MarchGatherView` |
+| 进军接战 | **暂停** | 冻结 | `CombatView` |
+| 返程接战 | 继续减 | 左滚 | `CombatView` |
+
+`RunDriver`：`world_run_ticked = (返程 or 未接战) and not gather_active`；搜索仅在 `world_run_ticked` 时由 `MarchSearchService` 检定。
+
+### TASK 路线
+
+| ID | 交付 | 状态 |
+|----|------|------|
+| **T-MARCH-M1** | `MarchSearchService` + `march_search_pools.json` + 地图 `march_search` | ✅ |
+| **T-MARCH-V1** | `MarchSearchToast` + 顶栏/log 双通道 | ✅ |
+| **T-MARCH-M2** | 里程碑 `MarchEventService` + `march_events.json` | 待做 |
+| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | 骨架 |
+| **T-MARCH-V3** | `MarchGatherView` 接 loot 类事件 | 骨架 |
+| **T-MARCH-M3** | 返程分池 + 稳定加权 | 待做 |
+
+配置见 [design-march-events.md](design-march-events.md)。
+
+---
+
 ## 十一、明确不做（本专题）
 
 - 消块战斗、街景大营美术（design-pc-shell 标为后期）

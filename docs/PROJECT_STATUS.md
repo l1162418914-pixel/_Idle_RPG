@@ -1,18 +1,76 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → 最近 worklog。  
-> 最后更新：2026-06-06（CTO：定案 **整盘重构五层目标** · 指派 **T-REFACTOR-M1** 为下一开发）
+> 最后更新：2026-06-06（CTO 对齐 · 探针 **65 PASS** · 开发指针 **T-MARCH-M2**）
+
+### CTO 结论（对齐版）
+
+| 维度 | 状态 |
+|------|------|
+| **环 1 骨架** | ✅ 可交给开发继续叠功能（M1～M3 YES） |
+| **大营 UI B 线** | ✅ 逻辑完成（B1～B4）；F5 肉眼由你/QA **并行收**，不占开发指针 |
+| **跑图表现** | ✅ V1～V5 + MARCH M1/V1；**下一刀 = T-MARCH-M2 里程碑事件** |
+| **美术** | 你方找美术；程序侧等 **T-ART-FW**，**不挡 M2** |
+| **风险** | 本地改动未 push → 开发 **第一天先整理 git**（分批 commit 再 push） |
+
+---
+
+## 开发交接（CTO → Dev，2026-06-06）
+
+> **原则**：换骨架不换产品；单会话一次一 TASK；F5 与开发可并行，但 **环 1 探针未过不开新玩法**。
+
+### 已完成（逻辑层 CTO YES，可依赖）
+
+| 轨道 | 范围 | 探针 |
+|------|------|------|
+| **T-REFACTOR** | M1～M3 五层骨架 | worklog · M1 探针 1～5 |
+| **T-RUN-V** | V1～V5 行军/接战/视差/追击剪影 | 65 PASS 含 V5 |
+| **T-UI-B** | B1 / B1.5 / B2 / **B3 / B4** | 65 PASS 含 B3/B4 |
+| **T-MARCH** | **M1 + V1** 自动搜索 + 飘字 | 代码已合入工作区；**待 headless 探针 + F5** |
+| **T-MIA** | 0～2 ✅；3/4 + P2～P5 逻辑齐 | MiaPhase1Probe；**待 F5** |
+
+### 当前开发指针（唯一）
+
+| 项 | 值 |
+|----|-----|
+| **ID** | **`T-MARCH-M2`** |
+| **名称** | 里程碑 `MarchEventService` + `data/march_events.json` |
+| **门禁** | T-MARCH-M1 ✅ · T-RUN-V2 ✅ |
+| **不动** | `CombatController` 数值 · `StatResolver` · 存档字段 |
+| **文档** | [design-march-events.md](design-march-events.md) · [design-march-visual.md](design-march-visual.md) §十二 |
+
+### 排队（M2 YES 后）
+
+1. **T-MARCH-V2** — `MarchEventMarkers` 接地图 `march_events[]`（骨架已有）  
+2. **T-MARCH-V3** — loot 类事件 → `MarchGatherView` + `GATHER_BEAT`（骨架已有）  
+3. **T-ART-FW-1～2** — 视觉常量 + `VisualSlot`（美术前框架，与 M2 可并行）  
+4. **T-UI-B5+** / 街景美术 — **后期**，不抢 MARCH
+
+### 并行 CTO 验收（不占开发指针 · 建议半日「探针日」）
+
+| 包 | 内容 |
+|----|------|
+| **环 1** | `test_03` M1 探针 1～5 + `run_probe.log` |
+| **视差** | `test_01` / `test_03` 肉眼（V1～V5） |
+| **大营 UI** | B1.5 零键盘 · B2 顶栏 · B3 编组卡 · B4 背包网格 |
+| **MIA** | test_09 · 回收/压力/救援 F5 |
+| **行军搜索** | `test_01` 每 10m 【搜索】飘字；接战期间不触发 |
+
+### 运维（开发接手首日）
+
+- 工作区含 **大量本地改动**（重构/MIA/UI/MARCH），`origin/main` 可能落后；**先分批 commit**（建议：REFACTOR → MIA → UI → MARCH → docs），再 push。  
+- 日常冒烟：**`test_03` + `test_01`**；正式验收走 **探针日** 清单，不每日全跑 MiaPhase1Probe 全表。
 
 ---
 
 ## 当前阶段
 
-**Sprint 重构** — 换骨架、不换 [GAME_BIBLE.md](GAME_BIBLE.md) 产品定义（见 §T-REFACTOR）  
-**Sprint 1 / 可视化** — T-11/T-05 ✅；T-RUN-V1、T-UI-B1.5 **⏸ 让位重构 M1**（M1 YES 后恢复验收）
+**Sprint 重构环 1** — **M1 / M2 / M3 ✅ CTO YES**  
+**Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1/V1 ✅（待探针登记）**  
+**Sprint 大营壳** — **T-UI-B1～B4 逻辑 ✅**；F5 肉眼并行验收  
 
-- **下一开发（明天）**：**T-REFACTOR-M1**（接战可测 · Encounter 收口）。
-- **并行可做**：**T-MIA-0D**（仅文档，不挡 M1）。
-- **暂停至 M1 YES**：T-MIA-0～4、T-02a/T-02e F5、T-RUN-V1 CTO 探针（现网编排不可信）。
+- **下一开发**：**T-MARCH-M2**（里程碑事件逻辑）。  
+- **美术**：框架先行；**T-ART-FW** 在 M2 后或并行，不阻塞 M2。
 
 ---
 
@@ -20,49 +78,24 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | `T-RUN-V1` |
-| **名称** | RunMarchLane 状态机 + 进军接战停滚确认 + 顶栏状态字 |
-| **状态** | 🟡 **待开发**（已指派开发 Agent） |
-| **优先级** | P1（Sprint 可视化第一期） |
-| **门禁** | T-11a 底栏壳 ✅；必读 [design-march-visual.md](design-march-visual.md) + [ARCHITECTURE.md](ARCHITECTURE.md) §三 |
-| **预估影响** | `scripts/ui/run_march_lane.gd`（新建）、`main.gd`（钩 only）、`run_ui.gd` / `main_shell.gd`（顶栏状态字） |
+| **ID** | **`T-MARCH-M2`** |
+| **名称** | 距离里程碑 + 事件表 JSON |
+| **状态** | 📋 **下一开发** |
+| **优先级** | P1 |
+| **门禁** | M1 ✅ · design-march-events §五 |
+| **预估影响** | 新建 `march_event_service.gd`；`world_run` / `run_driver` 挂钩；`run_event` |
 
-### 背景
+### 并行验收（不占开发指针）
 
-定案 CQ 式：**同一横版条、进军接战停滚、返程向左**。现网 `main.gd` 已有 `world_run_ticked = run.is_retreating or not _in_combat`，V1 需 **显式状态机 + UI 可读**，为 V2 视差/行军占位铺路。
-
-### 交付范围（必须做）
-
-| 子项 | 要求 |
-|------|------|
-| **V1-1** | 新建 **`RunMarchLane`**：`lane_state`（`IdleStandby` / `MarchAdvance` / `CombatEngaged` / `MarchRetreat` / `BossEngaged` 等，对齐 design §四） |
-| **V1-2** | 读 `WorldRun`：`distance_traveled`、`is_retreating`、`max_distance`；输出 `scroll_x`、`party_anchor_x`（可先恒等映射，V3 再精调） |
-| **V1-3** | **`main.gd` 挂钩**：`on_run_started` / `on_world_tick` / `on_combat_start` / `on_combat_end` / `on_run_ended`；**禁止** UI 内调 `WorldRun.tick()` |
-| **V1-4** | **进军接战停滚确认**：进军 + `_in_combat` 时 `lane_state=CombatEngaged` 且文档化/断言世界距离 **不增加**（对齐现网 `not _in_combat` 分支） |
-| **V1-5** | **顶栏/RunUI 状态字**：`推进中` / `接战中` / `返程中` / `接战中·撤离`（design §七）；距离行进军接战时 **冻结显示** |
-| **V1-6** | RUNNING 时 `RunMarchLane` 挂底栏槽（`MainShell`/`CombatHost` 旁占位节点即可，**无需** V2 视差美术） |
-
-### 不在范围
-
-- `ParallaxBackdrop` / `RunMarchView` 向右向左跑（**T-RUN-V2**）
-- `CombatView` 锚点 / 敌从右入画（**T-RUN-V3**）
-- 改 `WorldRun` 返程/护盾/掉落公式、`CombatController` 伤害
-- `begin_retreat` 规则、Boss 追击剪影（V4/V5）
-- 大营 T-UI-B1.5（并行，本 TASK 不混）
-
-### 验收探针（CTO，F5）
-
-1. `test_01` 进军：顶栏见 **「推进中」**；`lane_state=MarchAdvance`。  
-2. 遇敌接战：顶栏 **「接战中」**；`distance` 数字在接战期间 **不增加**（进军）。  
-3. 接战胜利：状态回到 **推进中** 或 **返程中**（若已 `begin_retreat`）。  
-4. 返程未接战：顶栏 **「返程中」**；`lane_state=MarchRetreat`（距离减少，V2 前可无左跑画面）。  
-5. 返程接战：顶栏 **「接战中·撤离」**；世界距离 **继续减少**（边撤边走，现网行为保持）。  
-6. BASE：无 `RunMarchLane` 活跃；底栏待机文案不变。  
-7. diff 无 `CombatView` 改伤害、无 `Mercenary` base 属性写回。
-
-### 开发开工
-
-先读 `design-march-visual.md` + `ARCHITECTURE.md` §三 → **复述** → 确认后编码。收工 `TASK_PROTOCOL` §三。
+| ID | 名称 | 状态 |
+|----|------|------|
+| **T-MARCH-M1 / V1** | 自动搜索 + Toast | ✅ 已交付 · 待探针/F5 |
+| **T-UI-B3 / B4** | 编组卡 + 大营背包网格 | ✅ **CTO YES**（63～65 PASS）；F5 待手测 |
+| **T-UI-B1.5 / B2** | Dock + 顶栏稳定 | ✅ **CTO YES**；F5 待手测 |
+| **T-RUN-V1～V5** | 行军视差 | ✅ **CTO YES**；F5 待手测 |
+| **T-MIA-3 / T-MIA-4** | 冻结经验 + 回收 UI | 🟡 逻辑齐 · 待 F5 |
+| **T-MIA-P2～P5** | 回收 / 压力 / 救援 | 🟡 逻辑齐 · 待 F5 |
+| **T-02a / T-02e** | 濒死站位 + 测试编队 | 🟡 待 F5 |
 
 ---
 
@@ -70,13 +103,33 @@
 
 | ID | 名称 | 状态 | 门禁 |
 |----|------|------|------|
-| **T-RUN-V1** | RunMarchLane + 停滚确认 + 状态字 | 🟡 **当前** | T-11a |
-| T-RUN-V2 | ParallaxBackdrop + RunMarchView 占位 | 📋 待排 | V1 YES |
-| T-RUN-V3 | 接战锚点 + 敌从右入画 | 📋 待排 | V2 |
-| T-RUN-V4 | 返程行军与返程战背景同向 | 📋 待排 | V3 |
-| T-RUN-V5 | Boss 追击剪影 + 切换抛光 | 📋 待排 | V4 |
+| **T-RUN-V1** | RunMarchLane + 停滚确认 + 状态字 | ✅ **CTO YES** | T-11a · M3 · 2026-06-06 |
+| **T-RUN-V2** | ParallaxBackdrop + RunMarchView 占位 | ✅ **CTO YES** | V2a/V2b 探针 |
+| **T-RUN-V3** | 接战锚点 + 敌从右入画 | ✅ **CTO YES** | V3a/V3b 探针 |
+| **T-RUN-V4** | 返程行军与返程战背景同向 | ✅ **CTO YES** | V4a～V4c 探针 |
+| **T-RUN-V5** | Boss 追击剪影 + 切换抛光 | ✅ **CTO YES** | V5a/V5b 探针 · 用户收 |
 
-设计全文：[design-march-visual.md](design-march-visual.md) §一～§十一。
+设计全文：[design-march-visual.md](design-march-visual.md) §一～§十二。
+
+---
+
+## T-MARCH · 跑图搜索与事件（CTO 定案 2026-06-06）
+
+> 机制：[design-march-events.md](design-march-events.md)  
+> 表现：[design-march-visual.md](design-march-visual.md) §十二
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-MARCH-M1** | `MarchSearchService` + 搜索池 JSON | ✅ **已交付** | T-RUN-V2 |
+| **T-MARCH-V1** | `MarchSearchToast` + 顶栏/log 双通道 | ✅ **已交付** | M1 |
+| **T-MARCH-M2** | 里程碑 `MarchEventService` + 事件表 | 📋 **下一开发** | M1 |
+| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | 🟡 骨架 | M2 |
+| **T-MARCH-V3** | `MarchGatherView` 接 loot 事件 | 🟡 骨架 | M2 |
+| **T-MARCH-M3** | 返程分池 + 稳定加权 | 📋 待排 | M2 |
+
+**M1 验收（F5）**：`grassland` / `test_01` 行军每 10～12m 【搜索】飘字；接战期间不触发；`CombatView` 无 diff。
+
+**M2 交付要点**：`data/march_events.json`；地图 `march_events[]`；`run_event("march_event")`；接战/采集暂停里程碑（与 M1 同规则）。
 
 ---
 
@@ -105,9 +158,9 @@
 
 | ID | 名称 | 状态 | 门禁 |
 |----|------|------|------|
-| **T-REFACTOR-M1** | **可测**：接战门禁 + Encounter 收口 | 🟡 **下一开发（明天）** | CTO 定案 |
-| T-REFACTOR-M2 | **可维护**：SaveSerializer + GM 瘦身 + RunEventPresenter | 📋 待排 | **M1 YES** |
-| T-REFACTOR-M3 | **可扩展**：WorldRun 调度化 + CombatController 拆分 + legacy UI 移除 | 📋 待排 | **M2 YES** |
+| **T-REFACTOR-M1** | **可测**：接战门禁 + Encounter 收口 | ✅ **CTO YES** | 2026-06-06 · worklog |
+| **T-REFACTOR-M2** | **可维护**：SaveSerializer + GM 瘦身 + RunEventPresenter | ✅ **CTO YES** | M1 YES |
+| **T-REFACTOR-M3** | **可扩展**：WorldRun 调度化 + Combat 拆分 + legacy UI 移除 | ✅ **CTO YES** | M2 YES · 2026-06-06 |
 
 ### T-REFACTOR-M1 · 可测（明天 TASK）
 
@@ -134,7 +187,7 @@
 - `SaveSerializer` / `GameManager` 大拆（**M2**）
 - `RunEventPresenter` 新建（**M2**）
 - T-MIA 玩法代码
-- T-RUN-V2～V5 视差美术
+- ~~T-RUN-V2～V5 视差~~（✅ 已交付占位实现）
 
 #### 验收探针（CTO，F5）
 
@@ -169,16 +222,17 @@
 | **M3-3** | 移除 `main.gd` **legacy UI** 分支（`MainShell` 唯一路径） |
 | **M3-4** | 为 `WorldRun.run_mode`（NORMAL/RECOVERY/RESCUE）留 **出征入口** 扩展点（桩即可） |
 
-**探针**：T-MIA-0～4、T-02a 返程濒死、T-RUN-V1 探针在 M3 后 **可并行验收**。
+**探针**：T-MIA-0～2 ✅；T-MIA-3/4 及 P2～P5 逻辑齐；T-RUN-V1～V5 ✅（57 PASS）；T-02a 返程濒死 🟡 F5。
 
-### 与其它工单门禁
+### 与其它工单门禁（M3 YES 后）
 
-| 工单 | 新门禁 |
-|------|--------|
-| **T-MIA-0** | **T-REFACTOR-M1 YES** + T-MIA-0D YES |
-| T-MIA-1～4 | 链式不变 |
-| T-02a / T-02e F5 | **M1 YES**（返程战可信） |
-| T-RUN-V1 CTO 探针 | **M1 YES**（返程接战相关项） |
+| 工单 | 门禁 / 状态 |
+|------|-------------|
+| **T-MIA-0～2** | ✅ **CTO YES** |
+| **T-MIA-3 / T-MIA-4** | 🟡 逻辑已交付 · 待 F5 |
+| **T-MIA-P2～P5** | 🟡 逻辑探针齐 · 待 F5 |
+| T-02a / T-02e F5 | **已解禁** — 🟡 待 CTO 验收 |
+| **T-RUN-V1～V5** | ✅ **CTO YES**（57 PASS） |
 
 ---
 
@@ -210,15 +264,15 @@
 
 | ID | 名称 | 状态 | 门禁 |
 |----|------|------|------|
-| **T-MIA-0D** | Phase 0 文档日（SAVE_FORMAT + ARCHITECTURE） | 🟡 **可指派（先于一切代码）** | CTO 有条件 YES |
-| **T-MIA-0** | 存档序列化桩 + RunMode + settlement_tier 桩 | 📋 待排 | **T-REFACTOR-M1 YES** + **T-MIA-0D YES** |
-| T-MIA-1 | `is_mia` + 序列化 + `can_join_squad` | 📋 待排 | T-MIA-0 YES |
-| T-MIA-2 | 灭团 → `enter_mia_state`（改 `_mark_squad_wiped`） | 📋 待排 | T-MIA-1 YES |
-| T-MIA-3 | `end_run` MIA 分支 + `account_meta` 冻结经验 | 📋 待排 | T-MIA-2 YES |
-| T-MIA-4 | 主城回收 UI 占位 + 放弃搜寻 + 名册 `[遗留]` | 📋 待排 | T-MIA-3 YES |
-| T-MIA-P2 | WorldRun `RECOVERY` 模式 + 短 Run 回收 | 📋 待排 | P1 全 YES |
-| T-MIA-P3 | 濒死二段 / 压力 / 撤离事件 | 📋 待排 | P2 |
-| T-MIA-P4 | `rescue_squad` + `RESCUE` 避战 + 停尸间 | 📋 待排 | P3 |
+| **T-MIA-0D** | Phase 0 文档日（SAVE_FORMAT + ARCHITECTURE） | ✅ **CTO YES** | commit `e7f40b6` |
+| **T-MIA-0** | 存档序列化桩 + RunMode + settlement_tier 桩 | ✅ **CTO YES** | 探针 0-2c · 2026-06-06 |
+| **T-MIA-1** | `is_mia` + 序列化 + `can_join_squad` | ✅ **CTO YES** | 核对通过 |
+| **T-MIA-2** | 灭团 → `enter_mia_state`（改 `_mark_squad_wiped`） | ✅ **CTO YES** | 用户收 · R1 探针 |
+| **T-MIA-3** | `end_run` MIA 分支 + `account_meta` 冻结经验 | 🟡 **待 F5** | T-MIA-2 YES · R7 探针 |
+| **T-MIA-4** | 主城回收 UI 占位 + 放弃搜寻 + 名册 `[遗留]` | 🟡 **待 F5** | T-MIA-3 逻辑齐 |
+| **T-MIA-P2** | WorldRun `RECOVERY` 模式 + 短 Run 回收 | 🟡 **逻辑齐** | P2a～P2i 探针 |
+| **T-MIA-P3** | 濒死二段 / 压力 / 撤离事件 | 🟡 **逻辑齐** | P3a～P3q 探针 |
+| **T-MIA-P4** | `rescue_squad` + `RESCUE` 避战 + 停尸间 | 🟡 **逻辑齐** | P4a～P4e 探针 |
 
 ---
 
@@ -228,9 +282,9 @@
 |----|-----|
 | **ID** | `T-MIA-0D` |
 | **名称** | SAVE_FORMAT + ARCHITECTURE 字段补丁（无玩法代码） |
-| **状态** | 🟡 **可指派** |
+| **状态** | ✅ **CTO YES** |
 | **优先级** | P1 |
-| **门禁** | [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) §八-B |
+| **门禁** | [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) §八-B · commit `e7f40b6` |
 | **预估影响** | `docs/SAVE_FORMAT.md`、`docs/ARCHITECTURE.md`（仅文档） |
 
 #### 交付范围（必须做）
@@ -259,17 +313,17 @@
 |----|-----|
 | **ID** | `T-MIA-0` |
 | **名称** | 失败掉人 Phase 0：存档字段 + `account_meta` + `WorldRun.RunMode` 枚举桩 |
-| **状态** | 📋 待排 |
+| **状态** | ✅ **CTO YES** |
 | **优先级** | P1（机制地基） |
-| **门禁** | **T-MIA-0D YES** |
-| **预估影响** | `SAVE_FORMAT.md`、`game_manager.gd`、`world_run.gd`（仅枚举/字段，不改玩法） |
+| **门禁** | **T-MIA-0D YES** ✅ · **T-REFACTOR-M3 YES** ✅ |
+| **预估影响** | `save_serializer.gd`、`game_manager.gd`、`world_run.gd`、`run_mode_service.gd` |
 
 #### 交付范围（必须做）
 
 | 子项 | 要求 |
 |------|------|
 | **0-1** | [SAVE_FORMAT.md](SAVE_FORMAT.md) 增：`account_meta`（含 `frozen_exp_pools[]` 结构草案）、`rescue_squad` 占位、`Mercenary.is_mia` |
-| **0-2** | `GameManager`：`account_meta` 默认 `{}`；`to_save_dict` / `from_save_dict` 读写；旧档缺字段不报错 |
+| **0-2** | **`SaveSerializer`**（GM 委托）：`account_meta` / `rescue_squad` 默认 + 读写；旧档缺字段不报错 |
 | **0-3** | `WorldRun`：`enum RunMode { NORMAL, RECOVERY, RESCUE }`，默认 `NORMAL`；本 TASK **不**接出征 UI |
 | **0-4** | `end_run` result 增 **`settlement_tier`** 字符串桩：`success` \| `mia` \| `manual` \| `recovery`（默认仍 `success`，逻辑下 TASK 接） |
 
@@ -292,8 +346,8 @@
 |----|-----|
 | **ID** | `T-MIA-1` |
 | **名称** | `is_mia` + `enter_mia_state` / 清 MIA + 序列化 + `can_join_squad` 拦截 |
-| **状态** | 📋 待排 |
-| **门禁** | **T-MIA-0 YES** |
+| **状态** | ✅ **CTO YES** |
+| **门禁** | **T-MIA-0 YES** ✅ |
 | **预估影响** | `mercenary.gd`、`game_manager.gd`（`_serialize_merc`）、`squad_formation_service.gd`、`formation_ui.gd`、`squad_ui.gd`（仅拦截/灰显） |
 
 #### 交付范围（必须做）
@@ -324,8 +378,8 @@
 |----|-----|
 | **ID** | `T-MIA-2` |
 | **名称** | `_mark_squad_wiped` → 上场者 `enter_mia_state`（停用灭团即永久死亡） |
-| **状态** | 📋 待排 |
-| **门禁** | **T-MIA-1 YES** |
+| **状态** | ✅ **CTO YES** |
+| **门禁** | **T-MIA-1 YES** ✅ |
 | **预估影响** | `main.gd`、`world_run.gd`（`end_run` / result 标记）、`result_ui.gd`（文案） |
 
 #### 交付范围（必须做）
@@ -356,8 +410,8 @@
 |----|-----|
 | **ID** | `T-MIA-3` |
 | **名称** | MIA 结算写 `account_meta.frozen_exp_pools`；成功过闸不冻结 |
-| **状态** | 📋 待排 |
-| **门禁** | **T-MIA-2 YES** |
+| **状态** | 🟡 **待 F5**（R7 探针 PASS） |
+| **门禁** | **T-MIA-2 YES** ✅ |
 | **预估影响** | `game_manager.gd`、`world_run.gd`（`total_exp_earned`）、`apply_run_rewards` / `_apply_run_exp` |
 
 #### 交付范围（必须做）
@@ -389,8 +443,8 @@
 |----|-----|
 | **ID** | `T-MIA-4` |
 | **名称** | 回收功能入口 + 放弃搜寻（永久没）+ 大价值复活占位 + 名册 `[遗留]` |
-| **状态** | 📋 待排 |
-| **门禁** | **T-MIA-3 YES** |
+| **状态** | 🟡 **待 F5** |
+| **门禁** | **T-MIA-3** 逻辑齐 |
 | **预估影响** | `base_ui.gd` 或新 `recovery_ui.gd`、`main_shell.gd`（Dock/后勤入口）、`squad_ui.gd` / `formation_ui.gd` |
 
 #### 交付范围（必须做）
@@ -435,7 +489,7 @@
 |----|-----|
 | **ID** | `T-UI-B1.5` |
 | **名称** | 鼠标优先 · Dock 导航 + 地图选中/出征分离 + 后勤瘦身 |
-| **状态** | 🟠 **进行中**（地图卡选中/出征热修已交，待 F5 验收） |
+| **状态** | ✅ **CTO YES**（B1.5a/b 探针 · 用户收；F5 零键盘待手测） |
 | **优先级** | P1 |
 | **预估影响** | `main_shell.gd`、`base_ui.gd`、`map_card_button.gd`、`squad_ui.gd` |
 
@@ -476,7 +530,7 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 ### 不在范围
 
 - 中窗编组卡牌化（**T-UI-B3**）
-- 顶栏稳定度条（**T-UI-B2**）
+- ~~顶栏稳定度条~~（**T-UI-B2** ✅）
 - 右窗大营背包网格（**T-UI-B4**）
 - `GameManager` 状态机 / 养伤锁判定重构
 - RUNNING 底栏、战斗逻辑
@@ -493,6 +547,18 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 
 ---
 
+## T-UI-B2（顶栏稳定度 · 2026-06-06）
+
+| 项 | 值 |
+|----|-----|
+| **ID** | `T-UI-B2` |
+| **名称** | 顶栏稳定度进度条 + 养伤锁上移 |
+| **状态** | ✅ **CTO YES**（B2a/b · 用户收；F5 肉眼待手测） |
+| **交付** | 顶栏 `ProgressBar`；RUNNING 团队/个人稳定；养伤锁文案+ETA；底栏 `RunUI` 稳定行隐藏 |
+| **探针** | B2a/B2b · 全量 **61 PASS** |
+
+---
+
 ## T-UI-B1（上期 · 部分 YES 2026-06-05）
 
 | 子项 | CTO |
@@ -502,7 +568,7 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | B1-3 status 迁出 | ✅ 左窗无大段 status；toast/dock_hint |
 | B1-4 养伤锁灰显 | ⏳ 待养伤锁态截图 |
 | B1-5 已选顶栏 | ✅ 「已选：测试④b…」 |
-| **缺口** | 单击即出征、Dock F2/F4 空操作 → **B1.5** |
+| **缺口** | ~~单击即出征、Dock F2/F4~~ → **B1.5 ✅ 已收口** |
 
 ### §BUG-地图卡点击无响应（2026-06-05 · P0 热修 · 已交代码）
 
@@ -574,8 +640,8 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 |----|------|--------|------|------|
 | T-00 | QA 基线验收 | Sprint 0 | 🟠 进行中 | 并行 |
 | T-01 | 套装 → StatResolver + UI N/M | P0 | ⏸ **暂停** | T-02a YES 后恢复 |
-| **T-02e** | **测试图自带编队 + 平衡** | **P1** | 🟡 **待 CTO 验收** | test_01~08 已生成 |
-| **T-02a** | **濒死撤退站位 + 目标优先级** | **P0** | 🟡 **待验收（T-02e 后）** | 代码已交付 |
+| **T-02e** | **测试图自带编队 + 平衡** | **P1** | 🟡 **待 CTO 验收**（M3 后解禁） | test_01~08 已生成 |
+| **T-02a** | **濒死撤退站位 + 目标优先级** | **P0** | 🟡 **待 CTO 验收**（M3 后解禁） | 代码已交付 |
 | T-02 | 远程后排调参/站位 | P0 | ⏸ | T-02a YES |
 | T-02c | 主角独立 + 纯佣兵可出征 | **P0** | 📋 **已登记** | T-02a YES 后 |
 | T-02b | CombatView 位置映射统一 | P2 | ⏸ | T-02 后 |
@@ -584,22 +650,31 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-11a** | **PC 主壳 + 底栏 Run 条** | P0 | ✅ **CTO YES** | 2026-06-05 截图+代码 |
 | **T-11b** | **三窗内容迁移 + Dock/F5 后勤** | P0 | ✅ **CTO YES** | 依赖 T-11a |
 | **T-05** | **出征网格 UI** | P0 | ✅ **CTO YES** | 2026-06-05 test_04 RESULT 截图 |
-| **T-UI-B1** | **大营左窗 · 地图卡片+测试折叠** | P1 | 🟡 **部分 YES** | 缺口→B1.5 |
-| **T-REFACTOR-M1** | **接战门禁 + Encounter 收口** | **P0** | 🟡 **下一开发** | CTO 定案 |
-| T-REFACTOR-M2 | SaveSerializer + GM 瘦身 + Presenter | P0 | 📋 待排 | M1 YES |
-| T-REFACTOR-M3 | WorldRun 调度化 + Combat 拆分 | P1 | 📋 待排 | M2 YES |
-| **T-RUN-V1** | **RunMarchLane + 停滚 + 状态字** | **P1** | ⏸ 让位 M1 | T-11a |
-| T-RUN-V2~V5 | 视差/锚点/返程/Boss 剪影 | P1 | 📋 待排 | 见上 |
-| **T-UI-B1.5** | **Dock + 地图鼠标优先** | P1 | 🟠 进行中 | B1 部分 |
-| T-UI-B2 | 顶栏稳定度/养伤锁上移 | P1 | 📋 待排 | B1.5 后 |
-| T-UI-B3 | 中窗编组视觉 | P1 | 📋 待排 | B1 后 |
-| T-UI-B4 | 右窗大营背包网格 | P1 | 📋 待排 | B1 后 |
+| **T-UI-B1** | **大营左窗 · 地图卡片+测试折叠** | P1 | ✅ **CTO YES** | B1.5 收口 |
+| **T-REFACTOR-M1** | **接战门禁 + Encounter 收口** | **P0** | ✅ **CTO YES** | 2026-06-06 |
+| **T-REFACTOR-M2** | SaveSerializer + GM 瘦身 + Presenter | P0 | ✅ **CTO YES** | M1 YES |
+| **T-REFACTOR-M3** | WorldRun 调度化 + Combat 拆分 | P1 | ✅ **CTO YES** | M2 YES · 2026-06-06 |
+| **T-RUN-V1** | **RunMarchLane + 停滚 + 状态字** | **P1** | ✅ **CTO YES** | M3 · 2026-06-06 |
+| **T-RUN-V2** | ParallaxBackdrop + RunMarchView | P1 | ✅ **CTO YES** | V2a/V2b |
+| **T-RUN-V3** | 接战锚点 + 敌从右入画 | P1 | ✅ **CTO YES** | V3a/V3b |
+| **T-RUN-V4** | 返程行军与返程战同向 | P1 | ✅ **CTO YES** | V4a～V4c |
+| **T-RUN-V5** | Boss 追击剪影 + 切换抛光 | P1 | ✅ **CTO YES** | V5a/V5b · 用户收 |
+| **T-UI-B1.5** | **Dock + 地图鼠标优先** | P1 | ✅ **CTO YES** | B1.5a/b · 用户收 |
+| **T-UI-B2** | **顶栏稳定度/养伤锁上移** | P1 | ✅ **CTO YES** | B2a/b · 用户收 |
+| **T-UI-B3** | **中窗编组视觉** | P1 | ✅ **CTO YES** | B3a/b · 63 PASS |
+| **T-UI-B4** | **右窗大营背包网格** | P1 | ✅ **CTO YES** | B4a/b · 65 PASS |
+| **T-MARCH-M1** | 自动搜索服务 | P1 | ✅ **已交付** | 待探针登记 |
+| **T-MARCH-V1** | 搜索飘字 Toast | P1 | ✅ **已交付** | M1 |
+| **T-MARCH-M2** | 里程碑事件逻辑 | P1 | 📋 **下一开发** | M1 YES |
 | T-06 | Buff / 觉醒头标 | P0 | ⏸ 让位 B 线 | T-05 YES |
 | T-07~T-10 | 研究所/转生/多槽/云存档 | P1~ | 🔒 冻结 | — |
-| **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | 🟡 **可指派** | CTO 有条件 YES |
-| **T-MIA-0** | 存档序列化桩+RunMode | P1 | 📋 待排 | M1 YES + 0D YES |
-| T-MIA-1~4 | MIA 数据层→灭团→冻经验→回收 UI | P1 | 📋 待排 | 链式门禁 |
-| T-MIA-P2~P4 | 回收 Run / 压力二段 / 救援队 | P1~ | 📋 待排 | P1 全 YES |
+| **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | ✅ **CTO YES** | `e7f40b6` |
+| **T-MIA-0** | 存档序列化桩+RunMode | P1 | ✅ **CTO YES** | 0-2c 探针 |
+| **T-MIA-1** | is_mia 数据层 | P1 | ✅ **CTO YES** | 核对 |
+| **T-MIA-2** | 灭团→MIA | P1 | ✅ **CTO YES** | R1 探针 |
+| **T-MIA-3** | 冻结经验 | P1 | 🟡 **待 F5** | R7 探针 |
+| **T-MIA-4** | 回收 UI 占位 | P1 | 🟡 **待 F5** | — |
+| **T-MIA-P2~P5** | 回收/压力/救援/卷轴 | P1~ | 🟡 **逻辑齐** | P2～P5 探针 |
 
 ---
 
