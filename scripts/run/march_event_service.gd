@@ -64,27 +64,54 @@ static func milestone_entries(map_data: Dictionary) -> Array:
 	return out
 
 
+static func apply_pending_effects(run: WorldRun, data: Dictionary) -> void:
+	if run == null or data.is_empty():
+		return
+	for fx in data.get("pending_effects", []):
+		if fx is Dictionary:
+			_apply_effect(run, data, fx)
+	data["effects_deferred"] = false
+	data.erase("pending_effects")
+
+
 static func _resolve_hit(
 	run: WorldRun, event_id: String, def: Dictionary, at_distance: float
 ) -> Dictionary:
 	var log: String = str(def.get("log", "路旁事件。"))
+	var gather_beat: bool = bool(def.get("gather_beat", _def_wants_gather(def)))
+	var defer_effects: bool = gather_beat
 	var data: Dictionary = {
 		"event_id": event_id,
 		"log": log,
 		"at_distance": at_distance,
 		"distance": run.distance_traveled,
 		"auto": bool(def.get("auto", true)),
-		"gather_beat": bool(def.get("gather_beat", false)),
+		"gather_beat": gather_beat,
+		"effects_deferred": defer_effects,
 		"effects_applied": [],
+		"pending_effects": [],
 	}
 	for fx in def.get("effects", []):
 		if fx is not Dictionary:
 			continue
-		_apply_effect(run, data, fx)
+		if defer_effects:
+			data.pending_effects.append(fx.duplicate(true))
+		else:
+			_apply_effect(run, data, fx)
 	return {
 		"event_name": "march_event",
 		"data": data,
 	}
+
+
+static func _def_wants_gather(def: Dictionary) -> bool:
+	for fx in def.get("effects", []):
+		if fx is not Dictionary:
+			continue
+		var fx_type: String = str(fx.get("type", ""))
+		if fx_type in ["loot_material", "loot_equip"]:
+			return true
+	return false
 
 
 static func _apply_effect(run: WorldRun, data: Dictionary, fx: Dictionary) -> void:

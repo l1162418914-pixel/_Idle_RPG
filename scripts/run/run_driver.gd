@@ -18,6 +18,7 @@ var _encounter_session: EncounterSession = null
 var _last_probe_tick_dist: float = -1.0
 var _pending_substitute: Dictionary = {}
 var _pending_substitute_until_ms: int = 0
+var _pending_gather_settle: Dictionary = {}
 
 
 func bind_ui(
@@ -30,6 +31,8 @@ func bind_ui(
 	_run_ui = run_ui
 	_combat_view = combat_view
 	_run_march_lane = run_march_lane
+	if _run_march_lane and not _run_march_lane.gather_beat_finished.is_connected(_on_gather_beat_finished):
+		_run_march_lane.gather_beat_finished.connect(_on_gather_beat_finished)
 
 
 func process(delta: float) -> void:
@@ -614,6 +617,7 @@ func on_run_started() -> void:
 	var run = GameManager.current_run
 	if run == null:
 		return
+	_pending_gather_settle.clear()
 	_last_probe_tick_dist = run.distance_traveled
 	RunProbeLog.clear_on_run_start(run.map_id)
 	if _run_march_lane:
@@ -652,6 +656,16 @@ func _emit_run_event_payload(run: WorldRun, hit: Dictionary) -> void:
 
 
 func on_world_run_event(event_name: String, data: Dictionary) -> void:
+	if event_name == "march_event" and bool(data.get("effects_deferred", false)):
+		_pending_gather_settle = data.duplicate(true)
+		if _run_ui:
+			_run_ui.show_run_hint(
+				"【事件】%s（搜刮中）" % str(data.get("log", "路旁事件。")),
+				Color(0.88, 0.78, 0.55)
+			)
+		if _run_march_lane:
+			_run_march_lane.on_march_event(data)
+		return
 	RunEventPresenter.present(event_name, data, _run_ui, GameManager.current_run)
 	if event_name == "march_search_hit" and _run_march_lane:
 		_run_march_lane.show_search_toast(data)
@@ -661,6 +675,16 @@ func on_world_run_event(event_name: String, data: Dictionary) -> void:
 		_apply_pressure_substitute_in_combat(data)
 	elif event_name == "player_forced_return":
 		_apply_player_forced_return_in_combat(data)
+
+
+func _on_gather_beat_finished(_event_id: String) -> void:
+	var run := GameManager.current_run
+	if run == null or _pending_gather_settle.is_empty():
+		return
+	var settled: Dictionary = _pending_gather_settle.duplicate(true)
+	_MarchEventService.apply_pending_effects(run, settled)
+	_pending_gather_settle.clear()
+	RunEventPresenter.present("march_event", settled, _run_ui, run)
 
 
 func _apply_player_forced_return_in_combat(data: Dictionary) -> void:

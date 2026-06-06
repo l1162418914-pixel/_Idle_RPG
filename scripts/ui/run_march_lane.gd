@@ -1,6 +1,8 @@
 class_name RunMarchLane
 extends Control
 
+signal gather_beat_finished(event_id: String)
+
 const _ParallaxBackdropScene = preload("res://scripts/ui/parallax_backdrop.gd")
 const _RunMarchViewScene = preload("res://scripts/ui/run_march_view.gd")
 const _BossChaseSilhouetteScene = preload("res://scripts/ui/boss_chase_silhouette.gd")
@@ -88,6 +90,8 @@ func _ready() -> void:
 	add_child(_gather_view)
 	_search_toast = _MarchSearchToastScene.new()
 	_search_toast.name = "MarchSearchToast"
+	if _gather_view and _gather_view.has_signal("gather_finished"):
+		_gather_view.gather_finished.connect(_on_gather_view_finished)
 	_search_toast.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_search_toast.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search_toast.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -112,9 +116,6 @@ func show_search_toast(data: Dictionary) -> void:
 
 
 func on_march_event(data: Dictionary) -> void:
-	if bool(data.get("gather_beat", false)):
-		on_gather_start(str(data.get("event_id", "")))
-		return
 	if _event_markers and _event_markers.has_method("flash_at_distance"):
 		_event_markers.flash_at_distance(
 			float(data.get("at_distance", data.get("distance", 0.0))),
@@ -122,6 +123,9 @@ func on_march_event(data: Dictionary) -> void:
 			size.x,
 			_max_distance
 		)
+	if bool(data.get("gather_beat", false)):
+		on_gather_start(str(data.get("event_id", "")))
+		return
 
 
 func on_gather_start(event_id: String = "") -> void:
@@ -147,6 +151,11 @@ func on_gather_end() -> void:
 		_gather_view.finish_gather()
 	_set_march_state()
 	_refresh_visuals()
+
+
+func _on_gather_view_finished(event_id: String) -> void:
+	on_gather_end()
+	gather_beat_finished.emit(event_id)
 
 
 func on_run_started(run: WorldRun, party_count: int = 3) -> void:

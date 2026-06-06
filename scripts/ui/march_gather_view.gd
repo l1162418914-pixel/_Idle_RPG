@@ -5,6 +5,8 @@ extends Control
 
 const GATHER_DURATION: float = 0.45
 
+signal gather_finished(event_id: String)
+
 var _prop: ColorRect = null
 var _party_blocks: Array[ColorRect] = []
 var _active: bool = false
@@ -64,7 +66,9 @@ func finish_gather() -> void:
 
 
 func _finish() -> void:
+	var finished_id: String = _event_id
 	finish_gather()
+	gather_finished.emit(finished_id)
 
 
 func _layout_party(retreating: bool) -> void:

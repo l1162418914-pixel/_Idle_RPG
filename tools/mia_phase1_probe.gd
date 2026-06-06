@@ -108,6 +108,8 @@ func _run() -> void:
 	_probe_m2_milestone_pause_rules()
 	_probe_mv2_lane_markers_from_map()
 	_probe_mv2_markers_hide_on_retreat()
+	_probe_mv3_gather_deferred_loot()
+	_probe_mv3_lane_gather_beat_state()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2064,6 +2066,83 @@ func _probe_mv2_markers_hide_on_retreat() -> void:
 		return
 	lane.queue_free()
 	_pass("MV2b", "T-MARCH-V2 返程/接战隐藏里程碑")
+
+
+func _probe_mv3_gather_deferred_loot() -> void:
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.distance_traveled = 80.0
+	var hits: Array = _MarchEventService.tick(run, true)
+	if hits.is_empty():
+		_fail("MV3a", "80m abandoned_crate 应触发 gather 事件")
+		return
+	var data: Dictionary = hits[0].get("data", {})
+	if not bool(data.get("gather_beat", false)):
+		_fail("MV3a", "abandoned_crate 应标记 gather_beat")
+		return
+	if not bool(data.get("effects_deferred", false)):
+		_fail("MV3a", "loot 事件应延迟结算")
+		return
+	if data.has("material_names"):
+		_fail("MV3a", "延迟结算前不应已有物资名")
+		return
+	var pending: Array = data.get("pending_effects", [])
+	if pending.is_empty():
+		_fail("MV3a", "应保留 pending_effects")
+		return
+	var before_loot: int = run.exposed_loot.item_count() if run.exposed_loot else 0
+	_MarchEventService.apply_pending_effects(run, data)
+	if data.get("effects_applied", []).is_empty():
+		_fail("MV3b", "结算后应记录 effects_applied")
+		return
+	var after_loot: int = run.exposed_loot.item_count() if run.exposed_loot else 0
+	if after_loot <= before_loot and not data.has("material_names"):
+		_fail("MV3b", "结算后应获得物资或 material_names")
+		return
+	_pass("MV3a", "T-MARCH-V3 loot 事件延迟至 GATHER_BEAT 后结算")
+	_pass("MV3b", "T-MARCH-V3 apply_pending_effects 落地物资")
+
+
+func _probe_mv3_lane_gather_beat_state() -> void:
+	var lane := RunMarchLane.new()
+	lane.size = Vector2(480, 48)
+	add_child(lane)
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.distance_traveled = 80.0
+	lane.on_run_started(run, 2)
+	lane.on_march_event({
+		"event_id": "abandoned_crate",
+		"gather_beat": true,
+		"at_distance": 80.0,
+	})
+	if not lane.is_gather_active():
+		_fail("MV3c", "gather_beat 应激活 GATHER_BEAT")
+		lane.queue_free()
+		return
+	var snap: Dictionary = lane.get_snapshot()
+	if str(snap.get("lane_state", "")) != "GatherBeat":
+		_fail("MV3c", "lane_state 应为 GatherBeat (got %s)" % str(snap.get("lane_state", "")))
+		lane.queue_free()
+		return
+	var gather_view := lane.get_node_or_null("MarchGatherView")
+	if gather_view == null or not gather_view.visible:
+		_fail("MV3c", "MarchGatherView 搜刮中应可见")
+		lane.queue_free()
+		return
+	var march_view := lane.get_node_or_null("RunMarchView")
+	if march_view != null and march_view.visible:
+		_fail("MV3c", "搜刮中 RunMarchView 应隐藏")
+		lane.queue_free()
+		return
+	lane.on_gather_end()
+	if lane.is_gather_active():
+		_fail("MV3d", "on_gather_end 应清除 gather_active")
+		lane.queue_free()
+		return
+	lane.queue_free()
+	_pass("MV3c", "T-MARCH-V3 GATHER_BEAT 冻结里程+采集视图")
+	_pass("MV3d", "T-MARCH-V3 采集结束恢复行军")
 
 
 func _probe_mia_excluded_from_formation() -> void:
