@@ -28,6 +28,10 @@ const UNIT_VISUAL_WIDTH: float = 60.0
 const SPRITE_HEIGHT: float = 48.0
 ## 接战层最小 lane 宽（低于此线性映射会压叠色块）
 const LANE_MIN_WIDTH: float = 480.0
+## T-RUN-V3：敌群接战初距（逻辑坐标，相对锚点右偏）
+const ENEMY_ENTRY_OFFSET_RIGHT: float = 72.0
+## 里程 → 战场锚点平移上限（逻辑坐标）
+const ANCHOR_SHIFT_MAX: float = BATTLEFIELD_WIDTH * 0.38
 
 
 static func ally_slot_x(slot_index: int) -> float:
@@ -36,6 +40,21 @@ static func ally_slot_x(slot_index: int) -> float:
 
 static func enemy_slot_x(slot_index: int) -> float:
 	return ENEMY_SLOT_ORIGIN - float(slot_index) * SLOT_GAP
+
+
+static func distance_to_anchor_shift(distance: float, max_distance: float) -> float:
+	if max_distance <= 0.0:
+		return 0.0
+	var t: float = clampf(distance / max_distance, 0.0, 1.0)
+	return t * ANCHOR_SHIFT_MAX
+
+
+static func ally_position_at_slot(slot_index: int, anchor_shift: float) -> float:
+	return ally_slot_x(slot_index) + anchor_shift
+
+
+static func enemy_position_at_slot(slot_index: int, anchor_shift: float) -> float:
+	return enemy_slot_x(slot_index) + anchor_shift + ENEMY_ENTRY_OFFSET_RIGHT
 
 
 static func logic_to_pixel(logic_x: float, lane_width: float) -> float:

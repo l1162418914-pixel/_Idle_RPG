@@ -14,6 +14,12 @@ signal run_event(event_name: String, data: Dictionary)
 
 var map_id: String = ""
 var run_mode: int = RunMode.NORMAL
+## 回收目标（留营 MIA 佣兵 id，仅 RECOVERY）
+var recovery_target_ids: Array[String] = []
+var recovery_failed: bool = false
+## 救援队目标（留场 MIA 佣兵 id，仅 RESCUE）
+var rescue_target_ids: Array[String] = []
+var rescue_failed: bool = false
 var map_data: Dictionary = {}
 var squad: Squad = null
 var stability: StabilitySystem = null
@@ -83,11 +89,25 @@ var bench_reserves: Array[Mercenary] = []
 var deploy_half: String = "A"
 ## 本趟是否因灭团收场（T-MIA：结算 tier=mia）
 var squad_wiped: bool = false
+## 撤离中未抵营收场（走 B-3a/b，非战场灭团 B-1）
+var retreat_failure: bool = false
+## 团队压力收场触发的撤离事件（B-3d）
+var pressure_retreat_event: bool = false
+var pressure_mia_quota: int = 0
+## 主角已触发强制回城（B-3h）；佣兵可能仍在场上
+var player_forced_return: bool = false
+## 本趟是否已过地图补给点（B-11b 计趟前提）
+var supply_point_passed: bool = false
+var max_distance_reached: float = 0.0
 var _enemy_pool: Array = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## 返程开始时立即注入 tick 的遇敌（避免等计时器）
 var _retreat_opening_spawns: Array = []
 var _pending_awakening_shield_bonus: int = 0
+## T-MARCH-M1：上次自动搜索锚点里程（米）
+var march_search_last_anchor: float = 0.0
+## T-MARCH-M2：已触发的 march_events[] 下标
+var march_events_fired: Array = []
 
 
 func _init(p_map_id: String, p_squad: Squad) -> void:
@@ -132,6 +152,14 @@ func start() -> int:
 	NearDeathRunService.assign_carry_support(squad)
 	NearDeathAwakeningService.reset_run_flags(self)
 	squad_wiped = false
+	recovery_failed = false
+	rescue_failed = false
+	retreat_failure = false
+	pressure_retreat_event = false
+	pressure_mia_quota = 0
+	player_forced_return = false
+	supply_point_passed = false
+	max_distance_reached = 0.0
 	is_active = true
 	is_retreating = false
 	retreat_origin_distance = 0.0
@@ -176,6 +204,8 @@ func start() -> int:
 	deploy_half = "A"
 	_retreat_opening_spawns.clear()
 	_pending_awakening_shield_bonus = 0
+	march_search_last_anchor = 0.0
+	march_events_fired.clear()
 	if GameManager:
 		deploy_half = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
 		bench_reserves = SquadFormationService.load_bench_reserves(GameManager, deploy_half)
@@ -197,14 +227,11 @@ func tick(delta: float) -> Dictionary:
 	stability.tick(delta)
 	
 	if stability.should_withdraw() and not is_retreating:
-		begin_retreat("forced")
+		PressureOutcomeService.trigger_team_pressure_retreat(self)
 	elif not is_retreating:
 		AutoRetreatService.check(self)
 	
-	var result = {"status": "running", "events": []}
-	for ambush_data in _retreat_opening_spawns:
-		result.events.append({"type": "enemy_spawn", "data": ambush_data})
-	_retreat_opening_spawns.clear()
+	var result = {"status": "running", "events": WorldRunTickScheduler.collect_encounter_events(self, delta)}
 	
 	_advance_movement(delta)
 	
@@ -214,48 +241,6 @@ func tick(delta: float) -> Dictionary:
 	
 	if not is_retreating:
 		_update_boss_zone_flag()
-	
-	# 前进阶段：Boss 与刷怪
-	if not is_retreating:
-		if not boss_spawned and distance_traveled >= max_distance:
-			boss_spawned = true
-			boss_zone_reached = true
-			var boss_data = _spawn_boss()
-			boss_encountered.emit(boss_data)
-			result.events.append({"type": "boss", "data": boss_data})
-			if bool(map_data.get("auto_retreat_on_boss_spawn", false)) and not is_retreating:
-				emit_signal(
-					"run_event",
-					"test_auto_retreat",
-					{"reason": "到达首领线，测试图自动返程以触发追击"}
-				)
-				begin_retreat("boss_auto")
-		
-		if not boss_spawned and not bool(map_data.get("disable_mob_spawns", false)):
-			spawn_timer += delta
-			var interval := spawn_interval * _rng.randf_range(0.7, 1.3)
-			if spawn_timer >= interval:
-				spawn_timer = 0.0
-				var enemy_data = _spawn_random_enemy()
-				if not enemy_data.is_empty():
-					enemy_spawned.emit(enemy_data)
-					result.events.append({"type": "enemy_spawn", "data": enemy_data})
-	else:
-		var profile: Dictionary = RetreatSpawnService.get_spawn_profile(self)
-		retreat_spawn_tier = str(profile.get("tier", ""))
-		var pack: int = int(profile.get("pack", 0))
-		if pack > 0:
-			spawn_timer += delta
-			var retreat_mult: float = float(profile.get("interval_mult", 1.15))
-			var interval: float = spawn_interval * retreat_mult * _rng.randf_range(0.75, 1.05)
-			if spawn_timer >= interval:
-				spawn_timer = 0.0
-				for _pack_i in range(pack):
-					var enemy_data: Dictionary = _spawn_random_enemy()
-					if enemy_data.is_empty():
-						break
-					enemy_spawned.emit(enemy_data)
-					result.events.append({"type": "enemy_spawn", "data": enemy_data})
 	
 	result.distance = distance_traveled
 	result.is_retreating = is_retreating
@@ -307,6 +292,31 @@ func _apply_loot_stats_to_dict(result: Dictionary, manual_settle: bool = false) 
 	result.exposed_loot_count = exposed_loot.item_count() if exposed_loot else 0
 	result.safe_loot_fill = safe_loot.get_fill_ratio() if safe_loot else 0.0
 	result.exposed_loot_fill = exposed_loot.get_fill_ratio() if exposed_loot else 0.0
+
+
+func consume_opening_spawns() -> Array:
+	var out: Array = _retreat_opening_spawns.duplicate()
+	_retreat_opening_spawns.clear()
+	return out
+
+
+func get_spawn_jitter(low: float = 0.7, high: float = 1.3) -> float:
+	return _rng.randf_range(low, high)
+
+
+func spawn_random_enemy() -> Dictionary:
+	return _spawn_random_enemy()
+
+
+func spawn_boss_lane() -> Dictionary:
+	return _spawn_boss()
+
+
+func emit_enemy_spawn_event(enemy_data: Dictionary) -> Dictionary:
+	if enemy_data.is_empty():
+		return {}
+	enemy_spawned.emit(enemy_data)
+	return {"type": "enemy_spawn", "data": enemy_data}
 
 
 func _build_enemy_pool() -> void:
@@ -476,7 +486,6 @@ func register_chase_stagger_repelled(enemy_data: Dictionary) -> void:
 func tick_chase_stagger_charge(delta: float) -> void:
 	if not chase_combat_in_progress:
 		chase_stagger_charge = 0.0
-		chase_stagger_holding = false
 		return
 	if not chase_stagger_holding:
 		chase_stagger_charge = maxf(0.0, chase_stagger_charge - delta * 0.35)
@@ -702,6 +711,32 @@ func try_drop_loot_on_retreat_hit() -> Dictionary:
 	return {"item": item, "item_name": item.item_name}
 
 
+## 压力收场撤离事件：轻判定附带概率掉外露（B-3c，与返程盾破分开 roll）
+func try_pressure_outcome_loot_loss() -> Dictionary:
+	if exposed_loot == null or exposed_loot.is_empty():
+		return {}
+	var cfg: Dictionary = PressureOutcomeService.config()
+	var chance: float = float(cfg.get("loot_loss_chance", 0.12))
+	if _rng.randf() >= chance:
+		return {}
+	var item: Equipment = exposed_loot.remove_random_equipment()
+	if item == null:
+		return {}
+	run_loot_lost_count += 1
+	_sync_total_loot_cache()
+	var exposed_remaining: int = exposed_loot.item_count() if exposed_loot else 0
+	emit_signal(
+		"run_event",
+		"pressure_loot_lost",
+		{
+			"item_name": item.item_name,
+			"quality_name": item.quality_name,
+			"remaining": exposed_remaining,
+		}
+	)
+	return {"item": item, "item_name": item.item_name}
+
+
 func _prime_retreat_spawn_timer() -> void:
 	var profile: Dictionary = RetreatSpawnService.get_spawn_profile(self)
 	var retreat_mult: float = float(profile.get("interval_mult", 1.15))
@@ -731,6 +766,7 @@ func begin_retreat(reason: String) -> void:
 		return
 	retreat_reason = reason
 	retreat_origin_distance = distance_traveled
+	max_distance_reached = maxf(max_distance_reached, retreat_origin_distance)
 	retreat_final_destination = float(map_data.get("retreat_destination", 0.0))
 	retreat_destination = _resolve_first_retreat_leg(reason)
 	is_retreating = true
@@ -839,6 +875,11 @@ func tick_boss_chase(delta: float) -> void:
 			stability.modify_team_stability(-extra)
 
 
+func mark_chase_combat_started() -> void:
+	chase_combat_in_progress = true
+	_chase_combat_cooldown = maxf(_chase_combat_cooldown, 0.5)
+
+
 func should_trigger_chase_combat() -> bool:
 	if not boss_chase_active or not is_retreating or chase_combat_in_progress:
 		return false
@@ -917,7 +958,7 @@ func _try_roll_chase_repel_loot() -> Dictionary:
 
 func on_chase_boss_catch_penalty() -> void:
 	chase_combat_in_progress = false
-	if stability != null:
+	if stability != null and not bool(map_data.get("disable_stability_drain", false)):
 		var pen: int = int(ceilf(22.0 * BossChaseService.get_stability_penalty_mult(self)))
 		stability.modify_team_stability(-pen)
 	boss_chase_position = distance_traveled + 35.0
@@ -926,13 +967,33 @@ func on_chase_boss_catch_penalty() -> void:
 
 
 func _advance_movement(delta: float) -> void:
+	if chase_combat_in_progress:
+		return
 	if is_retreating:
 		var speed: float = MOVE_SPEED_RETREAT * float(map_data.get("retreat_speed_mult", 1.0))
 		speed *= NearDeathRunService.get_retreat_speed_multiplier(self)
 		distance_traveled = maxf(retreat_destination, distance_traveled - speed * delta)
+		max_distance_reached = maxf(max_distance_reached, retreat_origin_distance)
 	else:
 		var adv: float = MOVE_SPEED_ADVANCE * float(map_data.get("advance_speed_mult", 1.0))
 		distance_traveled += adv * delta
+	max_distance_reached = maxf(max_distance_reached, distance_traveled)
+	_tick_supply_point_passage()
+
+
+func _tick_supply_point_passage() -> void:
+	if supply_point_passed:
+		return
+	var supply_dist: float = MiaDeteriorationService.supply_distance_for_map(map_data)
+	if supply_dist <= 0.0:
+		return
+	if max_distance_reached + 0.5 >= supply_dist:
+		supply_point_passed = true
+		emit_signal(
+			"run_event",
+			"supply_point_passed",
+			{"distance": supply_dist, "map_id": map_id}
+		)
 
 
 func _tick_retreat_leg() -> void:
@@ -975,7 +1036,7 @@ func _on_team_stability_changed(new_val: int) -> void:
 
 
 func _on_forced_withdraw() -> void:
-	begin_retreat("forced")
+	PressureOutcomeService.trigger_team_pressure_retreat(self)
 	emit_signal("run_event", "forced_withdraw", {})
 
 
@@ -984,11 +1045,47 @@ func sync_stability_to_manager() -> void:
 		GameManager.set_team_stability(stability.team_stability)
 
 
+func _count_squad_mia_members() -> int:
+	var n := 0
+	if squad == null:
+		return n
+	for m in squad.members:
+		if m != null and m.is_mia:
+			n += 1
+	return n
+
+
+func has_completed_recovery_advance() -> bool:
+	return (
+		run_mode == RunMode.RECOVERY
+		and not is_retreating
+		and distance_traveled >= max_distance - 0.5
+	)
+
+
+func has_completed_rescue_advance() -> bool:
+	return (
+		run_mode == RunMode.RESCUE
+		and not is_retreating
+		and distance_traveled >= max_distance - 0.5
+	)
+
+
 func _resolve_settlement_tier(manual: bool) -> String:
-	if manual:
-		return "manual"
+	if run_mode == RunMode.RESCUE:
+		if rescue_failed:
+			return "rescue_fail"
+		return "rescue"
+	if run_mode == RunMode.RECOVERY:
+		if recovery_failed:
+			return "recovery_fail"
+		return "recovery"
+	if retreat_failure:
+		return "mia"
 	if squad_wiped:
 		return "mia"
+	if manual:
+		return "manual"
 	return "success"
 
 
@@ -999,6 +1096,8 @@ func end_run(forced: bool = false) -> Dictionary:
 	var at_camp: bool = distance_traveled <= retreat_final_destination + RETREAT_ARRIVE_EPSILON
 	var extract_clear: bool = (boss_defeated or extract_guard_cleared) and not manual
 	var completed_retreat: bool = is_retreating and at_camp
+	var recovery_clear: bool = has_completed_recovery_advance() and not recovery_failed and not manual
+	var rescue_clear: bool = has_completed_rescue_advance() and not rescue_failed and not manual
 	var evade_bonus: Dictionary = BossChaseService.grant_evade_bonus(self) if completed_retreat else {}
 	var result = {
 		"map_id": map_id,
@@ -1011,7 +1110,7 @@ func end_run(forced: bool = false) -> Dictionary:
 		"forced_withdraw": forced or manual,
 		"manual_withdraw": manual,
 		"extract_clear": extract_clear,
-		"run_success": extract_clear or (completed_retreat and squad.has_anyone_alive() and not manual),
+		"run_success": extract_clear or recovery_clear or rescue_clear or (completed_retreat and squad.has_anyone_alive() and not manual),
 		"completed_retreat": completed_retreat,
 		"retreat_origin": retreat_origin_distance,
 		"retreat_final_destination": retreat_final_destination,
@@ -1028,13 +1127,30 @@ func end_run(forced: bool = false) -> Dictionary:
 		"retreat_reason": retreat_reason,
 		"loot_lost_on_retreat": run_loot_lost_count,
 		"loot_abandoned_manual": manual_loot_abandoned,
-		"emergency_retreat": retreat_reason in ["emergency", "combat_fail"],
+		"emergency_retreat": retreat_reason in ["emergency", "combat_fail", "pressure"],
+		"pressure_retreat_event": pressure_retreat_event,
+		"pressure_mia_quota": pressure_mia_quota,
 		"equip_shield_max": equip_shield_max,
 		"material_shield_max": material_shield_max,
 		"squad_alive": squad.get_alive_count() > 0,
-		"player_alive": squad.has_anyone_alive(),
+		"player_alive": squad.is_player_alive() if squad else false,
+		"player_forced_return": player_forced_return,
+		"mercs_continue_after_player_return": (
+			player_forced_return and PlayerForcedReturnService.mercs_continue_on_field(self)
+		),
 		"level_up_log": [],
-		"settlement_tier": _resolve_settlement_tier(manual)
+		"settlement_tier": _resolve_settlement_tier(manual),
+		"squad_wiped": squad_wiped,
+		"retreat_failure": retreat_failure,
+		"is_retreating": is_retreating,
+		"field_count": squad_member_ids.size(),
+		"mia_count": _count_squad_mia_members(),
+		"recovery_target_ids": recovery_target_ids.duplicate(),
+		"recovery_failed": recovery_failed,
+		"rescue_target_ids": rescue_target_ids.duplicate(),
+		"rescue_failed": rescue_failed,
+		"run_mode": run_mode,
+		"supply_point_passed": supply_point_passed,
 	}
 	_apply_loot_stats_to_dict(result, manual)
 	run_completed.emit(result)

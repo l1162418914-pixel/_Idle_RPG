@@ -51,13 +51,21 @@ func movement_policy_for(_run: WorldRun) -> CombatMovementPolicy:
 
 
 func on_combat_begin(run: WorldRun) -> void:
-	if kind == EncounterKind.CHASE_BOSS and run != null:
-		run.chase_combat_in_progress = true
+	if run == null:
+		return
+	if kind == EncounterKind.BOSS_LANE:
+		TestScenarioService.prepare_mia_wipe_boss_combat(run)
+	if kind == EncounterKind.CHASE_BOSS:
+		run.mark_chase_combat_started()
 
 
 func on_combat_end(run: WorldRun) -> void:
 	if kind == EncounterKind.CHASE_BOSS and run != null:
 		run.chase_combat_in_progress = false
+
+
+func freezes_world_distance() -> bool:
+	return kind == EncounterKind.CHASE_BOSS
 
 
 func is_chase_boss() -> bool:

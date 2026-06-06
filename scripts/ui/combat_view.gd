@@ -8,8 +8,11 @@ const MAX_LOG_LINES := 80
 const BATTLEFIELD_LANE_MIN_WIDTH := BattlefieldSlots.LANE_MIN_WIDTH
 const UNIT_VISUAL_WIDTH := BattlefieldSlots.UNIT_VISUAL_WIDTH
 const UNIT_BASELINE_Y := 36.0
+const RETREAT_COMBAT_LANE_SHIFT_PER_M: float = 0.42
 
 var _combat: CombatController = null
+var _retreat_combat_scroll_anchor: float = 0.0
+var _battlefield_lane_shift: float = 0.0
 var _unit_views: Dictionary = {}  # entity_id → UnitView
 var _battlefield_lane: Control = null
 var _log_lines: Array[String] = []
@@ -29,6 +32,15 @@ var _log_follow_tail: bool = true
 @onready var btn_resume_log: Button = $DebugToolbar/BtnResumeLog
 @onready var speed_label: Label = $DebugToolbar/SpeedLabel
 @onready var debug_mode_label: Label = $DebugToolbar/DebugModeLabel
+
+var _chase_combat_panel: PanelContainer = null
+var _chase_combat_bar: HBoxContainer = null
+var _chase_hint_label: Label = null
+var _chase_stagger_button: Button = null
+var _chase_deep_button: Button = null
+var _chase_stagger_bar: ProgressBar = null
+var _chase_charge_label: Label = null
+var _stagger_hold: bool = false
 
 
 func _ready() -> void:
@@ -50,9 +62,156 @@ func _ready() -> void:
 	_refresh_debug_label()
 	_refresh_speed_buttons()
 	_ensure_battlefield_lane()
+	_setup_chase_combat_bar()
+	if not GameManager.state_changed.is_connected(_on_game_state_changed):
+		GameManager.state_changed.connect(_on_game_state_changed)
+
+
+func hide_chase_combat_panel() -> void:
+	_stagger_hold = false
+	var run = GameManager.current_run
+	if run:
+		run.chase_stagger_holding = false
+	if _chase_combat_panel:
+		_chase_combat_panel.visible = false
+
+
+func _on_game_state_changed(state: int) -> void:
+	if state != GameManager.GameState.RUNNING:
+		hide_chase_combat_panel()
+
+
+func _setup_chase_combat_bar() -> void:
+	if _chase_combat_panel != null:
+		return
+	_chase_combat_panel = PanelContainer.new()
+	_chase_combat_panel.name = "ChaseCombatPanel"
+	_chase_combat_panel.visible = false
+	_chase_combat_panel.custom_minimum_size = Vector2(0, 72)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.45, 0.12, 0.08, 0.92)
+	panel_style.border_color = Color(1.0, 0.45, 0.15)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(6)
+	panel_style.content_margin_left = 10
+	panel_style.content_margin_right = 10
+	panel_style.content_margin_top = 8
+	panel_style.content_margin_bottom = 8
+	_chase_combat_panel.add_theme_stylebox_override("panel", panel_style)
+	add_child(_chase_combat_panel)
+	move_child(_chase_combat_panel, 0)
+	var panel_vbox := VBoxContainer.new()
+	panel_vbox.add_theme_constant_override("separation", 6)
+	_chase_combat_panel.add_child(panel_vbox)
+	_chase_hint_label = Label.new()
+	_chase_hint_label.text = "追击僵持 — 按住「蓄力击退」充能，满 88% 松手推远首领（不击杀）"
+	_chase_hint_label.add_theme_font_size_override("font_size", 15)
+	_chase_hint_label.modulate = Color(1.0, 0.92, 0.55)
+	_chase_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel_vbox.add_child(_chase_hint_label)
+	_chase_combat_bar = HBoxContainer.new()
+	_chase_combat_bar.name = "ChaseCombatBar"
+	_chase_combat_bar.add_theme_constant_override("separation", 10)
+	panel_vbox.add_child(_chase_combat_bar)
+	var title := Label.new()
+	title.text = "蓄力"
+	title.add_theme_font_size_override("font_size", 16)
+	title.modulate = Color(1.0, 0.75, 0.35)
+	_chase_combat_bar.add_child(title)
+	_chase_stagger_bar = ProgressBar.new()
+	_chase_stagger_bar.custom_minimum_size = Vector2(220, 26)
+	_chase_stagger_bar.max_value = 1.0
+	_chase_stagger_bar.show_percentage = false
+	_chase_stagger_bar.tooltip_text = "按住「蓄力击退」充能，松手推远首领（不击杀、继续返程）"
+	_chase_combat_bar.add_child(_chase_stagger_bar)
+	_chase_charge_label = Label.new()
+	_chase_charge_label.custom_minimum_size = Vector2(52, 0)
+	_chase_charge_label.add_theme_font_size_override("font_size", 16)
+	_chase_charge_label.modulate = Color(1.0, 0.9, 0.5)
+	_chase_combat_bar.add_child(_chase_charge_label)
+	_chase_stagger_button = Button.new()
+	_chase_stagger_button.text = "按住蓄力击退"
+	_chase_stagger_button.custom_minimum_size = Vector2(148, 40)
+	_chase_stagger_button.add_theme_font_size_override("font_size", 15)
+	_chase_stagger_button.tooltip_text = _chase_stagger_bar.tooltip_text
+	_chase_stagger_button.button_down.connect(_on_chase_stagger_down)
+	_chase_stagger_button.button_up.connect(_on_chase_stagger_up)
+	_chase_combat_bar.add_child(_chase_stagger_button)
+	_chase_deep_button = Button.new()
+	_chase_deep_button.text = "深度反击"
+	_chase_deep_button.custom_minimum_size = Vector2(108, 40)
+	_chase_deep_button.add_theme_font_size_override("font_size", 14)
+	_chase_deep_button.tooltip_text = "僵持蓄力充足时重创首领并推远（不击杀）"
+	_chase_deep_button.pressed.connect(_on_chase_deep_pressed)
+	_chase_combat_bar.add_child(_chase_deep_button)
+
+
+func refresh_chase_combat_hud(run: WorldRun) -> void:
+	if _chase_combat_panel == null or run == null:
+		return
+	if GameManager.state != GameManager.GameState.RUNNING:
+		hide_chase_combat_panel()
+		return
+	var engaged: bool = run.chase_combat_in_progress
+	if not engaged:
+		hide_chase_combat_panel()
+		return
+	_chase_combat_panel.visible = true
+	var charge: float = run.chase_stagger_charge
+	var charge_pct: int = int(round(charge * 100.0))
+	_chase_stagger_bar.value = charge
+	if _chase_charge_label:
+		_chase_charge_label.text = "%d%%" % charge_pct
+	if charge < 0.88:
+		_chase_stagger_button.text = "按住蓄力击退"
+		if _chase_hint_label:
+			_chase_hint_label.text = (
+				"追击僵持 — 按住橙色按钮蓄力（当前 %d%%，需 88%% 后松手推远首领）" % charge_pct
+			)
+	else:
+		_chase_stagger_button.text = "松手击退!"
+		if _chase_hint_label:
+			_chase_hint_label.text = "蓄力已满 — 松开按钮击退首领，继续返程！"
+	var deep_ready: bool = BossChaseService.can_deep_counter_strike(run)
+	_chase_deep_button.disabled = not deep_ready
+	var min_ch: float = float(run.map_data.get("chase_deep_counter_min_charge", 0.22))
+	if deep_ready:
+		_chase_deep_button.text = "深度反击"
+	elif charge < min_ch:
+		_chase_deep_button.text = "深度需蓄力"
+	else:
+		_chase_deep_button.text = "深度反击"
+
+
+func _on_chase_stagger_down() -> void:
+	_stagger_hold = true
+
+
+func _on_chase_stagger_up() -> void:
+	_stagger_hold = false
+	var main = get_tree().current_scene
+	if main and main.has_method("_on_chase_stagger_released"):
+		main._on_chase_stagger_released()
+
+
+func _on_chase_deep_pressed() -> void:
+	var main = get_tree().current_scene
+	if main and main.has_method("_on_chase_deep_counter_pressed"):
+		main._on_chase_deep_counter_pressed()
 
 
 func _process(delta: float) -> void:
+	var run: WorldRun = GameManager.current_run
+	var show_chase: bool = (
+		GameManager.state == GameManager.GameState.RUNNING
+		and run != null
+		and run.chase_combat_in_progress
+	)
+	if show_chase:
+		run.chase_stagger_holding = _stagger_hold
+		refresh_chase_combat_hud(run)
+	elif _chase_combat_panel and _chase_combat_panel.visible:
+		hide_chase_combat_panel()
 	if visible and _combat != null and _combat.is_active:
 		_refresh_all_hp_bars()
 		_sync_unit_positions()
@@ -66,6 +225,36 @@ func _process(delta: float) -> void:
 
 
 # ── 初始化 ──────────────────────────────────────────────
+
+func reset_march_scroll_binding() -> void:
+	_retreat_combat_scroll_anchor = 0.0
+	_battlefield_lane_shift = 0.0
+	_apply_battlefield_lane_shift()
+
+
+func begin_retreat_combat_scroll(scroll_x: float) -> void:
+	_retreat_combat_scroll_anchor = scroll_x
+
+
+func apply_march_lane_scroll(scroll_x: float, retreating: bool, in_combat: bool) -> void:
+	if not in_combat or not retreating:
+		if _battlefield_lane_shift != 0.0:
+			_battlefield_lane_shift = 0.0
+			_apply_battlefield_lane_shift()
+		return
+	var delta: float = scroll_x - _retreat_combat_scroll_anchor
+	var target_shift: float = delta * RETREAT_COMBAT_LANE_SHIFT_PER_M
+	if absf(target_shift - _battlefield_lane_shift) < 0.01:
+		return
+	_battlefield_lane_shift = target_shift
+	_apply_battlefield_lane_shift()
+
+
+func _apply_battlefield_lane_shift() -> void:
+	var lane := _ensure_battlefield_lane()
+	if lane != null:
+		lane.position.x = _battlefield_lane_shift
+
 
 func init_for_combat(combat: CombatController) -> void:
 	_combat = combat
@@ -264,6 +453,8 @@ func _on_damage_dealt(attacker_id: String, target_id: String, damage: int) -> vo
 
 
 func _on_entity_dead(entity: CombatEntity) -> void:
+	if entity.source_merc != null and TestScenarioService.test_merc_blocks_casualties(entity.source_merc):
+		return
 	if entity.is_downed():
 		var downed_view: UnitView = _unit_views.get(entity.entity_id, null)
 		if downed_view:
@@ -278,10 +469,15 @@ func _on_entity_dead(entity: CombatEntity) -> void:
 
 
 func _on_combat_ended(victory: bool) -> void:
+	hide_chase_combat_panel()
 	if victory:
 		_enqueue_log("[color=green]胜利![/color]")
 	else:
-		_enqueue_log("[color=red]全灭...[/color]")
+		var run = GameManager.current_run
+		if run != null and run.squad != null and run.squad.has_anyone_alive():
+			_enqueue_log("[color=orange]战败，紧急撤离…[/color]")
+		else:
+			_enqueue_log("[color=red]全灭...[/color]")
 	if _combat:
 		for line in _combat.get_battle_stats_lines():
 			_enqueue_log(line)
@@ -361,7 +557,10 @@ func _sync_one_unit_position(entity: CombatEntity) -> void:
 	if lane == null:
 		return
 	var lane_w: float = maxf(lane.size.x, BATTLEFIELD_LANE_MIN_WIDTH)
-	var x: float = BattlefieldSlots.logic_to_pixel(entity.position, lane_w)
+	var logic_x: float = entity.position
+	if _combat != null:
+		logic_x = clampf(logic_x, 0.0, BattlefieldSlots.BATTLEFIELD_WIDTH)
+	var x: float = BattlefieldSlots.logic_to_pixel(logic_x, lane_w)
 	view.position = Vector2(x, UNIT_BASELINE_Y)
 
 
@@ -433,14 +632,17 @@ func clear_log() -> void:
 
 ## 返程中战斗结束：保留面板可见，仅清单位，下一场接战会重建
 func prepare_between_encounters() -> void:
+	hide_chase_combat_panel()
 	_disconnect_all()
 	_combat = null
+	reset_march_scroll_binding()
 	_clear_battlefield_lane()
 	visible = true
 	show()
 
 
 func cleanup() -> void:
+	hide_chase_combat_panel()
 	_disconnect_all()
 	_combat = null
 	_clear_battlefield_lane()

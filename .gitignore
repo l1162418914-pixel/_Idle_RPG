@@ -6,6 +6,15 @@ export_presets.cfg
 
 # Logs
 *.log
+tools/godot_*.txt
+tools/benchmark_*.txt
+
+# Local scrap / downloader (not part of game)
+tools/mrdld_downloader/
+tools/author_99.html
+tools/mrdld_page_new.html
+tools/page_*.html
+tools/player_new.js
 
 # OS
 .DS_Store

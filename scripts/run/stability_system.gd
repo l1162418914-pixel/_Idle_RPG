@@ -29,6 +29,8 @@ var _player_influence: float = 0.0
 var _squad: Squad = null
 var _team_cost_multiplier: float = 1.0
 var _stability_loss_mult: float = 1.0
+var _disable_forced_retreat: bool = false
+var _disable_stability_drain: bool = false
 
 
 func init(player: Player, squad: Squad, starting_team: int = MAX_STABILITY, map_data: Dictionary = {}) -> void:
@@ -38,6 +40,8 @@ func init(player: Player, squad: Squad, starting_team: int = MAX_STABILITY, map_
 	team_stability = clampi(starting_team, 0, MAX_STABILITY)
 	base_decay_rate = 0.12 * float(map_data.get("stability_decay_mult", 1.0))
 	_stability_loss_mult = float(map_data.get("stability_loss_mult", 1.0))
+	_disable_forced_retreat = bool(map_data.get("disable_stability_forced_retreat", false))
+	_disable_stability_drain = bool(map_data.get("disable_stability_drain", false))
 	_decay_timer = 0.0
 	refresh_pressure_multipliers()
 
@@ -79,7 +83,7 @@ func get_min_personal_stability() -> int:
 
 
 func on_ally_hit(damage: int, victim: CombatEntity) -> void:
-	if damage <= 0:
+	if _disable_stability_drain or damage <= 0:
 		return
 	refresh_pressure_multipliers()
 	var ratio: float = float(damage) / float(maxi(1, victim.max_hp))
@@ -104,7 +108,7 @@ func on_ally_hit(damage: int, victim: CombatEntity) -> void:
 
 
 func tick(delta: float) -> void:
-	if team_stability <= 0:
+	if _disable_stability_drain or team_stability <= 0:
 		return
 	refresh_pressure_multipliers()
 	var decay: float = base_decay_rate * (1.0 - _player_influence) * delta * _team_cost_multiplier
@@ -116,6 +120,8 @@ func tick(delta: float) -> void:
 
 
 func on_member_down() -> void:
+	if _disable_stability_drain:
+		return
 	refresh_pressure_multipliers()
 	_apply_team_loss(15)
 
@@ -130,14 +136,14 @@ func on_boss_killed() -> void:
 
 
 func _apply_team_loss(base_amount: int) -> void:
-	if base_amount <= 0:
+	if _disable_stability_drain or base_amount <= 0:
 		return
 	var scaled: int = maxi(1, int(ceil(float(base_amount) * _team_cost_multiplier)))
 	modify_team_stability(-scaled)
 
 
 func _apply_personal_loss(merc: Mercenary, base_amount: int) -> void:
-	if merc == null or base_amount <= 0:
+	if _disable_stability_drain or merc == null or base_amount <= 0:
 		return
 	merc.modify_personal_stability(-base_amount)
 
@@ -147,11 +153,13 @@ func modify_team_stability(amount: int) -> void:
 	team_stability = clampi(team_stability + amount, 0, MAX_STABILITY)
 	if team_stability != prev:
 		team_stability_changed.emit(team_stability)
-		if team_stability <= TEAM_WITHDRAW_THRESHOLD:
+		if not _disable_forced_retreat and team_stability <= TEAM_WITHDRAW_THRESHOLD:
 			forced_withdraw.emit()
 
 
 func should_withdraw() -> bool:
+	if _disable_forced_retreat:
+		return false
 	return team_stability <= TEAM_WITHDRAW_THRESHOLD
 
 

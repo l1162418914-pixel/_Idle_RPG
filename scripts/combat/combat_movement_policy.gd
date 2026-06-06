@@ -85,6 +85,12 @@ class RetreatDriftMovementPolicy extends CombatMovementPolicy:
 
 
 class ChaseBossMovementPolicy extends RetreatDriftMovementPolicy:
+	func allows_downed_execute(host: CombatController) -> bool:
+		var run: WorldRun = host.get_world_run()
+		if run == null:
+			return false
+		return bool(run.map_data.get("chase_catch_executes_downed", false))
+
 	func uses_chase_pressure_slow() -> bool:
 		return true
 

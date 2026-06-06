@@ -17,6 +17,28 @@ static func ensure_formation(gm: Node) -> void:
 	_strip_player_from_halves(gm)
 	for half in [HALF_A, HALF_B]:
 		_refresh_half_slots(gm, half)
+	_purge_mia_and_dead_from_halves(gm)
+
+
+static func _merc_in_formation_pool(m: Mercenary) -> bool:
+	return m != null and m.is_alive and not m.is_mia
+
+
+static func _purge_mia_and_dead_from_halves(gm: GameManager) -> void:
+	if gm == null:
+		return
+	for half in [HALF_A, HALF_B]:
+		var active: Array[String] = get_active_ids(gm.squad_formation, half)
+		var bench: Array[String] = get_bench_ids(gm.squad_formation, half)
+		var kept_active: Array[String] = []
+		var kept_bench: Array[String] = []
+		for mid in active:
+			if _merc_in_formation_pool(gm.find_mercenary_by_id(mid)):
+				kept_active.append(mid)
+		for mid in bench:
+			if _merc_in_formation_pool(gm.find_mercenary_by_id(mid)):
+				kept_bench.append(mid)
+		gm.squad_formation[half] = {"active": kept_active, "bench": kept_bench}
 
 
 static func rebalance_from_roster(gm: GameManager) -> void:
@@ -26,7 +48,7 @@ static func rebalance_from_roster(gm: GameManager) -> void:
 	var in_b: Array[String] = _half_all_ids(gm.squad_formation, HALF_B)
 	for mid in all_ids:
 		var m := gm.find_mercenary_by_id(mid)
-		if m != null and not m.is_alive:
+		if not _merc_in_formation_pool(m) or not _merc_deploy_ready(m):
 			continue
 		if mid in in_a or mid in in_b:
 			continue
@@ -112,12 +134,21 @@ static func auto_fill_half(gm: GameManager, half: String) -> void:
 	var bench: Array[String] = get_bench_ids(gm.squad_formation, half)
 	active = _trim_slots(active, MAX_ACTIVE)
 	bench = _trim_slots(bench, MAX_BENCH)
-	while active.size() < MAX_ACTIVE and not bench.is_empty():
-		active.append(bench.pop_front())
+	var promote_scan := 0
+	while active.size() < MAX_ACTIVE and promote_scan < bench.size():
+		var promote_id: String = bench[promote_scan]
+		if _merc_deploy_ready(gm.find_mercenary_by_id(promote_id)):
+			active.append(promote_id)
+			bench.remove_at(promote_scan)
+		else:
+			promote_scan += 1
 	for mid in _merc_roster_ids(gm):
 		if mid in active or mid in bench:
 			continue
 		if mid in _half_all_ids(gm.squad_formation, other):
+			continue
+		var m := gm.find_mercenary_by_id(mid)
+		if not _merc_in_formation_pool(m) or not _merc_deploy_ready(m):
 			continue
 		if active.size() < MAX_ACTIVE:
 			active.append(mid)
@@ -237,6 +268,8 @@ static func heal_priority_mercs(gm: GameManager) -> Array[Mercenary]:
 		if m != null and m not in ordered:
 			ordered.append(m)
 	for m in gm._all_roster_mercs():
+		if m != null and m.is_mia:
+			continue
 		if m not in ordered:
 			ordered.append(m)
 	return ordered
@@ -280,6 +313,14 @@ static func _count_deployable_in_half(gm: GameManager, half: String) -> int:
 static func _merc_deploy_ready(m: Mercenary) -> bool:
 	if m == null or not m.is_alive:
 		return false
+	if m.is_test_stand_in:
+		return (
+			m.is_alive
+			and not m.is_mia
+			and not m.is_retreated
+			and not m.is_personal_break
+			and m.is_personal_stability_ok()
+		)
 	m.try_clear_near_death_for_deploy()
 	if m.is_mia or m.is_near_death or m.is_retreated or m.is_personal_break:
 		return false
@@ -310,7 +351,7 @@ static func _refresh_half_slots(gm: GameManager, half: String) -> void:
 		if _is_player_id(gm, mid):
 			continue
 		var m := gm.find_mercenary_by_id(mid)
-		if m == null or not m.is_alive:
+		if not _merc_in_formation_pool(m):
 			continue
 		if _merc_deploy_ready(m):
 			ready_active.append(mid)
@@ -320,11 +361,11 @@ static func _refresh_half_slots(gm: GameManager, half: String) -> void:
 		if _is_player_id(gm, mid):
 			continue
 		var m := gm.find_mercenary_by_id(mid)
-		if m == null or not m.is_alive:
+		if not _merc_in_formation_pool(m):
 			continue
 		new_bench.append(mid)
 	for mid in stalled_active:
-		if new_bench.size() < MAX_BENCH:
+		if new_bench.size() < MAX_BENCH and _merc_in_formation_pool(gm.find_mercenary_by_id(mid)):
 			new_bench.append(mid)
 	active = ready_active
 	var scan := 0
@@ -342,7 +383,7 @@ static func _refresh_half_slots(gm: GameManager, half: String) -> void:
 		if mid in _half_all_ids(gm.squad_formation, HALF_B if half == HALF_A else HALF_A):
 			continue
 		var m := gm.find_mercenary_by_id(mid)
-		if m == null or not m.is_alive or not _merc_deploy_ready(m):
+		if not _merc_in_formation_pool(m) or not _merc_deploy_ready(m):
 			continue
 		if active.size() < MAX_ACTIVE:
 			active.append(mid)
@@ -595,6 +636,18 @@ static func _merc_recovery_entry(gm: GameManager, merc_id: String, slot_kind: St
 	var hp_pct: float = float(m.current_hp) / float(max_hp)
 	var reason := ""
 	var ready: bool = _merc_deploy_ready(m)
+	if m.is_test_stand_in:
+		return {
+			"id": merc_id,
+			"name": m.merc_name,
+			"slot": slot_kind,
+			"hp_pct": 1.0,
+			"current_hp": max_hp,
+			"max_hp": max_hp,
+			"ready": true,
+			"reason": "测试·锁定",
+			"is_player": gm.player != null and gm.player.merc_id == merc_id,
+		}
 	if not m.is_alive:
 		reason = "阵亡"
 	elif m.is_mia:

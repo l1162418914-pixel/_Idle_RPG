@@ -52,13 +52,20 @@ var is_chase_encounter: bool = false
 signal on_death(entity_id: String)
 
 
+func _is_test_locked_ally() -> bool:
+	return team == Team.ALLY and source_merc != null and TestScenarioService.test_merc_blocks_casualties(source_merc)
+
+
 func init_from_merc(merc, prefix: String = "") -> void:
 	source_merc = merc
 	team = Team.ALLY
 	entity_id = prefix + merc.merc_id
 	display_name = merc.merc_name
 	recalc_from_merc()
-	current_hp = merc.current_hp
+	if TestScenarioService.test_merc_blocks_casualties(merc):
+		current_hp = max_hp
+	else:
+		current_hp = merc.current_hp
 	is_facing_right = true
 	_init_skill_cooldowns(merc)
 
@@ -142,9 +149,14 @@ func init_from_enemy(data: Dictionary) -> void:
 
 ## 技能直接伤害（简化，不走普攻闪避公式）
 func apply_direct_damage(amount: int) -> int:
+	if is_downed():
+		return _apply_downed_damage(amount)
 	if is_incapacitated():
 		return 0
 	var dmg := BattleDebug.scale_damage(maxi(1, amount))
+	if _is_test_locked_ally():
+		current_hp = maxi(1, current_hp - dmg)
+		return dmg
 	current_hp -= dmg
 	if current_hp <= 0:
 		if _try_enter_downed_instead_of_death():
@@ -180,6 +192,11 @@ func deal_damage_to(target) -> int:
 	
 	raw_damage = max(1, raw_damage)
 	raw_damage = BattleDebug.scale_damage(raw_damage)
+	if target._is_test_locked_ally():
+		target.current_hp = maxi(1, target.current_hp - raw_damage)
+		return raw_damage
+	if target.is_downed():
+		return target._apply_downed_damage(raw_damage)
 	target.current_hp -= raw_damage
 	
 	if target.current_hp <= 0:
@@ -211,8 +228,35 @@ func can_fight() -> bool:
 	return not is_incapacitated()
 
 
-func _try_enter_downed_instead_of_death() -> bool:
+func _apply_downed_damage(amount: int) -> int:
 	if team != Team.ALLY or source_merc == null:
+		return 0
+	var merc: Mercenary = source_merc as Mercenary
+	if merc == null:
+		return 0
+	if TestScenarioService.test_merc_blocks_casualties(merc):
+		current_hp = maxi(1, current_hp - amount)
+		return amount
+	var dmg: int = BattleDebug.scale_damage(maxi(1, amount))
+	var overflow: int = merc.absorb_near_death_shield_damage(dmg)
+	if overflow <= 0:
+		return dmg
+	if merc.merc_type == Mercenary.MercType.PLAYER and GameManager.current_run != null:
+		var summary: Dictionary = PlayerForcedReturnService.apply_combat_fall(
+			GameManager.current_run, merc as Player, self
+		)
+		if not bool(summary.get("mercs_continue", false)):
+			on_death.emit(entity_id)
+		return dmg
+	if merc.try_enter_mia_from_downed_kill():
+		current_hp = 0
+		action_state = ActionState.DEAD
+		on_death.emit(entity_id)
+	return dmg
+
+
+func _try_enter_downed_instead_of_death() -> bool:
+	if team != Team.ALLY or source_merc == null or TestScenarioService.test_merc_blocks_casualties(source_merc):
 		return false
 	current_hp = 1
 	action_state = ActionState.DOWNED

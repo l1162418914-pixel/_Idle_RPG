@@ -40,19 +40,35 @@ var enemy_formation_gap: float = BattlefieldSlots.SLOT_GAP
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _world_run: WorldRun = null
 var _movement_policy: CombatMovementPolicy = CombatMovementPolicy.AdvanceMovementPolicy.new()
-var _projectiles: Array[Dictionary] = []
+var _projectile_system: CombatProjectileSystem = null
+var _skill_executor: CombatSkillExecutor = null
 var _downed_execute_elapsed: float = 0.0
+var _party_anchor_shift: float = 0.0
 
 
 func _init() -> void:
 	_rng.randomize()
 
 
-func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> void:
+func get_party_anchor_shift() -> float:
+	return _party_anchor_shift
+
+
+func init_combat(
+	squad: Squad,
+	enemy_data_list: Array,
+	world_run: WorldRun,
+	party_anchor_distance: float = -1.0
+) -> void:
 	_world_run = world_run
 	_movement_policy = CombatMovementPolicy.AdvanceMovementPolicy.new()
 	allies.clear()
 	enemies.clear()
+	var anchor_dist: float = party_anchor_distance
+	if anchor_dist < 0.0:
+		anchor_dist = world_run.distance_traveled if world_run != null else 0.0
+	var max_dist: float = world_run.max_distance if world_run != null else BattlefieldSlots.BATTLEFIELD_WIDTH
+	_party_anchor_shift = BattlefieldSlots.distance_to_anchor_shift(anchor_dist, max_dist)
 	
 	# 友方实体（含濒死 — 需可视化；濒死单位不攻击、不移动）
 	# CQ 编队：远程后排（低 x）、近战前排（高 x）
@@ -62,11 +78,13 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 	)
 	for i in range(battlefield.size()):
 		var m: Mercenary = battlefield[i]
-		m.try_clear_near_death_for_deploy()
+		# 返程/追击接战：保留濒死状态，避免倒地单位被当成可撤离战斗员
+		if _world_run == null or not _world_run.is_retreating:
+			m.try_clear_near_death_for_deploy()
 		var e := CombatEntity.new()
 		e.init_from_merc(m, "ally_")
 		e.formation_slot = i
-		e.position = BattlefieldSlots.ally_slot_x(i)
+		e.position = BattlefieldSlots.ally_position_at_slot(i, _party_anchor_shift)
 		e.spawn_anchor_x = e.position
 		if m.is_awakening:
 			e.current_hp = maxi(1, m.current_hp)
@@ -87,7 +105,7 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 		var e = CombatEntity.new()
 		e.init_from_enemy(data)
 		e.formation_slot = i
-		e.position = BattlefieldSlots.enemy_slot_x(i)
+		e.position = BattlefieldSlots.enemy_position_at_slot(i, _party_anchor_shift)
 		e.spawn_anchor_x = e.position
 		e.on_death.connect(_on_enemy_death)
 		enemies.append(e)
@@ -101,7 +119,9 @@ func init_combat(squad: Squad, enemy_data_list: Array, world_run: WorldRun) -> v
 	
 	if _movement_policy.reposition_downed_on_start():
 		_reposition_all_downed_allies()
-	_projectiles.clear()
+	_projectile_system = CombatProjectileSystem.new(self)
+	_skill_executor = CombatSkillExecutor.new(self, _projectile_system)
+	_projectile_system.clear()
 	_downed_execute_elapsed = 0.0
 	
 	is_active = true
@@ -133,6 +153,7 @@ func tick(delta: float) -> Dictionary:
 	
 	combat_time += delta
 	var events: Array[Dictionary] = []
+	_sync_pressure_downed_allies()
 	
 	# Tick ally buffs / 技能冷却 and sync stats
 	for entity in allies:
@@ -154,7 +175,8 @@ func tick(delta: float) -> Dictionary:
 	for entity in enemies:
 		_movement_policy.tick_enemy(self, entity, allies, delta, events)
 	
-	_tick_projectiles(delta, events)
+	if _projectile_system:
+		_projectile_system.tick(delta, events)
 	
 	# 检查胜负
 	var ally_alive = _count_fighting(allies)
@@ -166,7 +188,7 @@ func tick(delta: float) -> Dictionary:
 		is_active = false
 		result.status = "defeat"
 		combat_ended.emit(false)
-	elif ally_alive == 0:
+	elif ally_alive == 0 or _should_force_chase_squad_execute_defeat():
 		if _movement_policy.allows_downed_execute(self):
 			_downed_execute_elapsed += delta
 			if _downed_execute_elapsed >= CHASE_DOWNED_EXECUTE_GRACE:
@@ -201,7 +223,7 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 	
 	match entity.action_state:
 		CombatEntity.ActionState.IDLE, CombatEntity.ActionState.MOVING:
-			var attack_target: CombatEntity = _find_nearest_in_range(
+			var attack_target: CombatEntity = find_nearest_in_range(
 				opponents, entity.position, entity.attack_range, fighters_only
 			)
 			var move_target: CombatEntity = _find_nearest_alive(opponents, entity.position, fighters_only)
@@ -219,10 +241,10 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 				else:
 					entity.action_state = CombatEntity.ActionState.MOVING
 					_move_toward_attack_range(entity, move_target, delta)
-				attack_target = _find_nearest_in_range(
+				attack_target = find_nearest_in_range(
 					opponents, entity.position, entity.attack_range, fighters_only
 				)
-			elif entity.is_ranged_unit():
+			elif entity.is_ranged_unit() and is_ally:
 				_hold_ranged_position(entity, delta)
 			
 			if attack_target:
@@ -234,9 +256,9 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 				entity.action_state = CombatEntity.ActionState.MOVING
 		
 		CombatEntity.ActionState.ATTACKING:
-			if entity.is_ranged_unit():
+			if entity.is_ranged_unit() and is_ally:
 				_hold_ranged_position(entity, delta)
-			var attack_target: CombatEntity = _find_nearest_in_range(
+			var attack_target: CombatEntity = find_nearest_in_range(
 				opponents, entity.position, entity.attack_range, fighters_only
 			)
 			if attack_target == null:
@@ -264,34 +286,9 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 
 
 func _try_cast_active_skill(caster: CombatEntity, opponents: Array, ally_list: Array, events: Array) -> bool:
-	if caster.source_merc == null:
+	if _skill_executor == null:
 		return false
-	for skill_id in caster.source_merc.active_skills:
-		var sid: String = str(skill_id)
-		if not caster.is_skill_ready(sid):
-			continue
-		if not SkillSystem.is_active_skill(sid):
-			continue
-		var skill_data: Dictionary = DataLoader.skill_template(sid)
-		if skill_data.is_empty():
-			continue
-		if not _can_cast_skill_at_range(caster, skill_data, opponents, ally_list):
-			continue
-		if _execute_active_skill(caster, sid, opponents, ally_list, events):
-			return true
-	return false
-
-
-func _can_cast_skill_at_range(caster: CombatEntity, skill_data: Dictionary, opponents: Array, ally_list: Array) -> bool:
-	var effect_type: String = skill_data.get("effect_type", "")
-	match effect_type:
-		"heal_ally", "buff_self":
-			return true
-		"damage_magic", "damage_multi":
-			var cast_range: float = SkillSystem.get_skill_cast_range(skill_data, caster.attack_range)
-			return _find_nearest_in_range(opponents, caster.position, cast_range) != null
-		_:
-			return false
+	return _skill_executor.try_cast_active_skill(caster, opponents, ally_list, events)
 
 
 func movement_tick_ally_advance(
@@ -319,14 +316,18 @@ func movement_tick_ally_retreat(
 	delta: float,
 	events: Array
 ) -> void:
+	if entity.is_dead():
+		return
+	if entity.is_downed():
+		# 濒死：随队后撤（移速倍率见 _ally_retreat_speed_mult），不攻击
+		_drift_homeward(entity, delta)
+		return
 	if entity.is_awakening():
 		pass
-	elif entity.is_downed():
-		return
 	_drift_homeward(entity, delta)
 	if _try_cast_active_skill(entity, opponents, ally_list, events):
 		return
-	var attack_target: CombatEntity = _find_nearest_in_range(
+	var attack_target: CombatEntity = find_nearest_in_range(
 		opponents, entity.position, entity.attack_range
 	)
 	if attack_target == null:
@@ -401,15 +402,16 @@ func movement_tick_enemy_retreat(
 ) -> void:
 	if entity.is_incapacitated():
 		return
-	var step: float = _enemy_chase_step(entity, delta)
-	entity.position = maxf(0.0, entity.position - step)
-	entity.is_facing_right = false
-	var attack_target: CombatEntity = _find_nearest_in_range(
-		allies, entity.position, entity.attack_range
-	)
+	var chase_target: CombatEntity = _find_enemy_chase_move_target(allies, entity.position)
+	if chase_target == null:
+		entity.action_state = CombatEntity.ActionState.IDLE
+		entity.current_target = null
+		return
+	_enemy_retreat_chase_step_toward(entity, chase_target, delta)
+	var attack_target: CombatEntity = _find_enemy_attack_target(allies, entity.position, entity.attack_range)
 	if attack_target == null:
 		entity.action_state = CombatEntity.ActionState.MOVING
-		entity.current_target = null
+		entity.current_target = chase_target
 		return
 	entity.current_target = attack_target
 	entity.action_state = CombatEntity.ActionState.ATTACKING
@@ -418,6 +420,32 @@ func movement_tick_enemy_retreat(
 	if entity.attack_timer >= cooldown:
 		entity.attack_timer = 0.0
 		_do_attack(entity, attack_target, events)
+
+
+## 返程/追击：向最近目标逼近至射程，避免盲向左冲越过友方导致永远打不到。
+func _enemy_retreat_chase_step_toward(
+	entity: CombatEntity, target: CombatEntity, delta: float
+) -> void:
+	var dist: float = abs(entity.position - target.position)
+	if dist <= entity.attack_range + 0.01:
+		entity.is_facing_right = target.position > entity.position
+		return
+	var dir: float = 1.0 if target.position > entity.position else -1.0
+	var step: float = _enemy_chase_step(entity, delta)
+	var ideal_pos: float = _melee_ideal_position(entity, target, dir)
+	if dir > 0.0:
+		entity.position = minf(entity.position + step, ideal_pos)
+	else:
+		entity.position = maxf(entity.position - step, ideal_pos)
+	entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
+	entity.is_facing_right = target.position > entity.position
+
+
+func _find_enemy_chase_move_target(ally_list: Array, from_pos: float) -> CombatEntity:
+	var prefer_fighters: bool = (
+		_movement_policy.allows_downed_execute(self) and _any_ally_fighter_on_field()
+	)
+	return _find_nearest_alive(ally_list, from_pos, prefer_fighters)
 
 
 ## 近战接敌理想 X：前排贴射程，后排按 formation_slot 逐级后撤，避免共抢同一点。
@@ -440,8 +468,19 @@ func _melee_ideal_position(entity: CombatEntity, target: CombatEntity, dir: floa
 	return contact - dir * float(depth_enemy) * enemy_formation_gap
 
 
+func _is_advance_lane_engagement() -> bool:
+	return _movement_policy is CombatMovementPolicy.AdvanceMovementPolicy
+
+
+func _set_entity_position_x(entity: CombatEntity, new_x: float) -> void:
+	var x: float = clampf(new_x, 0.0, BATTLEFIELD_WIDTH)
+	if entity.team == CombatEntity.Team.ENEMY and _is_advance_lane_engagement():
+		x = minf(x, entity.position)
+	entity.position = x
+
+
 func _move_toward_attack_range(entity: CombatEntity, target: CombatEntity, delta: float) -> void:
-	if entity.is_ranged_unit():
+	if entity.is_ranged_unit() and entity.team == CombatEntity.Team.ALLY:
 		_hold_ranged_position(entity, delta)
 		return
 	var dist: float = abs(entity.position - target.position)
@@ -451,10 +490,9 @@ func _move_toward_attack_range(entity: CombatEntity, target: CombatEntity, delta
 	var ideal_pos: float = _melee_ideal_position(entity, target, dir)
 	var step: float = entity.move_speed * delta
 	if dir > 0.0:
-		entity.position = minf(entity.position + step, ideal_pos)
+		_set_entity_position_x(entity, minf(entity.position + step, ideal_pos))
 	else:
-		entity.position = maxf(entity.position - step, ideal_pos)
-	entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
+		_set_entity_position_x(entity, maxf(entity.position - step, ideal_pos))
 	entity.is_facing_right = dir > 0.0
 
 
@@ -469,114 +507,13 @@ func _hold_ranged_position(entity: CombatEntity, delta: float) -> void:
 	else:
 		var min_x: float = entity.spawn_anchor_x - RANGED_MAX_ADVANCE
 		if entity.position < min_x:
-			entity.position = minf(entity.spawn_anchor_x, entity.position + step)
+			_set_entity_position_x(entity, minf(entity.spawn_anchor_x, entity.position + step))
 		entity.is_facing_right = false
-	entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
+	if entity.team == CombatEntity.Team.ALLY:
+		entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
 
 
-func _execute_active_skill(caster: CombatEntity, skill_id: String, opponents: Array, ally_list: Array, events: Array) -> bool:
-	var skill_data: Dictionary = DataLoader.skill_template(skill_id)
-	if skill_data.is_empty():
-		return false
-	var merc = caster.source_merc
-	var skill_name: String = skill_data.get("name", skill_id)
-	var effect_type: String = skill_data.get("effect_type", "")
-	var log_text := ""
-	var did_something := false
-	
-	match effect_type:
-		"damage_magic":
-			return _cast_damage_magic_skill(caster, skill_id, skill_data, skill_name, opponents, events, merc)
-		
-		"damage_multi":
-			return _cast_damage_multi_skill(caster, skill_id, skill_data, skill_name, opponents, events, merc)
-		
-		"heal_ally":
-			var ally_target: CombatEntity = _find_lowest_hp_ally(ally_list)
-			if ally_target == null:
-				return false
-			var heal_power: int = int(SkillSystem.compute_active_power(skill_data, merc.level))
-			var healed: int = ally_target.heal_amount(heal_power)
-			log_text = "%s 施放[%s] 治疗 %s +%d HP" % [
-				_entity_short_name(caster), skill_name, _entity_short_name(ally_target), healed
-			]
-			events.append({"type": "skill_heal", "caster": caster.entity_id, "target": ally_target.entity_id, "amount": healed})
-			did_something = healed > 0
-		
-		"buff_self":
-			var buff: Dictionary = skill_data.get("buff", {})
-			var stat: String = buff.get("stat", "pdef")
-			var value: float = float(buff.get("value", 5))
-			var duration: float = float(buff.get("duration", 4.0))
-			merc.buff_system.apply_buff(skill_id, stat, value, duration)
-			caster.recalc_from_merc()
-			log_text = "%s 施放[%s] %s+%.0f (%.0fs)" % [_entity_short_name(caster), skill_name, stat, value, duration]
-			did_something = true
-		
-		_:
-			return false
-	
-	if not did_something:
-		return false
-	
-	caster.set_skill_cooldown(skill_id, SkillSystem.get_active_cooldown(skill_id))
-	skill_cast.emit(caster.entity_id, skill_id, skill_name, log_text)
-	events.append({
-		"type": "skill_cast",
-		"caster": caster.entity_id,
-		"skill_id": skill_id,
-		"text": log_text
-	})
-	return true
-
-
-func _cast_damage_magic_skill(
-	caster: CombatEntity,
-	skill_id: String,
-	skill_data: Dictionary,
-	skill_name: String,
-	opponents: Array,
-	events: Array,
-	merc
-) -> bool:
-	var cast_range: float = SkillSystem.get_skill_cast_range(skill_data, caster.attack_range)
-	var target: CombatEntity = _find_nearest_in_range(opponents, caster.position, cast_range)
-	if target == null:
-		return false
-	caster.set_skill_cooldown(skill_id, SkillSystem.get_active_cooldown(skill_id))
-	var log_text := "%s 施放[%s] → %s" % [
-		_entity_short_name(caster), skill_name, _entity_short_name(target)
-	]
-	_emit_skill_cast(caster, skill_id, skill_name, log_text, events)
-	_fire_skill_magic_projectile(caster, target, skill_id, skill_data, skill_name, merc)
-	return true
-
-
-func _cast_damage_multi_skill(
-	caster: CombatEntity,
-	skill_id: String,
-	skill_data: Dictionary,
-	skill_name: String,
-	opponents: Array,
-	events: Array,
-	merc
-) -> bool:
-	var cast_range: float = SkillSystem.get_skill_cast_range(skill_data, caster.attack_range)
-	var target: CombatEntity = _find_nearest_in_range(opponents, caster.position, cast_range)
-	if target == null:
-		return false
-	var hits: int = maxi(1, int(skill_data.get("hits", 3)))
-	var scale: float = float(skill_data.get("power_scale", 0.45))
-	caster.set_skill_cooldown(skill_id, SkillSystem.get_active_cooldown(skill_id))
-	var log_text := "%s 施放[%s] 连射 %d× → %s" % [
-		_entity_short_name(caster), skill_name, hits, _entity_short_name(target)
-	]
-	_emit_skill_cast(caster, skill_id, skill_name, log_text, events)
-	_fire_skill_multi_projectiles(caster, target, skill_id, skill_data, skill_name, hits, scale, merc)
-	return true
-
-
-func _emit_skill_cast(
+func emit_skill_cast(
 	caster: CombatEntity,
 	skill_id: String,
 	skill_name: String,
@@ -592,66 +529,7 @@ func _emit_skill_cast(
 	})
 
 
-func _calc_projectile_travel(attacker: CombatEntity, target: CombatEntity) -> float:
-	var dist: float = abs(attacker.position - target.position)
-	return clampf(dist / PROJECTILE_SPEED, PROJECTILE_MIN_TRAVEL, PROJECTILE_MAX_TRAVEL)
-
-
-func _fire_skill_magic_projectile(
-	caster: CombatEntity,
-	target: CombatEntity,
-	skill_id: String,
-	skill_data: Dictionary,
-	skill_name: String,
-	merc
-) -> void:
-	if target.is_dead():
-		return
-	var travel: float = _calc_projectile_travel(caster, target)
-	_projectiles.append({
-		"kind": "skill_magic",
-		"attacker": caster,
-		"target": target,
-		"time_left": travel,
-		"skill_id": skill_id,
-		"skill_data": skill_data,
-		"merc": merc,
-	})
-	skill_projectile_launched.emit(
-		caster.entity_id, target.entity_id, skill_id, skill_name, travel, "magic"
-	)
-
-
-func _fire_skill_multi_projectiles(
-	caster: CombatEntity,
-	target: CombatEntity,
-	skill_id: String,
-	skill_data: Dictionary,
-	skill_name: String,
-	hits: int,
-	scale: float,
-	merc
-) -> void:
-	if target.is_dead():
-		return
-	var base_travel: float = _calc_projectile_travel(caster, target)
-	var hit_dmg: int = maxi(1, int(caster.patk * scale))
-	for i in range(hits):
-		var travel: float = base_travel + float(i) * SKILL_MULTI_HIT_STAGGER
-		_projectiles.append({
-			"kind": "skill_multi",
-			"attacker": caster,
-			"target": target,
-			"time_left": travel,
-			"damage": hit_dmg,
-			"merc": merc,
-		})
-		skill_projectile_launched.emit(
-			caster.entity_id, target.entity_id, skill_id, skill_name, travel, "arrow"
-		)
-
-
-func _append_skill_damage_events(caster: CombatEntity, target: CombatEntity, dmg: int, events: Array, merc) -> void:
+func append_skill_damage_events(caster: CombatEntity, target: CombatEntity, dmg: int, events: Array, merc) -> void:
 	if dmg <= 0:
 		return
 	_record_damage(caster, target, dmg)
@@ -675,7 +553,7 @@ func _append_skill_damage_events(caster: CombatEntity, target: CombatEntity, dmg
 			merc.run_kills += 1
 
 
-func _find_lowest_hp_ally(ally_list: Array) -> CombatEntity:
+func find_lowest_hp_ally(ally_list: Array) -> CombatEntity:
 	var best: CombatEntity = null
 	var best_ratio := 2.0
 	for e in ally_list:
@@ -688,7 +566,7 @@ func _find_lowest_hp_ally(ally_list: Array) -> CombatEntity:
 	return best
 
 
-func _entity_short_name(entity: CombatEntity) -> String:
+func entity_short_name(entity: CombatEntity) -> String:
 	if entity.source_merc:
 		return entity.source_merc.merc_name
 	return entity.entity_id
@@ -696,77 +574,18 @@ func _entity_short_name(entity: CombatEntity) -> String:
 
 func _do_attack(attacker: CombatEntity, target: CombatEntity, events: Array) -> void:
 	if attacker.is_ranged_unit():
-		_fire_projectile_attack(attacker, target)
+		if _projectile_system:
+			_projectile_system.fire_ranged_basic(attacker, target)
 	else:
 		_do_melee_attack(attacker, target, events)
 
 
 func _do_melee_attack(attacker: CombatEntity, target: CombatEntity, events: Array) -> void:
 	attack_started.emit(attacker.entity_id, target.entity_id, 0.0)
-	_apply_attack_hit(attacker, target, events)
+	apply_attack_hit(attacker, target, events)
 
 
-func _fire_projectile_attack(attacker: CombatEntity, target: CombatEntity) -> void:
-	if target.is_dead():
-		return
-	var dist: float = abs(attacker.position - target.position)
-	var travel: float = clampf(
-		dist / PROJECTILE_SPEED, PROJECTILE_MIN_TRAVEL, PROJECTILE_MAX_TRAVEL
-	)
-	attack_started.emit(attacker.entity_id, target.entity_id, travel)
-	_projectiles.append({
-		"kind": "ranged_basic",
-		"attacker": attacker,
-		"target": target,
-		"time_left": travel,
-	})
-
-
-func _tick_projectiles(delta: float, events: Array) -> void:
-	var i: int = 0
-	while i < _projectiles.size():
-		var shot: Dictionary = _projectiles[i]
-		var attacker: CombatEntity = shot.get("attacker") as CombatEntity
-		var target: CombatEntity = shot.get("target") as CombatEntity
-		shot["time_left"] = float(shot.get("time_left", 0.0)) - delta
-		if shot["time_left"] > 0.0:
-			i += 1
-			continue
-		_projectiles.remove_at(i)
-		if attacker == null or target == null or attacker.is_dead() or target.is_dead():
-			continue
-		if not is_active:
-			continue
-		var kind: String = str(shot.get("kind", "ranged_basic"))
-		match kind:
-			"skill_magic":
-				_apply_skill_magic_hit(attacker, target, shot, events)
-			"skill_multi":
-				_apply_skill_multi_hit(attacker, target, shot, events)
-			_:
-				_apply_attack_hit(attacker, target, events)
-
-
-func _apply_skill_magic_hit(attacker: CombatEntity, target: CombatEntity, shot: Dictionary, events: Array) -> void:
-	if target.is_dead():
-		return
-	var skill_data: Dictionary = shot.get("skill_data", {})
-	var merc = shot.get("merc")
-	var level: int = merc.level if merc else 1
-	var power: int = int(SkillSystem.compute_active_power(skill_data, level))
-	var dmg: int = target.apply_direct_damage(int(attacker.matk * 0.6) + power)
-	_append_skill_damage_events(attacker, target, dmg, events, merc)
-
-
-func _apply_skill_multi_hit(attacker: CombatEntity, target: CombatEntity, shot: Dictionary, events: Array) -> void:
-	if target.is_dead():
-		return
-	var dmg: int = int(shot.get("damage", 1))
-	dmg = target.apply_direct_damage(dmg)
-	_append_skill_damage_events(attacker, target, dmg, events, shot.get("merc"))
-
-
-func _apply_attack_hit(attacker: CombatEntity, target: CombatEntity, events: Array) -> void:
+func apply_attack_hit(attacker: CombatEntity, target: CombatEntity, events: Array) -> void:
 	var dmg: int = attacker.deal_damage_to(target)
 	_record_damage(attacker, target, dmg)
 	events.append({
@@ -858,7 +677,35 @@ func _find_nearest_alive(entities: Array, from_pos: float, fighters_only: bool =
 	return best
 
 
-func _find_nearest_in_range(
+func _should_force_chase_squad_execute_defeat() -> bool:
+	if not _movement_policy.allows_downed_execute(self) or _world_run == null:
+		return false
+	var squad: Squad = _world_run.squad
+	if squad == null or not squad.has_anyone_alive():
+		return false
+	return squad.get_combat_ready_count() == 0
+
+
+func _any_ally_fighter_on_field() -> bool:
+	for e in allies:
+		if not e.is_dead() and e.can_fight():
+			return true
+	return false
+
+
+## 追击处决接战：场上仍有可战队员时，首领优先打可战目标，避免只刷濒死导致战斗永不结束。
+func _find_enemy_attack_target(
+	ally_list: Array, from_pos: float, max_range: float
+) -> CombatEntity:
+	var prefer_fighters: bool = (
+		_movement_policy.allows_downed_execute(self) and _any_ally_fighter_on_field()
+	)
+	if prefer_fighters:
+		return find_nearest_in_range(ally_list, from_pos, max_range, true)
+	return find_nearest_in_range(ally_list, from_pos, max_range, false)
+
+
+func find_nearest_in_range(
 	entities: Array, from_pos: float, max_range: float, fighters_only: bool = false
 ) -> CombatEntity:
 	var best: CombatEntity = null
@@ -882,7 +729,7 @@ func _find_nearest_in_range(
 func _reposition_downed_to_rear(downed: CombatEntity) -> void:
 	if downed.team != CombatEntity.Team.ALLY or not downed.is_downed():
 		return
-	var rear_x: float = ALLY_SPAWN_X
+	var rear_x: float = ALLY_SPAWN_X + _party_anchor_shift
 	var has_fighter := false
 	for e in allies:
 		if e.is_dead() or e == downed:
@@ -893,7 +740,7 @@ func _reposition_downed_to_rear(downed: CombatEntity) -> void:
 	if has_fighter:
 		downed.position = maxf(0.0, rear_x - ally_formation_gap)
 	else:
-		downed.position = ALLY_SPAWN_X
+		downed.position = ALLY_SPAWN_X + _party_anchor_shift
 	downed.is_facing_right = false
 
 
@@ -928,7 +775,7 @@ func count_allies_on_field() -> int:
 
 
 func _handle_ally_incapacitated(target: CombatEntity) -> void:
-	if target.source_merc and not target.source_merc.is_near_death:
+	if target.source_merc and not TestScenarioService.test_merc_blocks_casualties(target.source_merc) and not target.source_merc.is_near_death:
 		target.source_merc.enter_near_death_state(0.05)
 	entity_dead.emit(target)
 
@@ -945,7 +792,7 @@ func _on_ally_death(entity_id: String) -> void:
 	for e in allies:
 		if e.entity_id == entity_id and e.source_merc:
 			var merc: Mercenary = e.source_merc as Mercenary
-			if not merc.is_near_death:
+			if not TestScenarioService.test_merc_blocks_casualties(merc) and not merc.is_near_death:
 				merc.enter_near_death_state(0.05)
 			entity_dead.emit(e)
 			break
@@ -981,22 +828,96 @@ func _entity_snapshot(e: CombatEntity) -> Dictionary:
 
 
 func force_end() -> void:
-	_projectiles.clear()
+	if _projectile_system:
+		_projectile_system.clear()
 	is_active = false
 	combat_ended.emit(false)
 
 
 ## 战斗结束后将存活友方实体的 HP 写回源 Mercenary（阵亡者由 on_death 已处理）
+func _sync_pressure_downed_allies() -> void:
+	for entity in allies:
+		if entity.is_dead() or entity.is_downed():
+			continue
+		var merc: Mercenary = entity.source_merc as Mercenary
+		if merc == null or merc.is_mia or not merc.is_near_death:
+			continue
+		entity.current_hp = maxi(1, int(float(entity.max_hp) * 0.05))
+		entity.action_state = CombatEntity.ActionState.DOWNED
+
+
+func eject_pressure_substitute(outgoing: Mercenary) -> bool:
+	if outgoing == null:
+		return false
+	for entity in allies.duplicate():
+		if entity.source_merc == outgoing:
+			allies.erase(entity)
+			return true
+	return false
+
+
+func deploy_pressure_substitute(incoming: Mercenary, preferred_slot: int = -1) -> bool:
+	if incoming == null:
+		return false
+	for entity in allies:
+		if entity.source_merc == incoming:
+			return false
+	var entity := CombatEntity.new()
+	entity.init_from_merc(incoming, "ally_")
+	var slot: int = preferred_slot
+	if slot < 0:
+		slot = 0
+		for e in allies:
+			slot = maxi(slot, e.formation_slot + 1)
+	entity.formation_slot = maxi(0, slot)
+	entity.position = BattlefieldSlots.ally_slot_x(entity.formation_slot)
+	entity.spawn_anchor_x = entity.position
+	entity.on_death.connect(_on_ally_death)
+	allies.append(entity)
+	_init_entity_stats(entity)
+	BattleDebug.apply_entity_modifiers(entity)
+	return true
+
+
+func swap_pressure_substitute(outgoing: Mercenary, incoming: Mercenary) -> bool:
+	if outgoing == null or incoming == null:
+		return false
+	var slot: int = -1
+	var old_entity: CombatEntity = null
+	for entity in allies:
+		if entity.source_merc == outgoing:
+			old_entity = entity
+			slot = entity.formation_slot
+			break
+	if old_entity == null:
+		return false
+	allies.erase(old_entity)
+	var entity := CombatEntity.new()
+	entity.init_from_merc(incoming, "ally_")
+	entity.formation_slot = maxi(0, slot)
+	entity.position = BattlefieldSlots.ally_slot_x(entity.formation_slot)
+	entity.spawn_anchor_x = entity.position
+	entity.on_death.connect(_on_ally_death)
+	allies.append(entity)
+	_init_entity_stats(entity)
+	BattleDebug.apply_entity_modifiers(entity)
+	return true
+
+
 func sync_allies_hp_to_mercs() -> void:
 	for entity in allies:
 		if entity.source_merc == null or entity.is_dead():
 			continue
 		var merc: Mercenary = entity.source_merc
+		if TestScenarioService.test_merc_blocks_casualties(merc):
+			merc.current_hp = merc.get_max_hp_value()
+			merc.is_alive = true
+			continue
 		var floor_hp: int = 1 if entity.is_downed() or merc.is_near_death else 0
 		merc.current_hp = maxi(floor_hp, entity.current_hp)
 		merc.is_alive = true
 		merc.clamp_hp_to_max()
-		if entity.is_downed() and not merc.is_near_death:
+		if entity.is_downed() and not TestScenarioService.test_merc_blocks_casualties(merc) and not merc.is_near_death:
 			merc.enter_near_death_state(maxf(0.05, merc.get_hp_ratio()))
 		elif not entity.is_downed() and not merc.is_near_death:
 			merc.try_clear_near_death_for_deploy()

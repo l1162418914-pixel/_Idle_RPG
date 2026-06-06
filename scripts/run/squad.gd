@@ -76,7 +76,7 @@ func all_dead() -> bool:
 func get_combat_ready_members() -> Array[Mercenary]:
 	var list: Array[Mercenary] = []
 	for m in members:
-		if m.is_alive and not m.is_retreated:
+		if m.is_alive and not m.is_retreated and not m.is_mia:
 			if m.is_awakening or not m.is_near_death:
 				list.append(m)
 	return list
@@ -86,7 +86,7 @@ func get_combat_ready_members() -> Array[Mercenary]:
 func get_battlefield_members() -> Array[Mercenary]:
 	var list: Array[Mercenary] = []
 	for m in members:
-		if m.is_alive and not m.is_retreated:
+		if m.is_alive and not m.is_retreated and not m.is_mia:
 			list.append(m)
 	return list
 

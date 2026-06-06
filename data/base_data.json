@@ -54,6 +54,17 @@
       "effects": {
         "inventory_slots": [30, 35, 40, 45, 50, 55, 60, 70, 80, 100]
       }
+    },
+    {
+      "building_id": "rescue_station",
+      "name": "救援站",
+      "description": "解锁第三队救援队与停尸间运尸链（Lv.1 起用）",
+      "max_level": 3,
+      "upgrade_costs": { "gold": [800, 2000, 5000] },
+      "effects": {
+        "unlock_rescue": [false, true, true],
+        "rescue_squad_slots": [0, 3, 4]
+      }
     }
   ],
   "resources": {
