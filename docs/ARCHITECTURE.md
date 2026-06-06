@@ -68,22 +68,51 @@ BASE → PREPARE → RUNNING → RESULT → BASE
 
 ## 三、出征与战斗分层
 
+### 三-A、现网驱动（重构完成前仍有效）
+
 ```
-main.gd（唯一驱动循环）
+main.gd / RunDriver（唯一驱动循环）
     ├─ WorldRun.tick()          行程、稳定度、撤离、追击
-    └─ CombatController.tick()  接战时的横版战斗
+    └─ EncounterSession → CombatController.tick()  接战
 ```
 
 ### 必须
 
-- **`WorldRun.run_event`** 由 `main.gd._on_world_run_event` 集中消费 → 再转 `RunUI` 提示；子系统只 `emit`，不直接操作 UI 节点。
+- **`WorldRun.run_event`** 由驱动层集中消费 → **`RunEventPresenter`**（目标）或暂 `main.gd` → `RunUI` 提示；子系统只 `emit`，不直接操作 UI 节点。
+- **`EncounterSession`** 持有接战类型（`EncounterKind`）、敌人表、胜败结局；**禁止**在 `CombatController` 内分支追击/Boss/宝库守卫结算。
+- **`CombatMovementPolicy`** 注入 `CombatController`；进军 / 返程小怪 / 首领接战 **分策略**，禁止单布尔 `_march_retreat_combat` 扛全部返程语义。
 - **`CombatController` 信号** → `CombatView` 做可视化；`CombatView` **不接** `run_event`。
 - 战斗逻辑只改 `CombatEntity`；**禁止** `CombatView` / `UnitView` 修改伤害、冷却、胜负。
 
 ### 禁止
 
-- UI 层调用 `WorldRun.tick()` 或 `CombatController.tick()`（仅 `main.gd` 在 `_process` 驱动）。
+- UI 层调用 `WorldRun.tick()` 或 `CombatController.tick()`（仅驱动层在 `_process` 驱动）。
 - 在 `CombatView` 内实现命中、闪避、技能效果（属 `CombatController` / `CombatEntity` 职责）。
+- **`CombatController` 引用** `boss_chase_active`、`is_chase_encounter`（属远征/接战编排层）。
+
+---
+
+### 三-B、整盘重构目标形态（CTO 定案 2026-06-06）
+
+> 工单：[PROJECT_STATUS.md](PROJECT_STATUS.md) §**T-REFACTOR** · 产品定义不变：[GAME_BIBLE.md](GAME_BIBLE.md)
+
+```
+① 数据层     DataLoader + data/*.json                    （不动）
+② 领域层     Mercenary / Squad / Equipment / StatResolver （薄改）
+③ 远征层     WorldRun — 行程 + 事件，不写战斗结局
+④ 接战层     EncounterSession + CombatMovementPolicy + CombatController
+⑤ 壳子层     GameManager（状态机）+ RunDriver + UI 只发意图
+```
+
+| 组件 | 职责 |
+|------|------|
+| **GameManager** | `BASE → PREPARE → RUNNING → RESULT`；槽位/金币 API；调 `SaveManager` |
+| **SaveSerializer** | `to_save_dict` / `from_save_dict`（从 GameManager 迁出，M2） |
+| **RunDriver** | `WorldRun.tick` + 接战生命周期 + `EncounterSession` |
+| **RunEventPresenter** | `run_event` → 文案/提示（从 main 迁出，M2） |
+| **WorldRun** | 发事件；委托 `RetreatSpawnService`、`BossChaseService` 等；**不** `end_run` |
+
+**里程碑**：M1 接战可测 → M2 GM/存档/事件瘦身 → M3 WorldRun 调度化 + Combat 拆分。
 
 ---
 
@@ -133,7 +162,7 @@ main.gd（唯一驱动循环）
 
 ### 必须
 
-- 序列化入口：**`GameManager.to_save_dict` / `from_save_dict`** + `SaveManager`。
+- 序列化入口：**`SaveSerializer`**（目标，M2）或过渡期 **`GameManager.to_save_dict` / `from_save_dict`** + `SaveManager`。
 - 佣兵存档：模板 id、等级、经验、**base 向字段**、`equipment_slots`、`buffs`、运行时状态（`current_hp`、`is_mia` 等）；final 战斗属性 **读档重算**。
 - **T-MIA 账号 meta 补丁（允许新增根字段）**：
   - `account_meta`：`frozen_exp_pools[]`、`rescue_rank`、`rescue_reputation` 等槽位级 meta
