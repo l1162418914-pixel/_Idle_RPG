@@ -1,13 +1,13 @@
 class_name MarchEventMarkers
 extends Control
-## T-MARCH-V2 · 里程碑标记（读地图 march_events[]，跟 scroll_x）
+## T-MARCH-V2 · 里程碑标记（T-ART-FW-2 VisualSlot）
 
 
 const HORIZON_START: float = VisualConstants.LANE_HORIZON_START
 const HORIZON_SPAN: float = VisualConstants.LANE_HORIZON_SPAN
 const PASSED_MARGIN_M: float = 3.0
 
-var _markers: Array[ColorRect] = []
+var _markers: Array[VisualSlot] = []
 var _last_marker_count: int = 0
 
 
@@ -45,18 +45,12 @@ func set_milestones(
 		var px: float = _distance_to_px(at_dist, scroll_x, lane_width, max_distance)
 		if px < -8.0 or px > lane_width + 8.0:
 			continue
-		var tri := ColorRect.new()
-		tri.color = (
-			VisualConstants.MILESTONE_FIRED_COLOR
-			if fired
-			else VisualConstants.MILESTONE_MARKER_COLOR
-		)
-		tri.custom_minimum_size = VisualConstants.MILESTONE_MARKER_SIZE
-		tri.size = VisualConstants.MILESTONE_MARKER_SIZE
-		tri.position = Vector2(px, size.y * 0.18)
-		tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(tri)
-		_markers.append(tri)
+		var slot := VisualSlot.new()
+		slot.slot_id = "milestone_%d" % idx
+		add_child(slot)
+		slot.apply_art_key("milestone/fired" if fired else "milestone/marker")
+		slot.position = Vector2(px, size.y * 0.18)
+		_markers.append(slot)
 		_last_marker_count += 1
 
 
@@ -75,13 +69,11 @@ func flash_at_distance(distance: float, scroll_x: float, lane_width: float, max_
 	if lane_width <= 1.0 or max_distance <= 0.0:
 		return
 	var px: float = _distance_to_px(distance, scroll_x, lane_width, max_distance)
-	var flash := ColorRect.new()
-	flash.color = VisualConstants.MILESTONE_FLASH_COLOR
-	flash.custom_minimum_size = VisualConstants.MILESTONE_FLASH_SIZE
-	flash.size = VisualConstants.MILESTONE_FLASH_SIZE
-	flash.position = Vector2(px - 2.0, size.y * 0.16)
-	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flash := VisualSlot.new()
+	flash.slot_id = "milestone_flash"
 	add_child(flash)
+	flash.apply_art_key("milestone/flash")
+	flash.position = Vector2(px - 2.0, size.y * 0.16)
 	_markers.append(flash)
 	var tween := create_tween()
 	tween.tween_property(flash, "modulate:a", 0.0, 0.45)

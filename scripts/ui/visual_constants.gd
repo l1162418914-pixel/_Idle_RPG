@@ -23,6 +23,8 @@ const GATHER_PROP_COLOR: Color = Color(0.55, 0.42, 0.28, 0.92)
 const GATHER_PROP_SIZE: Vector2 = Vector2(28, 20)
 
 const BOSS_CHASE_BODY_COLOR: Color = Color(0.72, 0.18, 0.14, 0.92)
+const BOSS_CHASE_DANGER_BODY_COLOR: Color = Color(0.85, 0.2, 0.12, 0.95)
+const BOSS_CHASE_CATCH_BODY_COLOR: Color = Color(1.0, 0.25, 0.12, 0.98)
 const BOSS_CHASE_CROWN_COLOR: Color = Color(0.9, 0.35, 0.2, 0.95)
 const BOSS_CHASE_BODY_SIZE: Vector2 = Vector2(22, 32)
 const BOSS_CHASE_CROWN_SIZE: Vector2 = Vector2(14, 8)

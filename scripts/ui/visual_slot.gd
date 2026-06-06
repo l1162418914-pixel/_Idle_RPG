@@ -49,10 +49,27 @@ func apply_placeholder(color: Color, pixel_size: Vector2) -> void:
 	if _placeholder == null:
 		return
 	_placeholder.color = color
-	_placeholder.custom_minimum_size = pixel_size
-	_placeholder.size = pixel_size
+	_resize_placeholder(pixel_size)
 	_mode = DisplayMode.PLACEHOLDER
 	_sync_visibility()
+
+
+func set_placeholder_color(color: Color) -> void:
+	if _placeholder != null and _mode == DisplayMode.PLACEHOLDER:
+		_placeholder.color = color
+
+
+func resize_placeholder(pixel_size: Vector2) -> void:
+	if _placeholder == null or _mode != DisplayMode.PLACEHOLDER:
+		return
+	_resize_placeholder(pixel_size)
+
+
+func _resize_placeholder(pixel_size: Vector2) -> void:
+	_placeholder.custom_minimum_size = pixel_size
+	_placeholder.size = pixel_size
+	custom_minimum_size = pixel_size
+	size = pixel_size
 
 
 func apply_texture(texture: Texture2D) -> void:

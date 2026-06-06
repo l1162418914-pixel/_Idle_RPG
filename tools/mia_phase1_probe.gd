@@ -116,6 +116,8 @@ func _run() -> void:
 	_probe_m3_shield_depleted_blocks_loot()
 	_probe_fw1_visual_constants()
 	_probe_fw1_visual_slot()
+	_probe_fw2_lane_visual_slots()
+	_probe_fw2_gather_and_boss_slots()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2255,6 +2257,85 @@ func _probe_fw1_visual_slot() -> void:
 		return
 	slot.queue_free()
 	_pass("FW1b", "T-ART-FW-1 VisualSlot 占位/清理")
+
+
+func _probe_fw2_lane_visual_slots() -> void:
+	var lane := RunMarchLane.new()
+	lane.size = Vector2(480, 48)
+	add_child(lane)
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.distance_traveled = 10.0
+	lane.on_run_started(run, 3)
+	lane.on_world_tick(run, true)
+	var march_view := lane.get_node_or_null("RunMarchView")
+	if march_view == null:
+		_fail("FW2a", "应含 RunMarchView")
+		lane.queue_free()
+		return
+	for child in march_view.get_children():
+		if not child is VisualSlot:
+			_fail("FW2a", "RunMarchView 子节点应为 VisualSlot")
+			lane.queue_free()
+			return
+	var parallax := lane.get_node_or_null("ParallaxBackdrop")
+	if parallax == null or parallax.get_child_count() < 3:
+		_fail("FW2a", "ParallaxBackdrop 应含≥3 VisualSlot 层")
+		lane.queue_free()
+		return
+	for child in parallax.get_children():
+		if not child is VisualSlot:
+			_fail("FW2a", "视差层应为 VisualSlot")
+			lane.queue_free()
+			return
+	var markers := lane.get_node_or_null("MarchEventMarkers")
+	if markers == null:
+		_fail("FW2b", "应含 MarchEventMarkers")
+		lane.queue_free()
+		return
+	if markers.get_marker_count() < 2:
+		_fail("FW2b", "grassland 里程碑应经 VisualSlot 绘制")
+		lane.queue_free()
+		return
+	lane.queue_free()
+	_pass("FW2a", "T-ART-FW-2 RunMarchView/Parallax VisualSlot")
+	_pass("FW2b", "T-ART-FW-2 MarchEventMarkers VisualSlot")
+
+
+func _probe_fw2_gather_and_boss_slots() -> void:
+	var gather := MarchGatherView.new()
+	gather.size = Vector2(480, 48)
+	add_child(gather)
+	if gather.get_child_count() < 4:
+		_fail("FW2c", "MarchGatherView 应含 prop+3 party VisualSlot")
+		gather.queue_free()
+		return
+	for child in gather.get_children():
+		if not child is VisualSlot:
+			_fail("FW2c", "MarchGatherView 子节点应为 VisualSlot")
+			gather.queue_free()
+			return
+	gather.queue_free()
+	var boss := BossChaseSilhouette.new()
+	boss.size = Vector2(480, 48)
+	add_child(boss)
+	if boss.get_child_count() < 2:
+		_fail("FW2d", "BossChaseSilhouette 应含 body/crown VisualSlot")
+		boss.queue_free()
+		return
+	for child in boss.get_children():
+		if not child is VisualSlot:
+			_fail("FW2d", "追击剪影子节点应为 VisualSlot")
+			boss.queue_free()
+			return
+	boss.apply_chase(true, 40.0, false, true, 480.0)
+	if not boss.is_visible_chase():
+		_fail("FW2d", "apply_chase 应显示剪影")
+		boss.queue_free()
+		return
+	boss.queue_free()
+	_pass("FW2c", "T-ART-FW-2 MarchGatherView VisualSlot")
+	_pass("FW2d", "T-ART-FW-2 BossChaseSilhouette VisualSlot")
 
 
 func _probe_mia_excluded_from_formation() -> void:
