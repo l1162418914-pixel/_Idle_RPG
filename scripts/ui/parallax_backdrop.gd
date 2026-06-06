@@ -3,11 +3,7 @@ extends Control
 ## T-RUN-V2 · 2～3 层视差背景（只读 scroll_x，不改战斗数值）
 
 
-const LAYER_SPECS: Array[Dictionary] = [
-	{"color": Color(0.12, 0.16, 0.22, 1.0), "factor": 0.15, "h": 1.0},
-	{"color": Color(0.18, 0.24, 0.32, 1.0), "factor": 0.35, "h": 0.55},
-	{"color": Color(0.28, 0.36, 0.46, 1.0), "factor": 0.65, "h": 0.28},
-]
+const LAYER_SPECS: Array[Dictionary] = VisualConstants.PARALLAX_LAYER_SPECS
 
 var _layers: Array[ColorRect] = []
 

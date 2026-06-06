@@ -114,6 +114,8 @@ func _run() -> void:
 	_probe_m3_retreat_search_pool()
 	_probe_m3_low_stability_weighting()
 	_probe_m3_shield_depleted_blocks_loot()
+	_probe_fw1_visual_constants()
+	_probe_fw1_visual_slot()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2209,6 +2211,50 @@ func _probe_m3_shield_depleted_blocks_loot() -> void:
 		_fail("M3d", "有盾时不应屏蔽金币搜索")
 		return
 	_pass("M3d", "T-MARCH-M3 盾破禁正面物资搜索")
+
+
+func _probe_fw1_visual_constants() -> void:
+	if VisualConstants.PARTY_SILHOUETTE_COLORS.is_empty():
+		_fail("FW1a", "PARTY_SILHOUETTE_COLORS 不应为空")
+		return
+	if VisualConstants.party_color(0) != VisualConstants.PARTY_SILHOUETTE_COLORS[0]:
+		_fail("FW1a", "party_color 应索引常量表")
+		return
+	var spec: Dictionary = VisualConstants.placeholder_spec("milestone/marker")
+	if spec.is_empty() or not spec.has("color"):
+		_fail("FW1a", "milestone/marker 应有占位 spec")
+		return
+	if VisualConstants.PARALLAX_LAYER_SPECS.size() < 3:
+		_fail("FW1a", "视差层常量应≥3")
+		return
+	_pass("FW1a", "T-ART-FW-1 VisualConstants 常量表")
+
+
+func _probe_fw1_visual_slot() -> void:
+	var slot := VisualSlot.new()
+	slot.slot_id = "probe_milestone"
+	add_child(slot)
+	slot.apply_art_key("milestone/marker")
+	if slot.get_display_mode() != VisualSlot.DisplayMode.PLACEHOLDER:
+		_fail("FW1b", "apply_art_key 应进入 PLACEHOLDER")
+		slot.queue_free()
+		return
+	if slot.pixel_size_from_placeholder() != VisualConstants.MILESTONE_MARKER_SIZE:
+		_fail("FW1b", "占位尺寸应与常量一致")
+		slot.queue_free()
+		return
+	slot.apply_texture(null)
+	if slot.get_display_mode() != VisualSlot.DisplayMode.PLACEHOLDER:
+		_fail("FW1b", "空纹理不应改变占位模式")
+		slot.queue_free()
+		return
+	slot.clear_slot()
+	if slot.get_display_mode() != VisualSlot.DisplayMode.HIDDEN:
+		_fail("FW1b", "clear_slot 应隐藏")
+		slot.queue_free()
+		return
+	slot.queue_free()
+	_pass("FW1b", "T-ART-FW-1 VisualSlot 占位/清理")
 
 
 func _probe_mia_excluded_from_formation() -> void:

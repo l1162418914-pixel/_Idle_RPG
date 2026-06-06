@@ -3,10 +3,8 @@ extends Control
 ## T-MARCH-V2 · 里程碑标记（读地图 march_events[]，跟 scroll_x）
 
 
-const MARKER_COLOR: Color = Color(0.9, 0.75, 0.35, 0.85)
-const FIRED_COLOR: Color = Color(0.55, 0.5, 0.4, 0.42)
-const HORIZON_START: float = 0.12
-const HORIZON_SPAN: float = 0.76
+const HORIZON_START: float = VisualConstants.LANE_HORIZON_START
+const HORIZON_SPAN: float = VisualConstants.LANE_HORIZON_SPAN
 const PASSED_MARGIN_M: float = 3.0
 
 var _markers: Array[ColorRect] = []
@@ -48,9 +46,13 @@ func set_milestones(
 		if px < -8.0 or px > lane_width + 8.0:
 			continue
 		var tri := ColorRect.new()
-		tri.color = FIRED_COLOR if fired else MARKER_COLOR
-		tri.custom_minimum_size = Vector2(6, 6)
-		tri.size = Vector2(6, 6)
+		tri.color = (
+			VisualConstants.MILESTONE_FIRED_COLOR
+			if fired
+			else VisualConstants.MILESTONE_MARKER_COLOR
+		)
+		tri.custom_minimum_size = VisualConstants.MILESTONE_MARKER_SIZE
+		tri.size = VisualConstants.MILESTONE_MARKER_SIZE
 		tri.position = Vector2(px, size.y * 0.18)
 		tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(tri)
@@ -74,9 +76,9 @@ func flash_at_distance(distance: float, scroll_x: float, lane_width: float, max_
 		return
 	var px: float = _distance_to_px(distance, scroll_x, lane_width, max_distance)
 	var flash := ColorRect.new()
-	flash.color = Color(1.0, 0.9, 0.5, 0.95)
-	flash.custom_minimum_size = Vector2(10, 10)
-	flash.size = Vector2(10, 10)
+	flash.color = VisualConstants.MILESTONE_FLASH_COLOR
+	flash.custom_minimum_size = VisualConstants.MILESTONE_FLASH_SIZE
+	flash.size = VisualConstants.MILESTONE_FLASH_SIZE
 	flash.position = Vector2(px - 2.0, size.y * 0.16)
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(flash)

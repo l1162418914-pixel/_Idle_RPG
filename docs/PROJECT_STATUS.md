@@ -1,7 +1,7 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → 最近 worklog。  
-> 最后更新：2026-06-06（MARCH M1～M3 + V1～V3 ✅ · 探针 **77 PASS** · 开发指针 **T-ART-FW-1**）
+> 最后更新：2026-06-06（MARCH ✅ · 探针 **79 PASS** · 开发指针 **T-ART-FW-2**）
 
 ### CTO 结论（对齐版）
 
@@ -10,7 +10,7 @@
 | **环 1 骨架** | ✅ M1～M3 YES |
 | **大营 UI B 线** | ✅ 逻辑完成（B1～B4）；F5 肉眼 **探针日并行收** |
 | **跑图 MARCH** | ✅ **M1～M3 + V1～V3** 逻辑 YES（77 PASS）；F5 探针日登记 |
-| **美术** | **下一开发 = T-ART-FW-1～2**（视觉常量 + `VisualSlot`） |
+| **美术** | **FW-1 ✅**；**下一开发 = T-ART-FW-2**（各层挂 `VisualSlot`） |
 | **风险** | `origin/main` 待 push 最新 4 commit；**环 1 F5 未全员签字** |
 
 ---
@@ -33,15 +33,15 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **`T-ART-FW-1`** |
-| **名称** | 视觉常量表 + `VisualSlot` 插槽（美术接入前框架） |
-| **门禁** | T-MARCH M1～M3 + V1～V3 ✅ |
+| **ID** | **`T-ART-FW-2`** |
+| **名称** | RunMarchLane / CombatView / 大营壳挂 `VisualSlot` |
+| **门禁** | T-ART-FW-1 ✅ |
 | **不动** | `CombatController` 数值 · `StatResolver` · 存档字段 |
-| **文档** | [design-march-visual.md](design-march-visual.md) · 待补 `design-art-framework.md`（若无则 FW-1 自建最小节） |
+| **文档** | [design-march-visual.md](design-march-visual.md) §三 表现层 |
 
-### 排队（ART-FW 后）
+### 排队（FW-2 后）
 
-1. **T-ART-FW-2** — 各层 `VisualSlot` 接 RunMarchLane / CombatView / 大营壳  
+1. **T-ART-FW-3**（可选）— `data/art_manifest.json` 纹理注册  
 2. **T-UI-B5+** / 街景美术 — **后期**  
 3. **T-MARCH-M4**（可选）— RunMarchView 事件点美术化（有美术资源后）
 
@@ -68,7 +68,7 @@
 **Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1～M3 + V1～V3 ✅**（77 PASS）  
 **Sprint 大营壳** — **T-UI-B1～B4 逻辑 ✅**；F5 肉眼并行验收  
 
-- **下一开发**：**T-ART-FW-1**（美术前视觉框架）。  
+- **下一开发**：**T-ART-FW-2**（表现层挂插槽）。  
 - **并行**：**探针日**（半日 F5 + `run_probe.log`），不占开发指针。
 
 ---
@@ -77,18 +77,18 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **`T-ART-FW-1`** |
-| **名称** | 视觉常量 + VisualSlot 骨架 |
+| **ID** | **`T-ART-FW-2`** |
+| **名称** | 表现层 VisualSlot 接线 |
 | **状态** | 📋 **下一开发** |
 | **优先级** | P1 |
-| **门禁** | T-MARCH 全线逻辑 ✅ |
-| **预估影响** | 新建 `visual_constants.gd` / `visual_slot.gd`；RunMarchLane 等挂插槽 |
+| **门禁** | T-ART-FW-1 ✅ |
+| **预估影响** | `RunMarchView` / `MarchEventMarkers` 等改用 `VisualSlot` |
 
 ### 并行验收（不占开发指针 · 探针日）
 
 | ID | 名称 | 状态 |
 |----|------|------|
-| **探针日·环1** | `test_03` M1 探针 1～5 + `run_probe.log` | 🟡 headless 77 PASS · F5 待收 |
+| **探针日·环1** | `test_03` M1 探针 1～5 + `run_probe.log` | 🟡 headless **79 PASS** · F5 待收 |
 | **探针日·视差** | `test_01` / `test_03` V1～V5 肉眼 | 🟡 待 F5 |
 | **探针日·大营** | B1.5 / B2 / B3 / B4 零键盘与网格 | 🟡 待 F5 |
 | **探针日·MARCH** | 搜索/里程碑/80m 采集 / 返程池 | 🟡 待 F5 |
@@ -673,7 +673,8 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-MARCH-M1** | 自动搜索服务 | P1 | ✅ **已交付** | 待探针登记 |
 | **T-MARCH-V1** | 搜索飘字 Toast | P1 | ✅ **已交付** | M1 |
 | **T-MARCH-M2～M3 / V2～V3** | 里程碑 + 采集 + 返程池 | P1 | ✅ **CTO YES** | 77 PASS |
-| **T-ART-FW-1** | 视觉常量 + VisualSlot | P1 | 📋 **下一开发** | MARCH YES |
+| **T-ART-FW-1** | 视觉常量 + VisualSlot | P1 | ✅ **CTO YES** | FW1a/b · 79 PASS |
+| **T-ART-FW-2** | 表现层挂插槽 | P1 | 📋 **下一开发** | FW-1 YES |
 | T-06 | Buff / 觉醒头标 | P0 | ⏸ 让位 B 线 | T-05 YES |
 | T-07~T-10 | 研究所/转生/多槽/云存档 | P1~ | 🔒 冻结 | — |
 | **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | ✅ **CTO YES** | `e7f40b6` |

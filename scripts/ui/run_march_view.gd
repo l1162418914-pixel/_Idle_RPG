@@ -3,22 +3,15 @@ extends Control
 ## T-RUN-V2 · 行军队列剪影占位（朝向随进军/返程切换）
 
 
-const PARTY_COLORS: Array[Color] = [
-	Color(0.45, 0.72, 0.95),
-	Color(0.55, 0.82, 0.65),
-	Color(0.9, 0.72, 0.45),
-	Color(0.75, 0.55, 0.9),
-]
-
 var _party_nodes: Array[ColorRect] = []
 var _bob_phase: float = 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for i in PARTY_COLORS.size():
+	for i in VisualConstants.PARTY_SILHOUETTE_COLORS.size():
 		var block := ColorRect.new()
-		block.color = PARTY_COLORS[i]
+		block.color = VisualConstants.party_color(i)
 		block.custom_minimum_size = Vector2(10, 14)
 		block.size = Vector2(10, 14)
 		block.mouse_filter = Control.MOUSE_FILTER_IGNORE
