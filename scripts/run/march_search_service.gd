@@ -2,12 +2,12 @@ class_name MarchSearchService
 extends RefCounted
 ## T-MARCH-M1/M3 · 行军自动搜索（返程分池 + 稳定加权 + 盾破禁正面物资）
 
-
+const _PATH_RUN_MATERIAL := "res://scripts/inventory/run_material.gd"
 const DEFAULT_INTERVAL_M: float = 12.0
 const DEFAULT_LOW_STABILITY_THRESHOLD: int = 50
 
 
-static func tick(run: WorldRun, allowed: bool) -> Array:
+static func tick(run, allowed: bool) -> Array:
 	var out: Array = []
 	if not allowed or run == null or not run.is_active:
 		return out
@@ -71,7 +71,7 @@ static func pool_negative_weight_share(pool: Dictionary, ctx: Dictionary, cfg: D
 	var neg: float = 0.0
 	var total: float = 0.0
 	for e in entries:
-		if e is not Dictionary:
+		if not e is Dictionary:
 			continue
 		var w: float = entry_weight(e, pool, ctx, cfg)
 		total += w
@@ -83,7 +83,7 @@ static func pool_negative_weight_share(pool: Dictionary, ctx: Dictionary, cfg: D
 
 
 static func _resolve_hit(
-	run: WorldRun, cfg: Dictionary, pool: Dictionary, pool_id: String
+	run, cfg: Dictionary, pool: Dictionary, pool_id: String
 ) -> Dictionary:
 	if pool.is_empty():
 		return {}
@@ -113,7 +113,7 @@ static func _resolve_hit(
 			data["gold"] = gold
 		"material":
 			var fake_enemy: Dictionary = {"level": 1}
-			var mat: RunMaterial = RunMaterial.roll_for_map(run.map_data, fake_enemy)
+			var mat = load(_PATH_RUN_MATERIAL).roll_for_map(run.map_data, fake_enemy)
 			if mat != null:
 				run._add_run_material(mat)
 				data["material_name"] = mat.item_name
@@ -134,7 +134,7 @@ static func _resolve_hit(
 	}
 
 
-static func _search_context(run: WorldRun) -> Dictionary:
+static func _search_context(run) -> Dictionary:
 	var team_stability: int = 100
 	if run.stability != null:
 		team_stability = run.stability.team_stability
@@ -145,7 +145,7 @@ static func _search_context(run: WorldRun) -> Dictionary:
 	}
 
 
-static func _shields_depleted(run: WorldRun) -> bool:
+static func _shields_depleted(run) -> bool:
 	if not run.is_retreating:
 		return false
 	return (
@@ -192,7 +192,7 @@ static func _pick_entry(
 	var roll: float = rng.randf() * total
 	var acc: float = 0.0
 	for e in entries:
-		if e is not Dictionary:
+		if not e is Dictionary:
 			continue
 		var w: float = entry_weight(e, pool, ctx, cfg)
 		acc += w

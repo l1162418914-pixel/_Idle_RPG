@@ -3,13 +3,14 @@ extends Control
 
 signal gather_beat_finished(event_id: String)
 
-const _ParallaxBackdropScene = preload("res://scripts/ui/parallax_backdrop.gd")
-const _RunMarchViewScene = preload("res://scripts/ui/run_march_view.gd")
-const _BossChaseSilhouetteScene = preload("res://scripts/ui/boss_chase_silhouette.gd")
-const _MarchEventMarkersScene = preload("res://scripts/ui/march_event_markers.gd")
-const _MarchGatherViewScene = preload("res://scripts/ui/march_gather_view.gd")
-const _MarchSearchToastScene = preload("res://scripts/ui/march_search_toast.gd")
-const _MarchEventService = preload("res://scripts/run/march_event_service.gd")
+## 延迟 load，避免编辑器解析期 preload 依赖链失败导致本脚本无法编译
+const _PATH_PARALLAX := "res://scripts/ui/parallax_backdrop.gd"
+const _PATH_MARCH_VIEW := "res://scripts/ui/run_march_view.gd"
+const _PATH_BOSS_CHASE := "res://scripts/ui/boss_chase_silhouette.gd"
+const _PATH_EVENT_MARKERS := "res://scripts/ui/march_event_markers.gd"
+const _PATH_GATHER_VIEW := "res://scripts/ui/march_gather_view.gd"
+const _PATH_SEARCH_TOAST := "res://scripts/ui/march_search_toast.gd"
+const _PATH_EVENT_SERVICE := "res://scripts/run/march_event_service.gd"
 const RETREAT_COMBAT_PARALLAX_MULT: float = 0.55
 const COMBAT_RESUME_DELAY_SEC: float = 0.3
 ## 出征横版条 · 世界层状态机（T-RUN-V1）
@@ -52,50 +53,37 @@ var _pending_march_after_combat: bool = false
 var _combat_resume_timer: float = 0.0
 var _milestone_entries: Array = []
 var _fired_milestone_indices: Array = []
+var _script_cache: Dictionary = {}
+
+
+func _lane_script(path: String) -> Script:
+	if not _script_cache.has(path):
+		_script_cache[path] = load(path)
+	return _script_cache[path] as Script
+
+
+func _spawn_lane_child(path: String, node_name: String) -> Control:
+	var node: Control = _lane_script(path).new() as Control
+	node.name = node_name
+	node.set_anchors_preset(Control.PRESET_FULL_RECT)
+	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	node.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(node)
+	return node
 
 
 func _ready() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(0, 48)
-	_parallax = _ParallaxBackdropScene.new()
-	_parallax.name = "ParallaxBackdrop"
-	_parallax.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_parallax.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_parallax.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_parallax)
-	_march_view = _RunMarchViewScene.new()
-	_march_view.name = "RunMarchView"
-	_march_view.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_march_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_march_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_march_view)
-	_boss_chase_silhouette = _BossChaseSilhouetteScene.new()
-	_boss_chase_silhouette.name = "BossChaseSilhouette"
-	_boss_chase_silhouette.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_boss_chase_silhouette.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_boss_chase_silhouette.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_boss_chase_silhouette)
-	_event_markers = _MarchEventMarkersScene.new()
-	_event_markers.name = "MarchEventMarkers"
-	_event_markers.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_event_markers.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_event_markers.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_event_markers)
-	_gather_view = _MarchGatherViewScene.new()
-	_gather_view.name = "MarchGatherView"
-	_gather_view.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_gather_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_gather_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_gather_view)
-	_search_toast = _MarchSearchToastScene.new()
-	_search_toast.name = "MarchSearchToast"
+	_parallax = _spawn_lane_child(_PATH_PARALLAX, "ParallaxBackdrop")
+	_march_view = _spawn_lane_child(_PATH_MARCH_VIEW, "RunMarchView")
+	_boss_chase_silhouette = _spawn_lane_child(_PATH_BOSS_CHASE, "BossChaseSilhouette")
+	_event_markers = _spawn_lane_child(_PATH_EVENT_MARKERS, "MarchEventMarkers")
+	_gather_view = _spawn_lane_child(_PATH_GATHER_VIEW, "MarchGatherView")
+	_search_toast = _spawn_lane_child(_PATH_SEARCH_TOAST, "MarchSearchToast")
 	if _gather_view and _gather_view.has_signal("gather_finished"):
 		_gather_view.gather_finished.connect(_on_gather_view_finished)
-	_search_toast.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_search_toast.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_search_toast.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_search_toast)
 	_placeholder = Label.new()
 	_placeholder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_placeholder.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -172,7 +160,7 @@ func on_run_started(run: WorldRun, party_count: int = 3) -> void:
 		visible = false
 		return
 	_max_distance = run.max_distance
-	_milestone_entries = _MarchEventService.milestone_entries(run.map_data)
+	_milestone_entries = _lane_script(_PATH_EVENT_SERVICE).milestone_entries(run.map_data)
 	_fired_milestone_indices = run.march_events_fired.duplicate()
 	_is_retreating = run.is_retreating
 	_frozen_distance = run.distance_traveled

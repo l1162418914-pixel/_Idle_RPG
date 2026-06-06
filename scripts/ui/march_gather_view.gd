@@ -2,13 +2,13 @@ class_name MarchGatherView
 extends Control
 ## T-MARCH-V3 · 采集短演出（T-ART-FW-2 VisualSlot）
 
-
+const _VisualSlotLib = preload("res://scripts/ui/visual_slot.gd")
 const GATHER_DURATION: float = 0.45
 
 signal gather_finished(event_id: String)
 
-var _prop_slot: VisualSlot = null
-var _party_slots: Array[VisualSlot] = []
+var _prop_slot = null
+var _party_slots: Array = []
 var _active: bool = false
 var _timer: float = 0.0
 var _event_id: String = ""
@@ -17,12 +17,12 @@ var _event_id: String = ""
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
-	_prop_slot = VisualSlot.new()
+	_prop_slot = _VisualSlotLib.new()
 	_prop_slot.slot_id = "gather_prop"
 	add_child(_prop_slot)
 	_prop_slot.apply_art_key("gather/prop")
 	for i in 3:
-		var slot := VisualSlot.new()
+		var slot = _VisualSlotLib.new()
 		slot.slot_id = "gather_party_%d" % i
 		add_child(slot)
 		slot.apply_art_key("party/silhouette_%d" % i)

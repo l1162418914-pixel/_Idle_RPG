@@ -2,8 +2,12 @@ class_name MarchEventService
 extends RefCounted
 ## T-MARCH-M2 · 距离里程碑事件（接战/搜刮节拍由 RunDriver 暂停 tick）
 
+const _PATH_LOOT_SYSTEM := "res://scripts/equipment/loot_system.gd"
+const _PATH_RUN_LOOT_SERVICE := "res://scripts/inventory/run_loot_service.gd"
+const _PATH_RUN_MATERIAL := "res://scripts/inventory/run_material.gd"
 
-static func tick(run: WorldRun, allowed: bool) -> Array:
+
+static func tick(run, allowed: bool) -> Array:
 	var out: Array = []
 	if not allowed or run == null or not run.is_active:
 		return out
@@ -64,7 +68,7 @@ static func milestone_entries(map_data: Dictionary) -> Array:
 	return out
 
 
-static func apply_pending_effects(run: WorldRun, data: Dictionary) -> void:
+static func apply_pending_effects(run, data: Dictionary) -> void:
 	if run == null or data.is_empty():
 		return
 	for fx in data.get("pending_effects", []):
@@ -75,7 +79,7 @@ static func apply_pending_effects(run: WorldRun, data: Dictionary) -> void:
 
 
 static func _resolve_hit(
-	run: WorldRun, event_id: String, def: Dictionary, at_distance: float
+	run, event_id: String, def: Dictionary, at_distance: float
 ) -> Dictionary:
 	var log: String = str(def.get("log", "路旁事件。"))
 	var gather_beat: bool = bool(def.get("gather_beat", _def_wants_gather(def)))
@@ -92,7 +96,7 @@ static func _resolve_hit(
 		"pending_effects": [],
 	}
 	for fx in def.get("effects", []):
-		if fx is not Dictionary:
+		if not fx is Dictionary:
 			continue
 		if defer_effects:
 			data.pending_effects.append(fx.duplicate(true))
@@ -106,7 +110,7 @@ static func _resolve_hit(
 
 static func _def_wants_gather(def: Dictionary) -> bool:
 	for fx in def.get("effects", []):
-		if fx is not Dictionary:
+		if not fx is Dictionary:
 			continue
 		var fx_type: String = str(fx.get("type", ""))
 		if fx_type in ["loot_material", "loot_equip"]:
@@ -114,7 +118,7 @@ static func _def_wants_gather(def: Dictionary) -> bool:
 	return false
 
 
-static func _apply_effect(run: WorldRun, data: Dictionary, fx: Dictionary) -> void:
+static func _apply_effect(run, data: Dictionary, fx: Dictionary) -> void:
 	var fx_type: String = str(fx.get("type", ""))
 	match fx_type:
 		"gold":
@@ -129,7 +133,7 @@ static func _apply_effect(run: WorldRun, data: Dictionary, fx: Dictionary) -> vo
 			var names: Array = []
 			for _j in range(rolls):
 				var fake_enemy: Dictionary = {"level": 1}
-				var mat: RunMaterial = RunMaterial.roll_for_map(run.map_data, fake_enemy)
+				var mat = load(_PATH_RUN_MATERIAL).roll_for_map(run.map_data, fake_enemy)
 				if mat != null:
 					run._add_run_material(mat)
 					names.append(mat.item_name)
@@ -140,9 +144,11 @@ static func _apply_effect(run: WorldRun, data: Dictionary, fx: Dictionary) -> vo
 			var fake_enemy: Dictionary = {"level": int(fx.get("level", 1))}
 			var forge_drop: float = float(fx.get("forge_drop", 0.0))
 			var shift: int = int(fx.get("quality_shift", 0))
-			var eq: Equipment = LootSystem.roll_equipment(run.map_data, fake_enemy, forge_drop, shift)
+			var eq = load(_PATH_LOOT_SYSTEM).roll_equipment(
+				run.map_data, fake_enemy, forge_drop, shift
+			)
 			if eq != null:
-				var placed: Dictionary = RunLootService.add_equipment_drop(run, eq)
+				var placed: Dictionary = load(_PATH_RUN_LOOT_SERVICE).add_equipment_drop(run, eq)
 				if placed.get("ok", false):
 					data["equip_name"] = eq.item_name
 					data.effects_applied.append({"type": "loot_equip", "name": eq.item_name})

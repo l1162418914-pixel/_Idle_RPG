@@ -2,22 +2,23 @@ class_name BossChaseSilhouette
 extends Control
 ## T-RUN-V5 · 返程 Boss 追击剪影（T-ART-FW-2 VisualSlot）
 
-
+const _VisualConstantsLib = preload("res://scripts/ui/visual_constants.gd")
+const _VisualSlotLib = preload("res://scripts/ui/visual_slot.gd")
 const WARN_GAP: float = 120.0
 const DANGER_GAP: float = 60.0
 const CATCH_GAP: float = 18.0
 
-var _body_slot: VisualSlot = null
-var _crown_slot: VisualSlot = null
+var _body_slot = null
+var _crown_slot = null
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_body_slot = VisualSlot.new()
+	_body_slot = _VisualSlotLib.new()
 	_body_slot.slot_id = "boss_chase_body"
 	add_child(_body_slot)
 	_body_slot.apply_art_key("boss_chase/body")
-	_crown_slot = VisualSlot.new()
+	_crown_slot = _VisualSlotLib.new()
 	_crown_slot.slot_id = "boss_chase_crown"
 	add_child(_crown_slot)
 	_crown_slot.apply_art_key("boss_chase/crown")
@@ -44,11 +45,11 @@ func apply_chase(
 	_body_slot.scale = Vector2(scale_v, scale_v)
 	_crown_slot.scale = Vector2(scale_v, scale_v)
 	if gap <= CATCH_GAP:
-		_body_slot.set_placeholder_color(VisualConstants.BOSS_CHASE_CATCH_BODY_COLOR)
+		_body_slot.set_placeholder_color(_VisualConstantsLib.BOSS_CHASE_CATCH_BODY_COLOR)
 	elif gap <= DANGER_GAP:
-		_body_slot.set_placeholder_color(VisualConstants.BOSS_CHASE_DANGER_BODY_COLOR)
+		_body_slot.set_placeholder_color(_VisualConstantsLib.BOSS_CHASE_DANGER_BODY_COLOR)
 	else:
-		_body_slot.set_placeholder_color(VisualConstants.BOSS_CHASE_BODY_COLOR)
+		_body_slot.set_placeholder_color(_VisualConstantsLib.BOSS_CHASE_BODY_COLOR)
 
 
 func is_visible_chase() -> bool:

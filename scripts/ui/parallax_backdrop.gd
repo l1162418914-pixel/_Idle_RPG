@@ -2,17 +2,21 @@ class_name ParallaxBackdrop
 extends Control
 ## T-RUN-V2 · 2～3 层视差背景（T-ART-FW-2 VisualSlot）
 
+const _VisualConstantsLib = preload("res://scripts/ui/visual_constants.gd")
+const _VisualSlotLib = preload("res://scripts/ui/visual_slot.gd")
 
-const LAYER_SPECS: Array[Dictionary] = VisualConstants.PARALLAX_LAYER_SPECS
+var _layer_slots: Array = []
 
-var _layer_slots: Array[VisualSlot] = []
+
+func _layer_specs() -> Array:
+	return _VisualConstantsLib.PARALLAX_LAYER_SPECS
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = true
-	for i in LAYER_SPECS.size():
-		var slot := VisualSlot.new()
+	for i in _layer_specs().size():
+		var slot = _VisualSlotLib.new()
 		slot.slot_id = "parallax_%d" % i
 		add_child(slot)
 		slot.apply_art_key("parallax/layer_%d" % i)
@@ -32,10 +36,10 @@ func apply_scroll(
 		dir = -1.0 if retreating else 1.0
 		dir *= clampf(speed_mult, 0.05, 1.0)
 	var i := 0
-	for spec in LAYER_SPECS:
+	for spec in _layer_specs():
 		if i >= _layer_slots.size():
 			break
-		var slot: VisualSlot = _layer_slots[i]
+		var slot = _layer_slots[i]
 		var factor: float = float(spec["factor"])
 		var w: float = maxf(size.x * 2.0, 400.0)
 		var offset: float = fmod(scroll_x * factor * dir, w)
@@ -51,10 +55,10 @@ func first_layer_offset_x() -> float:
 
 func _layout_layers() -> void:
 	var i := 0
-	for spec in LAYER_SPECS:
+	for spec in _layer_specs():
 		if i >= _layer_slots.size():
 			break
-		var slot: VisualSlot = _layer_slots[i]
+		var slot = _layer_slots[i]
 		var h_ratio: float = float(spec["h"])
 		var layer_color: Color = spec.get("color", Color.GRAY)
 		var layer_size := Vector2(maxf(size.x * 2.0, 400.0), maxf(4.0, size.y * h_ratio))

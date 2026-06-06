@@ -2,15 +2,17 @@ class_name RunMarchView
 extends Control
 ## T-RUN-V2 · 行军队列剪影（T-ART-FW-2 VisualSlot）
 
+const _VisualConstantsLib = preload("res://scripts/ui/visual_constants.gd")
+const _VisualSlotLib = preload("res://scripts/ui/visual_slot.gd")
 
-var _party_slots: Array[VisualSlot] = []
+var _party_slots: Array = []
 var _bob_phase: float = 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for i in VisualConstants.PARTY_SILHOUETTE_COLORS.size():
-		var slot := VisualSlot.new()
+	for i in _VisualConstantsLib.PARTY_SILHOUETTE_COLORS.size():
+		var slot = _VisualSlotLib.new()
 		slot.slot_id = "party_%d" % i
 		add_child(slot)
 		slot.apply_art_key("party/silhouette_%d" % i)
@@ -41,7 +43,7 @@ func apply_lane(
 	var spacing: float = 14.0
 	var dir_sign: float = -1.0 if retreating else 1.0
 	for i in _party_slots.size():
-		var slot: VisualSlot = _party_slots[i]
+		var slot = _party_slots[i]
 		if i >= count:
 			slot.visible = false
 			continue

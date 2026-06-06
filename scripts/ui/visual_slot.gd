@@ -2,6 +2,8 @@ class_name VisualSlot
 extends Control
 ## T-ART-FW-1 · 美术插槽（占位色块 ↔ 纹理；FW-2 挂到各表现层）
 
+const _VisualConstantsLib = preload("res://scripts/ui/visual_constants.gd")
+
 
 enum DisplayMode { HIDDEN, PLACEHOLDER, TEXTURE }
 
@@ -85,7 +87,7 @@ func apply_texture(texture: Texture2D) -> void:
 
 func apply_art_key(key: String) -> void:
 	art_key = key
-	var spec: Dictionary = VisualConstants.placeholder_spec(key)
+	var spec: Dictionary = _VisualConstantsLib.placeholder_spec(key)
 	if spec.is_empty():
 		clear_slot()
 		return

@@ -3,7 +3,10 @@ extends RefCounted
 ## 出征驱动 — WorldRun.tick + 接战生命周期（从 main.gd 迁出）
 
 const _EXTRACT_ITEM_SERVICE_PATH := "res://scripts/run/extract_item_service.gd"
-const _MarchEventService = preload("res://scripts/run/march_event_service.gd")
+const _PATH_MARCH_SEARCH := "res://scripts/run/march_search_service.gd"
+const _PATH_MARCH_EVENT := "res://scripts/run/march_event_service.gd"
+
+var _march_service_cache: Dictionary = {}
 
 var _main_shell: MainShell = null
 var _run_ui: Control = null
@@ -19,6 +22,12 @@ var _last_probe_tick_dist: float = -1.0
 var _pending_substitute: Dictionary = {}
 var _pending_substitute_until_ms: int = 0
 var _pending_gather_settle: Dictionary = {}
+
+
+func _march_service(path: String) -> Script:
+	if not _march_service_cache.has(path):
+		_march_service_cache[path] = load(path)
+	return _march_service_cache[path] as Script
 
 
 func bind_ui(
@@ -638,12 +647,12 @@ func on_run_started() -> void:
 
 
 func _emit_march_search_hits(run: WorldRun, world_run_ticked: bool) -> void:
-	for hit in MarchSearchService.tick(run, world_run_ticked):
+	for hit in _march_service(_PATH_MARCH_SEARCH).tick(run, world_run_ticked):
 		_emit_run_event_payload(run, hit)
 
 
 func _emit_march_event_hits(run: WorldRun, world_run_ticked: bool) -> void:
-	for hit in _MarchEventService.tick(run, world_run_ticked):
+	for hit in _march_service(_PATH_MARCH_EVENT).tick(run, world_run_ticked):
 		_emit_run_event_payload(run, hit)
 
 
@@ -682,7 +691,7 @@ func _on_gather_beat_finished(_event_id: String) -> void:
 	if run == null or _pending_gather_settle.is_empty():
 		return
 	var settled: Dictionary = _pending_gather_settle.duplicate(true)
-	_MarchEventService.apply_pending_effects(run, settled)
+	_march_service(_PATH_MARCH_EVENT).apply_pending_effects(run, settled)
 	_pending_gather_settle.clear()
 	RunEventPresenter.present("march_event", settled, _run_ui, run)
 
