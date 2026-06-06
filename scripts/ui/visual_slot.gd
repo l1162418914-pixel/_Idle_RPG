@@ -3,6 +3,7 @@ extends Control
 ## T-ART-FW-1 · 美术插槽（占位色块 ↔ 纹理；FW-2 挂到各表现层）
 
 const _VisualConstantsLib = preload("res://scripts/ui/visual_constants.gd")
+const _ArtManifest = preload("res://scripts/ui/art_manifest.gd")
 
 
 enum DisplayMode { HIDDEN, PLACEHOLDER, TEXTURE }
@@ -88,6 +89,17 @@ func apply_texture(texture: Texture2D) -> void:
 func apply_art_key(key: String) -> void:
 	art_key = key
 	var spec: Dictionary = _VisualConstantsLib.placeholder_spec(key)
+	if spec.is_empty() and not _ArtManifest.has_entry(key):
+		clear_slot()
+		return
+	var tex: Texture2D = _ArtManifest.get_texture(key)
+	if tex != null:
+		if not spec.is_empty():
+			apply_placeholder(spec.get("color", Color.MAGENTA), spec.get("size", Vector2(8, 8)))
+		else:
+			apply_placeholder(Color.WHITE, Vector2(16, 16))
+		apply_texture(tex)
+		return
 	if spec.is_empty():
 		clear_slot()
 		return

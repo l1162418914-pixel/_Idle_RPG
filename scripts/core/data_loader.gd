@@ -2,6 +2,7 @@ extends Node
 ## DataLoader — 加载、缓存并提供 JSON 数据访问
 
 const _EquipmentSetRegistry = preload("res://scripts/equipment/equipment_set_registry.gd")
+const _ArtManifest = preload("res://scripts/ui/art_manifest.gd")
 
 var _enemy_templates: Dictionary = {}
 var _merc_templates: Dictionary = {}
@@ -19,6 +20,7 @@ var _chase_drop_tables: Dictionary = {}
 var _test_map_rosters: Dictionary = {}
 var _march_search_pools: Dictionary = {}
 var _march_events: Dictionary = {}
+var _art_manifest: Dictionary = {}
 
 
 func load_all() -> void:
@@ -37,6 +39,8 @@ func load_all() -> void:
 	_test_map_rosters = _load_json("res://data/test_map_rosters.json")
 	_march_search_pools = _load_json("res://data/march_search_pools.json")
 	_march_events = _load_json("res://data/march_events.json")
+	_art_manifest = _load_json("res://data/art_manifest.json")
+	_ArtManifest.configure(_art_manifest)
 	_EquipmentSetRegistry.load_from_data(_equipment_sets)
 	_index_merc()
 	_index_player_classes()
@@ -233,3 +237,7 @@ func march_event(event_id: String) -> Dictionary:
 	if event_id == "":
 		return {}
 	return _march_events.get("events", {}).get(event_id, {})
+
+
+func art_manifest_data() -> Dictionary:
+	return _art_manifest

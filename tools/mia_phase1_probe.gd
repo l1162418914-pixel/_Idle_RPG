@@ -6,6 +6,7 @@ const _FormationSlotCardScene = preload("res://scripts/ui/formation_slot_card.gd
 const _BaseCampBagUIScene = preload("res://scripts/ui/base_camp_bag_ui.gd")
 const _MarchEventService = preload("res://scripts/run/march_event_service.gd")
 const _MarchSearchService = preload("res://scripts/run/march_search_service.gd")
+const _ArtManifest = preload("res://scripts/ui/art_manifest.gd")
 
 var _failed: Array[String] = []
 var _passed: Array[String] = []
@@ -118,6 +119,8 @@ func _run() -> void:
 	_probe_fw1_visual_slot()
 	_probe_fw2_lane_visual_slots()
 	_probe_fw2_gather_and_boss_slots()
+	_probe_fw3_art_manifest()
+	_probe_fw3_visual_slot_texture()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2236,9 +2239,9 @@ func _probe_fw1_visual_slot() -> void:
 	var slot := VisualSlot.new()
 	slot.slot_id = "probe_milestone"
 	add_child(slot)
-	slot.apply_art_key("milestone/marker")
+	slot.apply_art_key("milestone/fired")
 	if slot.get_display_mode() != VisualSlot.DisplayMode.PLACEHOLDER:
-		_fail("FW1b", "apply_art_key 应进入 PLACEHOLDER")
+		_fail("FW1b", "apply_art_key 应进入 PLACEHOLDER（未在 manifest 登记的键）")
 		slot.queue_free()
 		return
 	if slot.pixel_size_from_placeholder() != VisualConstants.MILESTONE_MARKER_SIZE:
@@ -2336,6 +2339,51 @@ func _probe_fw2_gather_and_boss_slots() -> void:
 	boss.queue_free()
 	_pass("FW2c", "T-ART-FW-2 MarchGatherView VisualSlot")
 	_pass("FW2d", "T-ART-FW-2 BossChaseSilhouette VisualSlot")
+
+
+func _probe_fw3_art_manifest() -> void:
+	_ArtManifest.reset()
+	_ArtManifest.configure({
+		"textures": {
+			"milestone/marker": "res://icon.svg",
+			"milestone/missing": "res://assets/art/does_not_exist.png",
+		},
+	})
+	if not _ArtManifest.has_entry("milestone/marker"):
+		_fail("FW3a", "manifest 应登记 milestone/marker")
+		return
+	var tex: Texture2D = _ArtManifest.get_texture("milestone/marker")
+	if tex == null:
+		_fail("FW3a", "icon.svg 应可加载为纹理")
+		return
+	if _ArtManifest.get_texture("milestone/missing") != null:
+		_fail("FW3a", "不存在路径应返回 null")
+		return
+	if _ArtManifest.get_texture("party/silhouette_0") != null:
+		_fail("FW3a", "未登记键应返回 null")
+		return
+	_pass("FW3a", "T-ART-FW-3 ArtManifest 加载与缺文件回退")
+
+
+func _probe_fw3_visual_slot_texture() -> void:
+	_ArtManifest.reset()
+	_ArtManifest.configure({"textures": {"milestone/marker": "res://icon.svg"}})
+	var slot := VisualSlot.new()
+	add_child(slot)
+	slot.apply_art_key("milestone/marker")
+	if slot.get_display_mode() != VisualSlot.DisplayMode.TEXTURE:
+		_fail("FW3b", "manifest 命中应进入 TEXTURE")
+		slot.queue_free()
+		return
+	_ArtManifest.configure({"textures": {"gather/prop": "res://assets/art/missing.png"}})
+	slot.apply_art_key("gather/prop")
+	if slot.get_display_mode() != VisualSlot.DisplayMode.PLACEHOLDER:
+		_fail("FW3b", "缺文件应回退 PLACEHOLDER")
+		slot.queue_free()
+		return
+	slot.queue_free()
+	_ArtManifest.configure(DataLoader.art_manifest_data())
+	_pass("FW3b", "T-ART-FW-3 VisualSlot manifest 优先于占位")
 
 
 func _probe_mia_excluded_from_formation() -> void:

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "textures": {
+    "milestone/marker": "res://icon.svg",
+    "milestone/flash": "res://icon.svg"
+  },
+  "_comment": "新增真图：在此登记 art_key → res:// 路径；缺文件时 VisualSlot 仍用占位色块"
+}

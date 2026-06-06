@@ -1,17 +1,17 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → 最近 worklog。  
-> 最后更新：2026-06-06（MARCH ✅ · ART-FW ✅ · 探针 **83 PASS** · 指针 **探针日 / T-ART-FW-3 可选**）
+> 最后更新：2026-06-06（**探针日冒烟收盘** · headless **85 PASS** · T-ART-FW-3 ✅）
 
 ### CTO 结论（对齐版）
 
 | 维度 | 状态 |
 |------|------|
 | **环 1 骨架** | ✅ M1～M3 YES |
-| **大营 UI B 线** | ✅ 逻辑完成（B1～B4）；F5 肉眼 **探针日并行收** |
-| **跑图 MARCH** | ✅ **M1～M3 + V1～V3** 逻辑 YES（77 PASS）；F5 探针日登记 |
-| **美术** | **FW-1～2 ✅**（`VisualSlot` 已挂跑图五层）；纹理 manifest 可选 |
-| **风险** | `origin/main` 待 push 最新 4 commit；**环 1 F5 未全员签字** |
+| **大营 UI B 线** | ✅ 逻辑 + **F5 冒烟 YES**（出征/网格/底栏随 test_01 验证） |
+| **跑图 MARCH** | ✅ M1～M3 + V1～V3；**F5 test_01 搜索+接战冻结 YES** |
+| **美术** | ✅ **FW-1～3**（manifest 可挂真图；战斗区仍占位色块属预期） |
+| **探针日** | ✅ **冒烟收盘**（见下表）；**延期**：test_03 F5、grassland 80m、MIA、T-02a |
 
 ---
 
@@ -33,16 +33,17 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **探针日（并行）** / **`T-ART-FW-3`（可选）** |
-| **名称** | F5 验收清单 · 或 `art_manifest.json` 真图注册 |
-| **门禁** | MARCH + ART-FW-2 ✅ |
-| **不动** | `CombatController` 数值 · `StatResolver` · 存档字段 |
+| **ID** | **（待 CTO 指派）** |
+| **名称** | 探针日已收盘；建议下一项见「排队」 |
+| **门禁** | 探针日冒烟 ✅ · ART-FW-3 ✅ |
+| **不动** | 无新玩法扩 scope 直至下一 TASK 登记 |
 
-### 排队（可选）
+### 排队（建议优先级）
 
-1. **T-ART-FW-3** — `data/art_manifest.json` + `VisualSlot.apply_texture` 批量加载  
-2. **T-UI-B5+** / 街景美术 — **后期**  
-3. **T-MARCH-M4**（可选）— RunMarchView 事件点美术化（有美术资源后）
+1. **F5 补测（不占开发）** — `test_03` 追击 · `grassland` 80m 采集 · `test_09` MIA · `test_06` T-02a  
+2. **T-UI-B5+** / 街景 — 有美术或产品定案后  
+3. **T-MARCH-M4** — 里程碑美术化（manifest 填真图后）  
+4. **T-06** Buff 头标 — P0 战斗线（T-02a YES 后）
 
 ### 并行 CTO 验收（不占开发指针 · 建议半日「探针日」）
 
@@ -56,19 +57,19 @@
 
 ### 运维
 
-- MARCH 批次已 commit；**`main` 超前 `origin/main` 4 commit**（V2/V3/M3 + gitignore）→ **待 push**。  
-- 日常冒烟：**`test_03` + `test_01`**；正式验收走 **探针日** 清单，不每日全跑 MiaPhase1Probe 全表。
+- 日常冒烟：**`test_03` + `test_01`**；不必每日全跑 MiaPhase1Probe。  
+- headless 回归：`MiaPhase1Probe.tscn` → **85 PASS**（含 FW3）。
 
 ---
 
 ## 当前阶段
 
 **Sprint 重构环 1** — **M1 / M2 / M3 ✅ CTO YES**  
-**Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1～M3 + V1～V3 ✅**（77 PASS）  
-**Sprint 大营壳** — **T-UI-B1～B4 逻辑 ✅**；F5 肉眼并行验收  
+**Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1～M3 + V1～V3 ✅**  
+**Sprint 大营壳** — **T-UI-B1～B4 ✅**（逻辑 + F5 冒烟）  
+**探针日** — ✅ **冒烟收盘**（2026-06-06 · 用户 F5 test_01）
 
-- **下一开发**：**探针日 F5**（并行）或 **T-ART-FW-3**（有美术资源时）。  
-- **并行**：**探针日**（半日 F5 + `run_probe.log`），不占开发指针。
+- **下一开发**：**待 CTO 指派**（建议先 F5 补测或 T-02a / MIA 专测，再开新产品 TASK）。
 
 ---
 
@@ -76,27 +77,36 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **探针日** / **T-ART-FW-3** |
-| **名称** | F5 全清单 · 可选纹理 manifest |
-| **状态** | 🟡 **并行验收** |
+| **ID** | **探针日（收盘）** |
+| **名称** | F5 冒烟验收登记 |
+| **状态** | ✅ **CTO YES（冒烟）** |
 | **优先级** | P1 |
-| **门禁** | ART-FW-2 ✅ · 83 PASS |
+| **门禁** | headless 85 PASS · 用户 F5 确认 |
 
-### 并行验收（不占开发指针 · 探针日）
+### 探针日收盘表（2026-06-06）
+
+| 包 | F5 / 探针 | 结论 | 备注 |
+|----|-----------|------|------|
+| **环 1·进军** | `test_01` 接战 | ✅ YES | 停滚、战斗日志、顶栏「接战中」 |
+| **MARCH·搜索** | `test_01` | ✅ YES | 行程有搜索事件；**接战期间不刷搜索** |
+| **视差·冒烟** | `test_01` 接战 | ✅ YES | 色块战斗区属 ART 占位预期 |
+| **大营·冒烟** | 出征壳 + 网格 | ✅ YES | 安全箱/外露/底栏 Dock 可见可用 |
+| **headless** | MiaPhase1Probe | ✅ **85 PASS** | 含 FW3a/b |
+| **环 1·追击** | `test_03` F5 | ⏸ 延期 | headless 已过；F5 待补 |
+| **MARCH·采集** | `grassland` 80m | ⏸ 延期 | 未专测 |
+| **MIA 全线** | `test_09` 等 | ⏸ 延期 | 逻辑探针齐 |
+| **T-02a** | `test_06` 濒死 | ⏸ 延期 | — |
+
+### 仍 OPEN（不占探针日收盘）
 
 | ID | 名称 | 状态 |
 |----|------|------|
-| **探针日·环1** | `test_03` M1 探针 1～5 + `run_probe.log` | 🟡 headless **83 PASS** · F5 待收 |
-| **探针日·视差** | `test_01` / `test_03` V1～V5 肉眼 | 🟡 待 F5 |
-| **探针日·大营** | B1.5 / B2 / B3 / B4 零键盘与网格 | 🟡 待 F5 |
-| **探针日·MARCH** | 搜索/里程碑/80m 采集 / 返程池 | 🟡 待 F5 |
-| **T-MARCH-M1～M3 / V1～V3** | 跑图搜索与事件全线 | ✅ **逻辑 YES**（77 PASS） |
-| **T-UI-B3 / B4** | 编组卡 + 大营背包网格 | ✅ **CTO YES**（63～65 PASS）；F5 待手测 |
-| **T-UI-B1.5 / B2** | Dock + 顶栏稳定 | ✅ **CTO YES**；F5 待手测 |
-| **T-RUN-V1～V5** | 行军视差 | ✅ **CTO YES**；F5 待手测 |
-| **T-MIA-3 / T-MIA-4** | 冻结经验 + 回收 UI | 🟡 逻辑齐 · 待 F5 |
-| **T-MIA-P2～P5** | 回收 / 压力 / 救援 | 🟡 逻辑齐 · 待 F5 |
-| **T-02a / T-02e** | 濒死站位 + 测试编队 | 🟡 待 F5 |
+| **T-MARCH-M1～M3 / V1～V3** | 跑图搜索与事件 | ✅ **逻辑 + F5 冒烟 YES** |
+| **T-UI-B1.5～B4** | 大营壳 | ✅ **CTO YES** + F5 冒烟 |
+| **T-RUN-V1～V5** | 行军视差 | ✅ **CTO YES** + test_01 冒烟 |
+| **T-ART-FW-3** | art_manifest | ✅ **CTO YES** · FW3 探针 |
+| **T-MIA-3～P5** | MIA 玩法 | 🟡 逻辑齐 · **F5 延期** |
+| **T-02a / T-02e** | 濒死站位 | 🟡 **F5 延期** |
 
 ---
 
@@ -673,7 +683,7 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-MARCH-M2～M3 / V2～V3** | 里程碑 + 采集 + 返程池 | P1 | ✅ **CTO YES** | 77 PASS |
 | **T-ART-FW-1** | 视觉常量 + VisualSlot | P1 | ✅ **CTO YES** | FW1a/b |
 | **T-ART-FW-2** | 跑图五层挂 VisualSlot | P1 | ✅ **CTO YES** | FW2a～d · 83 PASS |
-| **T-ART-FW-3** | art_manifest 真图 | P2 | 📋 可选 | 有美术资源时 |
+| **T-ART-FW-3** | art_manifest 真图 | P2 | ✅ **CTO YES** | FW3a/b · 85 PASS |
 | T-06 | Buff / 觉醒头标 | P0 | ⏸ 让位 B 线 | T-05 YES |
 | T-07~T-10 | 研究所/转生/多槽/云存档 | P1~ | 🔒 冻结 | — |
 | **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | ✅ **CTO YES** | `e7f40b6` |
