@@ -1,0 +1,27 @@
+{
+  "events": {
+    "abandoned_crate": {
+      "log": "路旁遗弃箱，快速搜刮。",
+      "auto": true,
+      "effects": [
+        { "type": "loot_material", "rolls": 1 },
+        { "type": "stability", "team": -2 }
+      ]
+    },
+    "fog_patch": {
+      "log": "瘴气弥漫，队伍略感不适。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": -3 }
+      ]
+    },
+    "waypoint_sign": {
+      "log": "路标指向深处，队伍稍作休整。",
+      "auto": true,
+      "effects": [
+        { "type": "gold", "gold_min": 3, "gold_max": 8 },
+        { "type": "log_only" }
+      ]
+    }
+  }
+}

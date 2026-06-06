@@ -17,6 +17,8 @@ var _extract_items: Dictionary = {}
 var _near_death_config: Dictionary = {}
 var _chase_drop_tables: Dictionary = {}
 var _test_map_rosters: Dictionary = {}
+var _march_search_pools: Dictionary = {}
+var _march_events: Dictionary = {}
 
 
 func load_all() -> void:
@@ -33,6 +35,8 @@ func load_all() -> void:
 	_near_death_config = _load_json("res://data/near_death_config.json")
 	_chase_drop_tables = _load_json("res://data/chase_drop_tables.json")
 	_test_map_rosters = _load_json("res://data/test_map_rosters.json")
+	_march_search_pools = _load_json("res://data/march_search_pools.json")
+	_march_events = _load_json("res://data/march_events.json")
 	_EquipmentSetRegistry.load_from_data(_equipment_sets)
 	_index_merc()
 	_index_player_classes()
@@ -217,3 +221,15 @@ func skill_template(skill_id: String) -> Dictionary:
 
 func test_map_rosters_data() -> Dictionary:
 	return _test_map_rosters
+
+
+func march_search_pool(pool_id: String) -> Dictionary:
+	if pool_id == "":
+		return {}
+	return _march_search_pools.get("pools", {}).get(pool_id, {})
+
+
+func march_event(event_id: String) -> Dictionary:
+	if event_id == "":
+		return {}
+	return _march_events.get("events", {}).get(event_id, {})

@@ -1,0 +1,38 @@
+{
+  "pools": {
+    "grassland_search": {
+      "entries": [
+        {
+          "weight": 45,
+          "result": "empty",
+          "log": "路旁无异常。"
+        },
+        {
+          "weight": 28,
+          "result": "gold",
+          "gold_min": 2,
+          "gold_max": 9,
+          "log": "捡到散碎金币。"
+        },
+        {
+          "weight": 18,
+          "result": "material",
+          "log": "搜到可用材料。"
+        },
+        {
+          "weight": 6,
+          "result": "stability",
+          "team_delta": 2,
+          "log": "发现哨站痕迹，士气略升。"
+        },
+        {
+          "weight": 3,
+          "result": "stability",
+          "team_delta": -3,
+          "log": "瘴气扑面，队伍略感不适。"
+        }
+      ],
+      "retreat_negative_mult": 1.35
+    }
+  }
+}
