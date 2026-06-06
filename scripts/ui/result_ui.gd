@@ -93,6 +93,7 @@ func _setup_redeploy_button() -> void:
 		return
 	_redeploy_button = Button.new()
 	_redeploy_button.text = "同地图再战"
+	_redeploy_button.custom_minimum_size = Vector2(120, 36)
 	_redeploy_button.tooltip_text = "领取本次奖励后立即再出征（当前地图，沿用编队快照补员）"
 	_redeploy_button.pressed.connect(_on_redeploy_pressed)
 	parent.add_child(_redeploy_button)
@@ -189,18 +190,42 @@ func _show_result(result: Dictionary) -> void:
 	var settlement_tier: String = str(result.get("settlement_tier", "success"))
 	
 	var title := ""
-	if settlement_tier == "mia":
+	if settlement_tier == "mia" and bool(result.get("retreat_failure_mia", false)):
+		var mode: String = str(result.get("retreat_failure_mode", ""))
+		if mode == "B-3b" or mode == "B-3b-partial":
+			title = "撤离失败·部分遗留"
+		else:
+			title = "撤离失败·战场遗留"
+	elif settlement_tier == "mia":
 		title = "战场遗留"
+	elif settlement_tier == "recovery":
+		if bool(result.get("mutual_recovery", false)):
+			title = "互捞回收成功"
+		else:
+			title = "回收成功"
+	elif settlement_tier == "recovery_fail":
+		title = "回收失败"
+	elif settlement_tier == "rescue":
+		title = "救援队运尸成功"
+	elif settlement_tier == "rescue_fail":
+		title = "救援队失败·养伤 CD"
 	elif extract_clear and boss:
 		title = "Boss讨伐成功!"
 	elif extract_clear:
 		title = "宝库守卫战胜利!"
 	elif manual:
 		title = "手动斩仓撤离"
+	elif bool(result.get("player_forced_return", false)):
+		if bool(result.get("mercs_continue_after_player_return", false)):
+			title = "指挥官回城·佣兵留场"
+		else:
+			title = "指挥官独自回城"
 	elif not player_alive:
 		title = "全军覆没（永久阵亡）"
 	elif forced:
-		if result.get("near_death_penalty", false):
+		if result.get("near_death_penalty", false) and bool(result.get("pressure_retreat_event", false)):
+			title = "压力收场·抵营养伤"
+		elif result.get("near_death_penalty", false):
 			title = "紧急撤离成功·全队濒死"
 		elif result.get("completed_retreat", false) and result.get("distance", 0) <= 1.0:
 			title = "已安全撤回大营"
@@ -270,12 +295,62 @@ func _show_result(result: Dictionary) -> void:
 		var abandoned: int = int(result.get("loot_abandoned_manual", 0))
 		if abandoned > 0:
 			stats_text += "\n斩仓舍弃外露: %d 件（仅安全箱带回）" % abandoned
-		if settlement_tier == "mia":
-			stats_text += "\n队员失踪（战场遗留 / MIA），名册可见；大营回收功能待接"
+		if bool(result.get("player_forced_return", false)):
+			stats_text += "\n指挥官濒死回营（永不战场遗留）"
+			if bool(result.get("mercs_continue_after_player_return", false)):
+				stats_text += " · 佣兵曾留场作战"
+		if bool(result.get("pressure_retreat_event", false)) and int(result.get("pressure_mia_quota", 0)) > 0:
+			stats_text += "\n压力收场撤离 · 预估遗留风险 %d 人" % int(result.get("pressure_mia_quota", 0))
+			if int(result.get("pressure_mia_applied", -1)) >= 0:
+				stats_text += " · 抵营二阶段实留 %d 人" % int(result.get("pressure_mia_applied", 0))
+		if settlement_tier == "mia" and bool(result.get("retreat_failure_mia", false)):
+			var mia_n: int = int(result.get("mia_count", 0))
+			var mode_l: String = str(result.get("retreat_failure_mode", ""))
+			stats_text += "\n撤离未抵营：%d 人战场遗留（%s）" % [mia_n, mode_l]
+			stats_text += "\n请 F5 后勤 · 回收"
+		elif settlement_tier == "mia" and bool(result.get("mia_wipe_recovery_hint", false)):
+			stats_text += "\n测试⑨：回大营后勿再点「出征」（会重置遗留）；请 F5 后勤 · 回收"
+		if settlement_tier == "recovery":
+			var unfrozen: int = int(result.get("recovery_unfrozen_exp", 0))
+			var targets: Array = result.get("recovery_target_ids", [])
+			if bool(result.get("mutual_recovery", false)):
+				stats_text += "\nB-10 双半组互捞回收"
+			if targets.size() > 0:
+				stats_text += "\n已寻回 %d 名遗留队员；回大营领取解冻经验" % targets.size()
+			if unfrozen > 0:
+				stats_text += "\n冻结经验解冻入账: %d（25%%）" % unfrozen
+		elif settlement_tier == "recovery_fail":
+			stats_text += "\n回收失败：捞人队濒死回营（未新增遗留）；可休养后再试"
+			if bool(result.get("return_scroll_granted", false)):
+				stats_text += "\n获得回城卷轴（读条一键减价）"
+		elif settlement_tier == "rescue":
+			var targets_r: Array = result.get("rescue_target_ids", [])
+			if targets_r.size() > 0:
+				stats_text += "\n已运回 %d 具尸体至停尸间；请后勤医疗复活" % targets_r.size()
+			var rep_gain: int = int(result.get("rescue_reputation_gain", 0))
+			if rep_gain > 0:
+				stats_text += "\n救援声望 +%d · 等级 %d" % [
+					rep_gain, int(result.get("rescue_rank", 0))
+				]
+			var bonus: int = int(result.get("rescue_bonus_exp", 0))
+			if bonus > 0:
+				stats_text += "\n救援队经验 +%d（不取冻结池）" % bonus
+		elif settlement_tier == "rescue_fail":
+			stats_text += "\n救援队失败：队员养伤 CD，原遗留仍在地图"
+		elif settlement_tier == "mia":
+			stats_text += "\n队员失踪（战场遗留 / MIA）；回大营后打开后勤 [F5] · 回收"
+			var frozen: int = int(result.get("frozen_exp_recorded", 0))
+			if frozen > 0:
+				var ratio_pct: int = int(round(float(result.get("frozen_exp_mia_ratio", 0.0)) * 100.0))
+				stats_text += "\n经验已冻结: %d（MIA 占比 %d%%，回收后解冻）" % [frozen, ratio_pct]
+			elif int(result.get("total_exp", 0)) > 0:
+				stats_text += "\n本趟经验未入账（待回收解冻）"
 		elif result.get("near_death_penalty", false):
 			stats_text += "\n全队濒死（需在大营休养至满血，撤离失败才会阵亡）"
 		if GameManager.last_run_stability_note != "":
 			stats_text += "\n\n" + GameManager.last_run_stability_note
+		if result.get("test_run_ephemeral", false):
+			stats_text += "\n\n[测试图] 以上为模拟结算；回大营不入账、不影响正式进度"
 		var unlocked_maps: Array = result.get("maps_unlocked", [])
 		if not unlocked_maps.is_empty():
 			var names: Array[String] = []
@@ -287,7 +362,24 @@ func _show_result(result: Dictionary) -> void:
 	if _center_exp_label:
 		var center_lines: PackedStringArray = []
 		center_lines.append("—— 升级 / 再战 ——")
-		center_lines.append("经验: +%d (队伍每人)" % int(result.get("total_exp", 0)))
+		if settlement_tier == "mia":
+			var frozen_c: int = int(result.get("frozen_exp_recorded", 0))
+			if frozen_c > 0:
+				center_lines.append("经验: 已冻结 %d（本趟不入账）" % frozen_c)
+			else:
+				center_lines.append("经验: 本趟未入账（MIA 结算）")
+		elif settlement_tier == "recovery":
+			var unfrozen_c: int = int(result.get("recovery_unfrozen_exp", 0))
+			if unfrozen_c > 0:
+				center_lines.append("经验: 回收解冻 +%d（目标队员）" % unfrozen_c)
+			else:
+				center_lines.append("经验: 遗留已清除（无冻结池可解冻）")
+		elif settlement_tier == "recovery_fail":
+			center_lines.append("经验: 本趟回收无入账；捞人队需休养")
+		else:
+			center_lines.append("经验: +%d (队伍每人)" % int(result.get("total_exp", 0)))
+		if result.get("test_run_ephemeral", false):
+			center_lines.append("测试图：回大营时不发放奖励")
 		if not GameManager.last_run_level_up_log.is_empty():
 			center_lines.append("升级: " + ", ".join(GameManager.last_run_level_up_log))
 		if GameManager.is_recovery_lock_active():
@@ -488,6 +580,7 @@ func _retreat_reason_label(reason: String) -> String:
 		"manual": return "手动斩仓"
 		"combat_fail": return "战斗失利"
 		"emergency": return "紧急撤离"
+		"pressure": return "压力收场·撤离事件"
 		_: return reason
 
 

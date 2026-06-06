@@ -1,8 +1,12 @@
 extends VBoxContainer
 ## 基地双半组编队：A/B 各 4 出战 + 2 替补；养伤锁详情
 
+const _FormationSlotCardScene = preload("res://scripts/ui/formation_slot_card.gd")
+
 const SLOT_ACTIVE := "active"
 const SLOT_BENCH := "bench"
+const HALF_STAGE_ACTIVE_BG := Color(0.14, 0.18, 0.24, 0.95)
+const HALF_STAGE_REST_BG := Color(0.11, 0.12, 0.15, 0.92)
 
 var _recovery_panel: PanelContainer = null
 var _recovery_title: Label = null
@@ -26,6 +30,16 @@ func _ready() -> void:
 func _on_state_changed(new_state: int) -> void:
 	if new_state == GameManager.GameState.BASE:
 		_refresh()
+
+
+func pulse_formation_focus(seconds: float = 2.0) -> void:
+	if _halves_row == null:
+		return
+	var orig: Color = _halves_row.modulate
+	_halves_row.modulate = Color(0.7, 1.05, 1.2)
+	var tween := create_tween()
+	tween.tween_interval(maxf(0.1, seconds * 0.85))
+	tween.tween_property(_halves_row, "modulate", orig, maxf(0.1, seconds * 0.15))
 
 
 func _build_ui() -> void:
@@ -54,6 +68,7 @@ func _build_ui() -> void:
 	player_equip_btn.pressed.connect(_on_player_equip_pressed)
 	player_tools.add_child(player_equip_btn)
 	pv.add_child(player_tools)
+	_apply_player_panel_style()
 	add_child(_player_panel)
 	_recovery_panel = PanelContainer.new()
 	var rv := VBoxContainer.new()
@@ -106,6 +121,22 @@ func _refresh() -> void:
 		if next_h != "":
 			_status_label.text += " | 下趟优先:%s" % next_h
 		_status_label.text += "（点半组标题改优先）"
+		var sel_md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
+		if (
+			GameManager.state == GameManager.GameState.BASE
+			and TestScenarioService.should_lock_roster(sel_md)
+		):
+			if str(sel_md.get("test_scenario", "")) == "mia_wipe":
+				if TestScenarioService.has_test_mia_casualties(GameManager):
+					_status_label.text += " | 测试⑨：已有遗留 → F5 后勤·回收（勿再灭团出征）"
+				elif TestScenarioService.is_roster_injected(GameManager, GameManager.selected_map_id):
+					_status_label.text += " | 测试⑨：半组 A 出征灭团 → 回城 F5 回收"
+				else:
+					_status_label.text += " | 测试⑨：选图后自动注入编队，点「出征」开战"
+			elif not TestScenarioService.is_roster_injected(GameManager, GameManager.selected_map_id):
+				var roster: Dictionary = TestRosterLoader.roster_for_map(GameManager.selected_map_id)
+				var label: String = str(roster.get("display_name", "测试编队"))
+				_status_label.text += " | 已选测试图：点地图「出征」注入 %s" % label
 		if GameManager.is_recovery_lock_active():
 			_status_label.modulate = Color.ORANGE_RED
 		else:
@@ -162,7 +193,7 @@ func _refresh_recovery() -> void:
 	if no_mercs:
 		lines.append("暂无佣兵可编组。请打开兵营招募至少 1 名佣兵，再编入 A/B 半组出战位。")
 	else:
-		lines.append("两半组均无法出征。医疗室优先治疗最快能满编的一组。")
+		lines.append("两半组均无法出征（顶栏已显示养伤锁与预计恢复时间）。")
 	var eta: float = float(st.get("eta_seconds", 0.0))
 	if not no_mercs and eta > 0.5:
 		if eta >= 120.0:
@@ -206,32 +237,44 @@ func _refresh_halves() -> void:
 	_halves_row.add_child(_build_half_column(SquadFormationService.HALF_B))
 
 
-func _build_half_column(half: String) -> VBoxContainer:
+func _build_half_column(half: String) -> PanelContainer:
+	var shell := PanelContainer.new()
+	shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_apply_half_stage_style(shell, half)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	shell.add_child(margin)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 4)
+	margin.add_child(col)
 	var can_dep: bool = SquadFormationService.half_can_deploy(GameManager, half)
 	var pref: String = str(GameManager.squad_formation.get("active_half", "A"))
 	var head := Button.new()
 	head.flat = true
+	head.custom_minimum_size = Vector2(0, 32)
 	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	head.text = "半组 %s [%s]%s" % [
+	head.text = "半组 %s · %s%s" % [
 		half,
 		"可出战" if can_dep else "休整",
-		" ←优先" if half == pref else "",
+		" ★优先" if half == pref else "",
 	]
 	head.pressed.connect(_on_preferred_half.bind(half))
 	col.add_child(head)
-	col.add_child(_make_slot_label("出战位 (4)"))
+	col.add_child(_make_slot_label("出战 (4)"))
 	var active: Array[String] = SquadFormationService.get_active_ids(GameManager.squad_formation, half)
 	active = _pad(active, SquadFormationService.MAX_ACTIVE)
 	for i in range(SquadFormationService.MAX_ACTIVE):
-		col.add_child(_make_slot_button(half, SLOT_ACTIVE, i, active[i]))
-	col.add_child(_make_slot_label("替补席 (2)"))
+		col.add_child(_make_slot_card(half, SLOT_ACTIVE, i, active[i]))
+	col.add_child(_make_slot_label("替补 (2)"))
 	var bench: Array[String] = SquadFormationService.get_bench_ids(GameManager.squad_formation, half)
 	bench = _pad(bench, SquadFormationService.MAX_BENCH)
 	for i in range(SquadFormationService.MAX_BENCH):
-		col.add_child(_make_slot_button(half, SLOT_BENCH, i, bench[i]))
-	return col
+		col.add_child(_make_slot_card(half, SLOT_BENCH, i, bench[i]))
+	return shell
 
 
 func _make_slot_label(text: String) -> Label:
@@ -242,21 +285,105 @@ func _make_slot_label(text: String) -> Label:
 	return l
 
 
-func _make_slot_button(half: String, kind: String, index: int, merc_id: String) -> Button:
-	var btn := FormationSlotButton.new()
-	btn.custom_minimum_size = Vector2(0, 26)
-	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	btn.slot_half = half
-	btn.slot_kind = kind
-	btn.slot_index = index
-	btn.formation_ui = self
-	btn.text = _slot_text(merc_id, kind, index)
-	btn.modulate = _slot_color(merc_id)
+func _make_slot_card(half: String, kind: String, index: int, merc_id: String) -> Control:
+	var card := _FormationSlotCardScene.new()
+	card.slot_half = half
+	card.slot_kind = kind
+	card.slot_index = index
+	card.formation_ui = self
 	var key := _slot_key(half, kind, index)
-	if _selected.get("key", "") == key:
-		btn.modulate = Color(0.6, 1.0, 0.75)
-	btn.pressed.connect(_on_slot_pressed.bind(half, kind, index))
-	return btn
+	var selected: bool = _selected.get("key", "") == key
+	var vis: Dictionary = _slot_card_visual(merc_id, kind)
+	card.apply_slot(
+		merc_id,
+		kind,
+		index,
+		selected,
+		bool(vis.get("ready", false)),
+		str(vis.get("name_text", "")),
+		float(vis.get("hp_ratio", 0.0)),
+		str(vis.get("badge", "")),
+		vis.get("accent", Color.WHITE),
+		vis.get("bg", Color(0.14, 0.17, 0.22))
+	)
+	return card
+
+
+func _slot_card_visual(merc_id: String, kind: String) -> Dictionary:
+	if merc_id == "":
+		return {
+			"ready": false,
+			"name_text": "(空槽 · 拖入或点选未编入)",
+			"hp_ratio": 0.0,
+			"badge": "",
+			"accent": Color(0.28, 0.3, 0.36),
+			"bg": Color(0.1, 0.11, 0.14, 0.88),
+		}
+	var m := GameManager.find_mercenary_by_id(merc_id)
+	if m == null:
+		return {
+			"ready": false,
+			"name_text": "未知单位",
+			"hp_ratio": 0.0,
+			"badge": "?",
+			"accent": Color(0.4, 0.4, 0.45),
+			"bg": Color(0.12, 0.12, 0.14, 0.9),
+		}
+	var max_hp: int = maxi(1, StatResolver.get_max_hp(m))
+	var hp_ratio: float = float(m.current_hp) / float(max_hp)
+	var ready: bool = _slot_merc_ready(m)
+	var badge := "可出战" if ready else "休整"
+	if m.is_mia:
+		badge = "遗留"
+	elif m.is_near_death:
+		badge = "濒死"
+	var tag := "★ " if GameManager.player and GameManager.player.merc_id == merc_id else ""
+	var accent := Color(0.38, 0.72, 0.95) if kind == SLOT_ACTIVE else Color(0.45, 0.52, 0.62)
+	if not ready:
+		accent = Color(0.72, 0.48, 0.38) if m.is_near_death else Color(0.55, 0.5, 0.45)
+	var bg := Color(0.15, 0.2, 0.28, 0.95) if ready else Color(0.14, 0.14, 0.17, 0.92)
+	if m.is_test_stand_in:
+		bg = Color(0.16, 0.22, 0.26, 0.95)
+	return {
+		"ready": ready,
+		"name_text": "%s%s Lv.%d" % [tag, m.merc_name, m.level],
+		"hp_ratio": hp_ratio,
+		"badge": badge,
+		"accent": accent,
+		"bg": bg,
+	}
+
+
+func _apply_half_stage_style(panel: PanelContainer, half: String) -> void:
+	var can_dep: bool = SquadFormationService.half_can_deploy(GameManager, half)
+	var pref: bool = str(GameManager.squad_formation.get("active_half", "A")) == half
+	var sb := StyleBoxFlat.new()
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.corner_radius_bottom_left = 6
+	sb.corner_radius_bottom_right = 6
+	sb.bg_color = HALF_STAGE_ACTIVE_BG if can_dep else HALF_STAGE_REST_BG
+	if pref:
+		sb.border_width_left = 2
+		sb.border_width_top = 2
+		sb.border_width_right = 2
+		sb.border_width_bottom = 2
+		sb.border_color = Color(0.35, 0.75, 1.0, 0.95)
+	panel.add_theme_stylebox_override("panel", sb)
+
+
+func _apply_player_panel_style() -> void:
+	if _player_panel == null:
+		return
+	var sb := StyleBoxFlat.new()
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.corner_radius_bottom_left = 6
+	sb.corner_radius_bottom_right = 6
+	sb.bg_color = Color(0.12, 0.18, 0.26, 0.95)
+	sb.border_width_left = 2
+	sb.border_color = Color(0.45, 0.78, 1.0, 0.85)
+	_player_panel.add_theme_stylebox_override("panel", sb)
 
 
 func _on_auto_fill_preferred() -> void:
@@ -343,6 +470,8 @@ func _slot_text(merc_id: String, kind: String, index: int) -> String:
 func _slot_merc_ready(m: Mercenary) -> bool:
 	if m == null or not m.is_alive:
 		return false
+	if m.is_test_stand_in:
+		return true
 	if m.is_mia or m.is_near_death or m.is_retreated or m.is_personal_break:
 		return false
 	if not m.is_personal_stability_ok():
@@ -356,8 +485,8 @@ func _slot_color(merc_id: String) -> Color:
 	var m := GameManager.find_mercenary_by_id(merc_id)
 	if m == null:
 		return Color.GRAY
-	if _slot_merc_ready(m):
-		return Color.WHITE
+	if m.is_test_stand_in or _slot_merc_ready(m):
+		return Color(0.75, 0.9, 1.0) if m.is_test_stand_in else Color.WHITE
 	if m.is_mia:
 		return Color(0.55, 0.5, 0.65)
 	if m.is_near_death:
@@ -408,7 +537,7 @@ func _on_pool_merc_pressed(merc_id: String) -> void:
 	var m := GameManager.find_mercenary_by_id(merc_id)
 	if m != null and m.is_mia:
 		if _status_label:
-			_status_label.text = "战场遗留，不可编入"
+			_status_label.text = "[遗留] 不可编入"
 			_status_label.modulate = Color.ORANGE_RED
 		return
 	var half: String = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
@@ -434,9 +563,13 @@ func _clear_pool_row() -> void:
 	var parent: Node = _pool_label.get_parent()
 	if parent == null:
 		return
+	var to_remove: Array[Node] = []
 	for child in parent.get_children():
-		if child.name == "FormationPoolRow":
-			child.queue_free()
+		if str(child.name).begins_with("FormationPool"):
+			to_remove.append(child)
+	for child in to_remove:
+		parent.remove_child(child)
+		child.free()
 
 
 func _refresh_pool() -> void:
@@ -448,35 +581,104 @@ func _refresh_pool() -> void:
 	in_form.append_array(SquadFormationService.get_bench_ids(GameManager.squad_formation, SquadFormationService.HALF_A))
 	in_form.append_array(SquadFormationService.get_active_ids(GameManager.squad_formation, SquadFormationService.HALF_B))
 	in_form.append_array(SquadFormationService.get_bench_ids(GameManager.squad_formation, SquadFormationService.HALF_B))
-	var unassigned: Array[String] = []
+	var deploy_ids: Array[String] = []
+	var rest_ids: Array[String] = []
+	var mia_ids: Array[String] = []
 	for e in GameManager.elite_roster:
-		if e.is_alive and e.merc_id not in in_form:
-			unassigned.append(e.merc_id)
+		if e.merc_id in in_form:
+			continue
+		if e.is_test_stand_in or e.is_alive:
+			if e.is_test_stand_in or _slot_merc_ready(e):
+				deploy_ids.append(e.merc_id)
+			elif e.is_mia:
+				mia_ids.append(e.merc_id)
+			else:
+				rest_ids.append(e.merc_id)
 	for n in GameManager.normal_roster:
-		if n.is_alive and n.merc_id not in in_form:
-			unassigned.append(n.merc_id)
-	if unassigned.is_empty():
+		if n.merc_id in in_form:
+			continue
+		if n.is_test_stand_in or n.is_alive:
+			if n.is_test_stand_in or _slot_merc_ready(n):
+				deploy_ids.append(n.merc_id)
+			elif n.is_mia:
+				mia_ids.append(n.merc_id)
+			else:
+				rest_ids.append(n.merc_id)
+	var parent: Node = _pool_label.get_parent()
+	if parent == null:
+		return
+	var insert_idx: int = _pool_label.get_index() + 1
+	if deploy_ids.is_empty() and rest_ids.is_empty() and mia_ids.is_empty():
 		if not SquadFormationService.has_living_merc_roster(GameManager):
 			_pool_label.text = "未编入：无佣兵（请先在兵营招募）"
 		else:
 			_pool_label.text = "未编入：无（全员已在 A/B 槽位）"
 		return
 	_pool_label.text = "未编入（点名字填入优先半组空位）："
-	var parent: Node = _pool_label.get_parent()
-	if parent == null:
-		return
+	deploy_ids = _unique_merc_ids(deploy_ids)
+	rest_ids = _unique_merc_ids(rest_ids)
+	mia_ids = _unique_merc_ids(mia_ids)
+	if not deploy_ids.is_empty():
+		insert_idx = _add_pool_section(parent, insert_idx, "FormationPoolRow", deploy_ids, false)
+	if not rest_ids.is_empty():
+		insert_idx = _add_pool_section(parent, insert_idx, "FormationPoolRest", rest_ids, true, "养伤（未编入，不可出征）：")
+	if not mia_ids.is_empty():
+		_add_pool_section(parent, insert_idx, "FormationPoolMia", mia_ids, true, "[遗留]（未编入）：")
+
+
+func _unique_merc_ids(ids: Array[String]) -> Array[String]:
+	var out: Array[String] = []
+	var seen: Dictionary = {}
+	for mid in ids:
+		if mid == "" or seen.has(mid):
+			continue
+		seen[mid] = true
+		out.append(mid)
+	return out
+
+
+func _add_pool_section(
+	parent: Node,
+	insert_idx: int,
+	row_name: String,
+	merc_ids: Array[String],
+	disabled: bool,
+	prefix: String = ""
+) -> int:
+	if prefix != "":
+		var lbl := Label.new()
+		lbl.name = row_name + "Title"
+		lbl.text = prefix
+		lbl.add_theme_font_size_override("font_size", 10)
+		lbl.modulate = Color.DIM_GRAY if disabled else Color(0.75, 0.85, 0.95)
+		parent.add_child(lbl)
+		parent.move_child(lbl, insert_idx)
+		insert_idx += 1
 	var row := HFlowContainer.new()
-	row.name = "FormationPoolRow"
-	for mid in unassigned:
+	row.name = row_name
+	for mid in merc_ids:
 		var b := FormationPoolButton.new()
 		var m := GameManager.find_mercenary_by_id(mid)
 		b.merc_id = mid
 		b.formation_ui = self
-		b.text = m.merc_name if m else mid
-		b.pressed.connect(_on_pool_merc_pressed.bind(mid))
+		if m != null and m.is_mia:
+			b.text = "%s [遗留]" % m.merc_name
+		else:
+			b.text = m.merc_name if m else mid
+		b.disabled = disabled
+		if m != null:
+			if m.is_mia:
+				b.modulate = Color(0.55, 0.5, 0.65)
+			elif m.is_near_death:
+				b.modulate = Color(1.0, 0.5, 0.5)
+			elif not _slot_merc_ready(m):
+				b.modulate = Color.GOLD
+		if not disabled:
+			b.pressed.connect(_on_pool_merc_pressed.bind(mid))
 		row.add_child(b)
 	parent.add_child(row)
-	parent.move_child(row, _pool_label.get_index() + 1)
+	parent.move_child(row, insert_idx)
+	return insert_idx + 1
 
 
 func _slot_key(half: String, kind: String, index: int) -> String:

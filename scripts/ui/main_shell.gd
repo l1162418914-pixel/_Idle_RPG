@@ -14,9 +14,11 @@ var _result_ui: Control = null
 var _combat_view: CombatView = null
 
 var _top_gold: Label = null
-var _top_stability: Label = null
+var _top_stability_bar: ProgressBar = null
+var _top_stability_detail: Label = null
 var _top_recovery: Label = null
 var _top_map: Label = null
+var _last_run_data: Dictionary = {}
 var _left_slot: Control = null
 var _center_slot: Control = null
 var _right_slot: Control = null
@@ -52,7 +54,9 @@ var _logistics_panel: PanelContainer = null
 var _logistics_tabs: TabContainer = null
 var _logistics_tab_buildings: VBoxContainer = null
 var _logistics_tab_recruit: VBoxContainer = null
+var _logistics_tab_recovery: VBoxContainer = null
 var _logistics_tab_dead: VBoxContainer = null
+var _recovery_ui: RecoveryUI = null
 var _logistics_open: bool = false
 var _panel_highlight_tween: Tween = null
 
@@ -101,6 +105,7 @@ func apply_lane_snapshot(lane: Dictionary) -> void:
 func apply_state(state: int) -> void:
 	if state != GameManager.GameState.RUNNING:
 		_lane_status_text = ""
+		_last_run_data.clear()
 	_refresh_top_bar(state)
 	_apply_slot_visibility(state)
 	_update_dock_highlight(state)
@@ -127,12 +132,16 @@ func refresh_running_panels() -> void:
 				var max_hp: int = maxi(1, StatResolver.get_max_hp(m))
 				var lbl := Label.new()
 				var tag := ""
-				if m.is_near_death:
+				if m.is_test_stand_in:
+					tag = " (测试·锁定)"
+				elif m.is_near_death:
 					tag = " (濒死)"
 				elif m.current_hp < max_hp:
 					tag = " (负伤)"
 				lbl.text = "%s %d/%d HP%s" % [m.merc_name, m.current_hp, max_hp, tag]
-				if m.is_near_death:
+				if m.is_test_stand_in:
+					lbl.modulate = Color(0.75, 0.9, 1.0)
+				elif m.is_near_death:
 					lbl.modulate = Color(1.0, 0.45, 0.45)
 				_run_hp_list.add_child(lbl)
 	if _run_grid_ui and run:
@@ -186,7 +195,7 @@ func _build_layout() -> void:
 	shell_vbox.add_child(top_bar)
 
 	_top_gold = _make_top_label(top_bar, "金币: 0")
-	_top_stability = _make_top_label(top_bar, "团队稳定: —")
+	_build_top_stability(top_bar)
 	_top_recovery = _make_top_label(top_bar, "")
 	_top_recovery.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_top_map = _make_top_label(top_bar, "地图: 大营")
@@ -232,7 +241,7 @@ func _build_layout() -> void:
 
 	_march_lane_host = Control.new()
 	_march_lane_host.name = "MarchLaneHost"
-	_march_lane_host.custom_minimum_size = Vector2(0, 22)
+	_march_lane_host.custom_minimum_size = Vector2(0, 52)
 	_march_lane_host.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	run_bar.add_child(_march_lane_host)
 	_run_march_lane = RunMarchLane.new()
@@ -273,7 +282,6 @@ func _build_layout() -> void:
 	_dock_hint.text = "THB 2.0 PC 壳"
 	_dock_hint.modulate = Color(0.55, 0.6, 0.7)
 	dock.add_child(_dock_hint)
-	_dock_buttons["redeploy"] = _make_dock_button(dock, "再战", "")
 	_dock_buttons["settings"] = _make_dock_button(dock, "设置", "")
 
 	_narrow_hint = Label.new()
@@ -355,6 +363,58 @@ func _make_top_label(parent: HBoxContainer, text: String) -> Label:
 	lbl.text = text
 	parent.add_child(lbl)
 	return lbl
+
+
+func _build_top_stability(parent: HBoxContainer) -> void:
+	var box := HBoxContainer.new()
+	box.name = "TopStabilityBox"
+	box.add_theme_constant_override("separation", 4)
+	box.custom_minimum_size = Vector2(168, 0)
+	var caption := Label.new()
+	caption.text = "稳定"
+	caption.add_theme_font_size_override("font_size", 11)
+	caption.modulate = Color(0.75, 0.82, 0.9)
+	box.add_child(caption)
+	_top_stability_bar = ProgressBar.new()
+	_top_stability_bar.name = "TopStabilityBar"
+	_top_stability_bar.custom_minimum_size = Vector2(92, 14)
+	_top_stability_bar.max_value = StabilitySystem.MAX_STABILITY
+	_top_stability_bar.show_percentage = false
+	box.add_child(_top_stability_bar)
+	_top_stability_detail = Label.new()
+	_top_stability_detail.name = "TopStabilityDetail"
+	_top_stability_detail.add_theme_font_size_override("font_size", 11)
+	box.add_child(_top_stability_detail)
+	parent.add_child(box)
+	_apply_stability_bar_visual(0)
+
+
+func _stability_tint(value: int) -> Color:
+	if value <= 30:
+		return Color(1.0, 0.35, 0.35)
+	if value <= 50:
+		return Color(1.0, 0.72, 0.3)
+	if value <= 70:
+		return Color(0.95, 0.88, 0.35)
+	return Color(0.45, 0.82, 0.55)
+
+
+func _apply_stability_bar_visual(value: int) -> void:
+	if _top_stability_bar == null:
+		return
+	_top_stability_bar.value = clampi(value, 0, StabilitySystem.MAX_STABILITY)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = _stability_tint(value)
+	_top_stability_bar.add_theme_stylebox_override("fill", fill)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.12, 0.14, 0.18)
+	_top_stability_bar.add_theme_stylebox_override("background", bg)
+
+
+func apply_run_snapshot(run_data: Dictionary) -> void:
+	_last_run_data = run_data
+	if GameManager.state == GameManager.GameState.RUNNING:
+		_refresh_top_bar(GameManager.GameState.RUNNING)
 
 
 func _make_panel(parent: HBoxContainer, panel_name: String, ratio: float) -> PanelContainer:
@@ -442,6 +502,7 @@ func _build_logistics_popup() -> void:
 	_logistics_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_logistics_tab_buildings = _add_logistics_tab(_logistics_tabs, "建筑")
 	_logistics_tab_recruit = _add_logistics_tab(_logistics_tabs, "招募")
+	_logistics_tab_recovery = _add_logistics_tab(_logistics_tabs, "回收")
 	_logistics_tab_dead = _add_logistics_tab(_logistics_tabs, "阵亡")
 	outer.add_child(_logistics_tabs)
 	var close_btn := Button.new()
@@ -521,6 +582,7 @@ func _attach_shell_content() -> void:
 		)
 		if _base_ui.has_method("bind_main_shell"):
 			_base_ui.bind_main_shell(self)
+	_mount_recovery_ui()
 	if _squad_ui and _squad_ui.has_method("attach_to_shell"):
 		_squad_ui.attach_to_shell(_left_slot, _center_slot, _right_slot)
 	if _result_ui and _result_ui.has_method("attach_to_shell"):
@@ -533,6 +595,8 @@ func _attach_shell_content() -> void:
 func _embed_run_combat() -> void:
 	if _run_ui:
 		_mount_in_slot(_run_ui, _run_controls_host)
+		if _run_ui.has_method("bind_main_shell"):
+			_run_ui.bind_main_shell(self)
 		var combat_node := _run_ui.get_node_or_null("MarginContainer/MainVBox/CombatView")
 		if combat_node:
 			_combat_view = combat_node as CombatView
@@ -668,8 +732,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _wire_dock() -> void:
 	if _dock_buttons.has("deploy"):
 		_dock_buttons["deploy"].pressed.connect(_on_dock_deploy)
-	if _dock_buttons.has("redeploy"):
-		_dock_buttons["redeploy"].pressed.connect(_on_dock_redeploy)
 	if _dock_buttons.has("formation"):
 		_dock_buttons["formation"].pressed.connect(_on_dock_formation)
 	if _dock_buttons.has("map"):
@@ -701,25 +763,49 @@ func _on_state_changed_top_bar(state: int) -> void:
 func _refresh_top_bar(state: int) -> void:
 	if _top_gold:
 		_top_gold.text = "金币: %d" % GameManager.gold
-	if _top_stability:
-		var st: int = GameManager.get_team_stability()
-		_top_stability.text = "团队稳定: %d" % st
-		if st <= 30:
-			_top_stability.modulate = Color(1.0, 0.4, 0.4)
-		elif st <= 50:
-			_top_stability.modulate = Color(1.0, 0.75, 0.35)
-		else:
-			_top_stability.modulate = Color.WHITE
+	_refresh_top_stability(state)
 	if _top_recovery:
 		if state == GameManager.GameState.RUNNING and _lane_status_text != "":
 			_top_recovery.text = _lane_status_text
 			_top_recovery.modulate = Color(0.75, 0.9, 1.0)
 		elif GameManager.is_recovery_lock_active():
-			_top_recovery.text = "养伤锁：两半组均无法出征"
+			var msg: String = SquadFormationService.get_recovery_lock_message(GameManager)
+			var eta: float = float(
+				SquadFormationService.get_recovery_status(GameManager).get("eta_seconds", 0.0)
+			)
+			if eta > 1.0:
+				msg = "%s · 约%.0fs" % [msg, eta]
+			_top_recovery.text = msg
 			_top_recovery.modulate = Color(1.0, 0.55, 0.45)
 		else:
 			_top_recovery.text = ""
 			_top_recovery.modulate = Color.WHITE
+
+
+func _refresh_top_stability(state: int) -> void:
+	var team_st: int = GameManager.get_team_stability()
+	var detail: String = str(team_st)
+	var pressure_hint := ""
+	if state == GameManager.GameState.RUNNING and not _last_run_data.is_empty():
+		team_st = int(
+			_last_run_data.get("team_stability", _last_run_data.get("stability", team_st))
+		)
+		var personal_min: int = int(_last_run_data.get("min_personal_stability", team_st))
+		detail = "%d / %d" % [team_st, personal_min]
+		var pressure: float = float(_last_run_data.get("stability_pressure", 1.0))
+		if pressure > 1.01:
+			pressure_hint = " ×%.1f" % pressure
+	elif state == GameManager.GameState.PREPARE:
+		detail = "%d（出征）" % team_st
+	elif state == GameManager.GameState.BASE:
+		if team_st < StabilitySystem.MAX_STABILITY:
+			detail = "%d（回城恢复）" % team_st
+		else:
+			detail = "满"
+	_apply_stability_bar_visual(team_st)
+	if _top_stability_detail:
+		_top_stability_detail.text = detail + pressure_hint
+		_top_stability_detail.modulate = _stability_tint(team_st)
 	if _top_map:
 		match state:
 			GameManager.GameState.BASE:
@@ -825,13 +911,15 @@ func _on_dock_formation() -> void:
 	match GameManager.state:
 		GameManager.GameState.BASE:
 			if _base_ui and _base_ui.has_method("scroll_formation_into_view"):
-				_base_ui.scroll_formation_into_view()
+				_base_ui.scroll_formation_into_view(2.0)
 			_highlight_panel(_center_panel, 2.0)
 			if _dock_hint:
 				_dock_hint.text = "中窗 · 双半组编组"
 		GameManager.GameState.PREPARE:
 			if _squad_ui and _squad_ui.has_method("scroll_prepare_center_to_top"):
 				_squad_ui.scroll_prepare_center_to_top()
+			if _squad_ui and _squad_ui.has_method("pulse_prepare_center"):
+				_squad_ui.pulse_prepare_center(2.0)
 			_highlight_panel(_center_panel, 2.0)
 			if _dock_hint:
 				_dock_hint.text = "中窗 · 出征名单"
@@ -862,18 +950,27 @@ func _on_dock_deploy() -> void:
 			pass
 
 
-func _on_dock_redeploy() -> void:
-	if GameManager.state == GameManager.GameState.BASE or GameManager.state == GameManager.GameState.RESULT:
-		var code: int = GameManager.redeploy_same_map()
-		if code != 0 and _dock_hint:
-			_dock_hint.text = GameManager.get_run_start_error_message(code)
-
-
 func _toggle_logistics() -> void:
 	if _logistics_open:
 		_close_logistics()
 	else:
 		_open_logistics()
+
+
+func _mount_recovery_ui() -> void:
+	if _logistics_tab_recovery == null or _recovery_ui != null:
+		return
+	_recovery_ui = RecoveryUI.new()
+	_recovery_ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_recovery_ui.bind_main_shell(self)
+	_logistics_tab_recovery.add_child(_recovery_ui)
+
+
+func refresh_base_panels() -> void:
+	if _base_ui and _base_ui.has_method("refresh_from_shell"):
+		_base_ui.refresh_from_shell()
+	if _recovery_ui:
+		_recovery_ui.refresh()
 
 
 func _open_logistics() -> void:
@@ -883,6 +980,7 @@ func _open_logistics() -> void:
 	if _logistics_panel:
 		_logistics_panel.visible = true
 		_logistics_panel.move_to_front()
+	refresh_base_panels()
 	if _base_ui and _base_ui.has_method("_refresh"):
 		_base_ui._refresh()
 	if _dock_hint:

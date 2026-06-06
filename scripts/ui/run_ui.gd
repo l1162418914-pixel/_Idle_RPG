@@ -19,9 +19,27 @@ var _chase_stagger_button: Button = null
 var _chase_deep_counter_button: Button = null
 var _chase_stagger_bar: ProgressBar = null
 var _stagger_hold: bool = false
+var _combat_view: CombatView = null
+var _chase_toolbar_host: HBoxContainer = null
 var _lane_status_label: Label = null
 var _lane_snapshot: Dictionary = {}
 var _last_run_data: Dictionary = {}
+var _probe_debug_label: Label = null
+var _forced_return_overlay: CanvasLayer = null
+var _forced_return_title: Label = null
+var _forced_return_sub: Label = null
+var _forced_return_timer: Timer = null
+var _substitute_overlay: CanvasLayer = null
+var _substitute_title: Label = null
+var _substitute_bar: ProgressBar = null
+var _substitute_timer: Timer = null
+var _stability_in_top_bar: bool = false
+
+
+func bind_main_shell(_shell: Control) -> void:
+	_stability_in_top_bar = true
+	if stability_label:
+		stability_label.visible = false
 
 
 func _ready() -> void:
@@ -31,6 +49,25 @@ func _ready() -> void:
 		_setup_auto_controls()
 		_setup_shield_bars()
 		_setup_lane_status()
+		_setup_probe_debug()
+
+
+func _setup_probe_debug() -> void:
+	var parent := run_hint_label.get_parent() if run_hint_label else null
+	if parent == null:
+		return
+	_probe_debug_label = Label.new()
+	_probe_debug_label.name = "ProbeDebugLabel"
+	_probe_debug_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_probe_debug_label.add_theme_font_size_override("font_size", 9)
+	_probe_debug_label.modulate = Color(0.5, 0.58, 0.68)
+	parent.add_child(_probe_debug_label)
+	parent.move_child(_probe_debug_label, run_hint_label.get_index() + 1 if run_hint_label else 0)
+
+
+func show_probe_summary(line: String) -> void:
+	if _probe_debug_label:
+		_probe_debug_label.text = line
 
 
 func _setup_lane_status() -> void:
@@ -83,21 +120,44 @@ func _setup_auto_controls() -> void:
 	_chase_deep_counter_button.tooltip_text = "接战僵持中消耗更多稳定度重创首领并推远（不击杀，继续返程）"
 	_chase_deep_counter_button.pressed.connect(_on_deep_counter_pressed)
 	hbox.add_child(_chase_deep_counter_button)
-	var parent := run_hint_label.get_parent() if run_hint_label else null
-	if parent:
-		_chase_stagger_bar = ProgressBar.new()
-		_chase_stagger_bar.visible = false
-		_chase_stagger_bar.custom_minimum_size = Vector2(200, 12)
-		_chase_stagger_bar.max_value = 1.0
-		_chase_stagger_bar.show_percentage = false
-		parent.add_child(_chase_stagger_bar)
-		parent.move_child(_chase_stagger_bar, run_hint_label.get_index())
+	_chase_stagger_bar = ProgressBar.new()
+	_chase_stagger_bar.visible = false
+	_chase_stagger_bar.custom_minimum_size = Vector2(120, 14)
+	_chase_stagger_bar.max_value = 1.0
+	_chase_stagger_bar.show_percentage = false
+	_chase_stagger_bar.tooltip_text = "按住「蓄力击退」充能，松手推远首领（不击杀）"
 
 
-func _process(_delta: float) -> void:
-	var run = GameManager.current_run
-	if run:
-		run.chase_stagger_holding = _stagger_hold and run.chase_combat_in_progress
+func bind_combat_view(combat_view: CombatView) -> void:
+	_combat_view = combat_view
+	_mount_chase_controls_in_combat_toolbar()
+
+
+func _mount_chase_controls_in_combat_toolbar() -> void:
+	if _combat_view == null or _chase_toolbar_host != null:
+		return
+	var toolbar := _combat_view.get_node_or_null("DebugToolbar") as HBoxContainer
+	if toolbar == null:
+		return
+	_chase_toolbar_host = HBoxContainer.new()
+	_chase_toolbar_host.add_theme_constant_override("separation", 6)
+	toolbar.add_child(_chase_toolbar_host)
+	var sep := VSeparator.new()
+	_chase_toolbar_host.add_child(sep)
+	var charge_lbl := Label.new()
+	charge_lbl.text = "僵持"
+	charge_lbl.add_theme_font_size_override("font_size", 12)
+	_chase_toolbar_host.add_child(charge_lbl)
+	_chase_toolbar_host.add_child(_chase_stagger_bar)
+	if _chase_stagger_button:
+		if _chase_stagger_button.get_parent():
+			_chase_stagger_button.get_parent().remove_child(_chase_stagger_button)
+		_chase_toolbar_host.add_child(_chase_stagger_button)
+	if _chase_deep_counter_button:
+		if _chase_deep_counter_button.get_parent():
+			_chase_deep_counter_button.get_parent().remove_child(_chase_deep_counter_button)
+		_chase_toolbar_host.add_child(_chase_deep_counter_button)
+	_chase_toolbar_host.visible = false
 
 
 func _on_stagger_down() -> void:
@@ -197,6 +257,8 @@ func reset_run_hints() -> void:
 		_lane_status_label.text = ""
 	_lane_snapshot = {}
 	_last_run_data = {}
+	if _probe_debug_label:
+		_probe_debug_label.text = ""
 	_update_auto_indicator()
 
 
@@ -219,11 +281,143 @@ func _on_stop_auto_pressed() -> void:
 	_update_auto_indicator()
 
 
+func show_chase_standoff_banner(charge: float) -> void:
+	if run_hint_label == null:
+		return
+	var pct: int = int(round(charge * 100.0))
+	run_hint_label.text = (
+		"【追击僵持】按住战斗区红底条上的「蓄力击退」→ 充到 88%% 松手（当前 %d%%）" % pct
+	)
+	run_hint_label.modulate = Color(1.0, 0.55, 0.2)
+	run_hint_label.add_theme_font_size_override("font_size", 16)
+
+
+func clear_chase_standoff_banner() -> void:
+	if run_hint_label == null:
+		return
+	run_hint_label.text = ""
+	run_hint_label.remove_theme_font_size_override("font_size")
+	run_hint_label.modulate = Color.WHITE
+
+
 func show_run_hint(text: String, color: Color = Color.WHITE) -> void:
 	if run_hint_label:
 		run_hint_label.text = text
 		run_hint_label.modulate = color
 	hint_posted.emit(text, color)
+
+
+func play_player_forced_return_overlay(mercs_continue: bool, player_name: String = "") -> void:
+	_ensure_forced_return_overlay()
+	var name_s: String = player_name if player_name != "" else "指挥官"
+	if _forced_return_title:
+		_forced_return_title.text = "%s 独自回城" % name_s
+	if _forced_return_sub:
+		_forced_return_sub.text = "佣兵继续作战…" if mercs_continue else "队伍紧急撤离"
+	_forced_return_overlay.visible = true
+	var sec: float = float(PlayerForcedReturnService.config().get("animation_sec", 2.2))
+	if _forced_return_timer:
+		_forced_return_timer.start(sec)
+
+
+func _ensure_forced_return_overlay() -> void:
+	if _forced_return_overlay != null:
+		return
+	_forced_return_overlay = CanvasLayer.new()
+	_forced_return_overlay.layer = 50
+	add_child(_forced_return_overlay)
+	var panel := ColorRect.new()
+	panel.color = Color(0.05, 0.08, 0.12, 0.82)
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_forced_return_overlay.add_child(panel)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(center)
+	var vbox := VBoxContainer.new()
+	center.add_child(vbox)
+	_forced_return_title = Label.new()
+	_forced_return_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_forced_return_title.add_theme_font_size_override("font_size", 22)
+	_forced_return_title.modulate = Color(0.85, 0.92, 1.0)
+	vbox.add_child(_forced_return_title)
+	_forced_return_sub = Label.new()
+	_forced_return_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_forced_return_sub.add_theme_font_size_override("font_size", 15)
+	_forced_return_sub.modulate = Color(0.7, 0.78, 0.88)
+	vbox.add_child(_forced_return_sub)
+	_forced_return_overlay.visible = false
+	_forced_return_timer = Timer.new()
+	_forced_return_timer.one_shot = true
+	_forced_return_timer.timeout.connect(_hide_forced_return_overlay)
+	add_child(_forced_return_timer)
+
+
+func _hide_forced_return_overlay() -> void:
+	if _forced_return_overlay:
+		_forced_return_overlay.visible = false
+
+
+func play_substitute_swap_overlay(out_name: String, in_name: String, duration_sec: float = 1.4) -> void:
+	_ensure_substitute_overlay()
+	var sec: float = maxf(0.4, duration_sec)
+	if _substitute_title:
+		_substitute_title.text = "3→2→3 换人读条\n%s 退场 → %s 上阵" % [out_name, in_name]
+	if _substitute_bar:
+		_substitute_bar.max_value = sec
+		_substitute_bar.value = sec
+	_substitute_overlay.visible = true
+	if _substitute_timer:
+		_substitute_timer.start(sec)
+
+
+func _ensure_substitute_overlay() -> void:
+	if _substitute_overlay != null:
+		return
+	_substitute_overlay = CanvasLayer.new()
+	_substitute_overlay.layer = 49
+	add_child(_substitute_overlay)
+	var panel := ColorRect.new()
+	panel.color = Color(0.08, 0.1, 0.14, 0.72)
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_substitute_overlay.add_child(panel)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(center)
+	var vbox := VBoxContainer.new()
+	vbox.custom_minimum_size = Vector2(320, 0)
+	center.add_child(vbox)
+	_substitute_title = Label.new()
+	_substitute_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_substitute_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_substitute_title.add_theme_font_size_override("font_size", 18)
+	_substitute_title.modulate = Color(0.8, 0.9, 1.0)
+	vbox.add_child(_substitute_title)
+	_substitute_bar = ProgressBar.new()
+	_substitute_bar.custom_minimum_size = Vector2(280, 18)
+	_substitute_bar.show_percentage = false
+	vbox.add_child(_substitute_bar)
+	_substitute_overlay.visible = false
+	_substitute_timer = Timer.new()
+	_substitute_timer.one_shot = true
+	_substitute_timer.timeout.connect(_hide_substitute_overlay)
+	add_child(_substitute_timer)
+	var bar_tick := Timer.new()
+	bar_tick.wait_time = 0.05
+	bar_tick.timeout.connect(_tick_substitute_bar)
+	add_child(bar_tick)
+	bar_tick.start()
+
+
+func _tick_substitute_bar() -> void:
+	if _substitute_overlay == null or not _substitute_overlay.visible or _substitute_bar == null:
+		return
+	if _substitute_timer and _substitute_timer.time_left > 0.0:
+		_substitute_bar.value = _substitute_timer.time_left
+
+
+func _hide_substitute_overlay() -> void:
+	if _substitute_overlay:
+		_substitute_overlay.visible = false
 
 
 func apply_lane_snapshot(lane: Dictionary) -> void:
@@ -232,6 +426,18 @@ func apply_lane_snapshot(lane: Dictionary) -> void:
 		_lane_status_label.text = str(lane.get("status_text", ""))
 	if not _last_run_data.is_empty():
 		_paint_distance_line(_last_run_data, lane)
+
+
+func _update_chase_combat_controls(_run_data: Dictionary) -> void:
+	# 僵持操作栏由 CombatView 独占，顶栏隐藏旧控件以免挤出视口
+	if _chase_toolbar_host:
+		_chase_toolbar_host.visible = false
+	if _chase_deep_counter_button:
+		_chase_deep_counter_button.visible = false
+	if _chase_stagger_button:
+		_chase_stagger_button.visible = false
+	if _chase_stagger_bar:
+		_chase_stagger_bar.visible = false
 
 
 func update_display(run_data: Dictionary, lane: Dictionary = {}) -> void:
@@ -324,47 +530,9 @@ func _paint_distance_line(run_data: Dictionary, lane: Dictionary) -> void:
 				_chase_counter_button.tooltip_text = "首领尚远，暂无法反击"
 			else:
 				_chase_counter_button.tooltip_text = "消耗稳定度推远首领并获得击退经验"
-	if _chase_deep_counter_button:
-		var deep_on: bool = run_data.get("chase_combat_in_progress", false)
-		_chase_deep_counter_button.visible = deep_on
-		if deep_on:
-			var d_ready: bool = run_data.get("chase_deep_counter_ready", false)
-			var d_cd: float = float(run_data.get("chase_deep_counter_cooldown", 0.0))
-			_chase_deep_counter_button.disabled = not d_ready
-			var charge: float = float(run_data.get("chase_stagger_charge", 0.0))
-			var min_ch: float = 0.22
-			if GameManager.current_run != null:
-				min_ch = float(
-					GameManager.current_run.map_data.get("chase_deep_counter_min_charge", 0.22)
-				)
-			if d_ready:
-				_chase_deep_counter_button.text = "深度反击"
-			elif d_cd > 0.05:
-				_chase_deep_counter_button.text = "深度 %.0fs" % d_cd
-			else:
-				_chase_deep_counter_button.text = "深度蓄力中"
-			_chase_deep_counter_button.tooltip_text = (
-				"僵持蓄力≥%.0f%% 时重创首领并推远（高稳定消耗，不击杀）" % (min_ch * 100.0)
-				if charge < min_ch
-				else "消耗较多稳定度重创首领并推远（不击杀）"
-			)
-	if _chase_stagger_button:
-		var run_ref = GameManager.current_run
-		_chase_stagger_button.visible = run_ref != null and run_ref.chase_combat_in_progress
-		var charge: float = float(run_data.get("chase_stagger_charge", 0.0))
-		if charge < 0.92:
-			_chase_stagger_button.text = "蓄力 %.0f%%" % (charge * 100.0)
-		else:
-			_chase_stagger_button.text = "松开击退!"
-	if _chase_stagger_bar:
-		var show_bar: bool = (
-			GameManager.current_run != null and GameManager.current_run.chase_combat_in_progress
-		)
-		_chase_stagger_bar.visible = show_bar
-		if show_bar:
-			_chase_stagger_bar.value = float(run_data.get("chase_stagger_charge", 0.0))
+	_update_chase_combat_controls(run_data)
 	
-	if stability_label:
+	if stability_label and not _stability_in_top_bar:
 		var team_st: int = int(run_data.get("team_stability", run_data.get("stability", 100)))
 		var personal_min: int = int(run_data.get("min_personal_stability", 100))
 		var color = Color.GREEN

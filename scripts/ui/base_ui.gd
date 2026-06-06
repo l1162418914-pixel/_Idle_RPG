@@ -1,11 +1,15 @@
 extends Control
 ## BaseUI — 基地主界面
 
+const _BaseCampBagUIScene = preload("res://scripts/ui/base_camp_bag_ui.gd")
+
 @onready var gold_label: Label = $MarginContainer/MainVBox/GoldLabel
 @onready var maps_list: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content/MapsList
 @onready var buildings_container: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content/Buildings
 @onready var roster_container: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content/Roster
 @onready var dead_roster_container: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content/DeadRoster
+var rest_roster_container: VBoxContainer = null
+var mia_roster_container: VBoxContainer = null
 @onready var action_buttons: HFlowContainer = $MarginContainer/MainVBox/Actions
 @onready var status_label: Label = $MarginContainer/MainVBox/StatusLabel
 @onready var equipment_button: Button = $MarginContainer/MainVBox/Actions/EquipmentBtn
@@ -13,8 +17,6 @@ extends Control
 var _equipment_ui: Control = null
 var _auto_run_check: CheckButton = null
 var _formation_ui: VBoxContainer = null
-var _redeploy_btn: Button = null
-
 var shell_left_root: Control = null
 var shell_center_root: Control = null
 var shell_right_root: Control = null
@@ -23,6 +25,7 @@ var _main_shell: MainShell = null
 var _test_maps_expanded: bool = false
 var _maps_scroll: ScrollContainer = null
 var _form_scroll: ScrollContainer = null
+var _camp_bag_ui: Control = null
 
 
 func _ready() -> void:
@@ -41,7 +44,7 @@ func _ready() -> void:
 	GameManager.squad_stability_changed.connect(_on_squad_stability_changed)
 	GameManager.run_start_failed.connect(_on_run_start_failed)
 	_ensure_auto_run_toggle()
-	_ensure_redeploy_button()
+	_ensure_legacy_roster_sections()
 	_refresh()
 
 
@@ -126,7 +129,7 @@ func attach_to_shell(
 	shell_right_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell_right_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var roster_title := Label.new()
-	roster_title.text = "—— 存活名册 ——"
+	roster_title.text = "—— 可出征名册 ——"
 	shell_right_root.add_child(roster_title)
 	var roster_scroll := ScrollContainer.new()
 	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -136,15 +139,23 @@ func attach_to_shell(
 		roster_container.reparent(roster_wrap)
 	roster_scroll.add_child(roster_wrap)
 	shell_right_root.add_child(roster_scroll)
-	var bag_hint := Label.new()
-	bag_hint.name = "BagPlaceholder"
-	bag_hint.text = "大营背包 · %d/%d 件 (网格预览 T-05)" % [
-		GameManager.inventory.size(), GameManager.get_inventory_capacity()
-	]
-	bag_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	bag_hint.add_theme_font_size_override("font_size", 11)
-	bag_hint.modulate = Color(0.55, 0.65, 0.8)
-	shell_right_root.add_child(bag_hint)
+	var rest_block: Dictionary = _make_roster_section("—— 养伤名册 ——")
+	rest_roster_container = rest_block.container
+	shell_right_root.add_child(rest_block.root)
+	var mia_block: Dictionary = _make_roster_section("—— 战场遗留 ——")
+	mia_roster_container = mia_block.container
+	shell_right_root.add_child(mia_block.root)
+	var bag_scroll := ScrollContainer.new()
+	bag_scroll.name = "CampBagScroll"
+	bag_scroll.custom_minimum_size = Vector2(0, 140)
+	bag_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
+	bag_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_camp_bag_ui = _BaseCampBagUIScene.new()
+	_camp_bag_ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if _camp_bag_ui.has_method("bind_open_equipment"):
+		_camp_bag_ui.bind_open_equipment(_on_equipment_pressed)
+	bag_scroll.add_child(_camp_bag_ui)
+	shell_right_root.add_child(bag_scroll)
 	right_slot.add_child(shell_right_root)
 	if logistics_buildings:
 		if buildings_container:
@@ -191,18 +202,16 @@ func _hide_duplicate_logistics_actions() -> void:
 		var btn := action_buttons.get_node_or_null(node_name) as Control
 		if btn:
 			btn.visible = false
-	if _redeploy_btn:
-		_redeploy_btn.visible = false
-
-
 func scroll_maps_list_to_top() -> void:
 	if _maps_scroll:
 		_maps_scroll.scroll_vertical = 0
 
 
-func scroll_formation_into_view() -> void:
+func scroll_formation_into_view(pulse_sec: float = 0.0) -> void:
 	if _form_scroll:
 		_form_scroll.scroll_vertical = 0
+	if pulse_sec > 0.0 and _formation_ui and _formation_ui.has_method("pulse_formation_focus"):
+		_formation_ui.pulse_formation_focus(pulse_sec)
 
 
 func highlight_selected_map_card(duration: float = 2.0) -> void:
@@ -227,6 +236,11 @@ func bind_main_shell(shell: MainShell) -> void:
 	_main_shell = shell
 
 
+func refresh_from_shell() -> void:
+	if GameManager.state == GameManager.GameState.BASE:
+		_refresh()
+
+
 func _user_feedback(text: String, color: Color = Color(0.85, 0.95, 1.0), duration: float = 4.0) -> void:
 	if text == "":
 		return
@@ -249,27 +263,10 @@ func _ensure_auto_run_toggle() -> void:
 		return
 	_auto_run_check = CheckButton.new()
 	_auto_run_check.text = "自动连续出征"
-	_auto_run_check.tooltip_text = "开启后：点地图即全选出发；遇敌即战；结算后自动再出征"
+	_auto_run_check.tooltip_text = "开启后：卡片「出征」或 Dock「出征」将跳过准备页直接进 RUNNING"
 	_auto_run_check.toggled.connect(_on_auto_run_toggled)
 	action_buttons.add_child(_auto_run_check)
 	action_buttons.move_child(_auto_run_check, 0)
-
-
-func _ensure_redeploy_button() -> void:
-	if _redeploy_btn or action_buttons == null:
-		return
-	_redeploy_btn = Button.new()
-	_redeploy_btn.text = "再战上次地图"
-	_redeploy_btn.tooltip_text = "按上次选择的地图与编队快照立即出征（不进准备界面）"
-	_redeploy_btn.pressed.connect(_on_redeploy_base_pressed)
-	action_buttons.add_child(_redeploy_btn)
-	action_buttons.move_child(_redeploy_btn, 1)
-
-
-func _on_redeploy_base_pressed() -> void:
-	var code: int = GameManager.redeploy_same_map()
-	if code != 0:
-		_user_feedback(GameManager.get_run_start_error_message(code), Color.ORANGE_RED)
 
 
 func _on_auto_run_toggled(enabled: bool) -> void:
@@ -293,32 +290,14 @@ func _on_state_changed(new_state: int) -> void:
 
 
 func _refresh() -> void:
-	if shell_right_root:
-		var bag := shell_right_root.get_node_or_null("BagPlaceholder") as Label
-		if bag:
-			bag.text = "大营背包 · %d/%d 件 (网格预览 T-05)" % [
-				GameManager.inventory.size(), GameManager.get_inventory_capacity()
-			]
+	if _camp_bag_ui and _camp_bag_ui.has_method("refresh"):
+		_camp_bag_ui.refresh()
 	if gold_label:
-		var st: int = GameManager.get_team_stability()
-		var st_text := ""
-		if st < StabilitySystem.MAX_STABILITY:
-			st_text = " | 团队稳定度: %d (回城恢复)" % st
-		gold_label.text = "金币: %d%s" % [GameManager.gold, st_text]
+		gold_label.text = "金币: %d" % GameManager.gold
 	if _auto_run_check:
 		_auto_run_check.set_block_signals(true)
 		_auto_run_check.button_pressed = GameManager.auto_run_preferred
 		_auto_run_check.set_block_signals(false)
-	if _redeploy_btn:
-		var can: bool = (
-			not GameManager.is_recovery_lock_active()
-			and GameManager.is_map_unlocked(GameManager.selected_map_id)
-			and SquadFormationService.pick_deploy_half(GameManager) != ""
-		)
-		_redeploy_btn.disabled = not can
-		var md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
-		_redeploy_btn.text = "再战·%s" % str(md.get("name", GameManager.selected_map_id))
-	
 	_refresh_status_line()
 	if _formation_ui and _formation_ui.has_method("_refresh"):
 		_formation_ui._refresh()
@@ -378,22 +357,116 @@ func _refresh_buildings() -> void:
 		buildings_container.add_child(label)
 
 
-func _refresh_roster() -> void:
-	for child in roster_container.get_children():
+func _make_roster_section(title_text: String) -> Dictionary:
+	var root := VBoxContainer.new()
+	var title := Label.new()
+	title.text = title_text
+	root.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 56)
+	scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var wrap := VBoxContainer.new()
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(wrap)
+	root.add_child(scroll)
+	return {"root": root, "container": wrap, "scroll": scroll}
+
+
+func _ensure_legacy_roster_sections() -> void:
+	if _shell_attached or mia_roster_container != null:
+		return
+	var content := get_node_or_null("MarginContainer/MainVBox/Scroll/Content") as VBoxContainer
+	if content == null:
+		return
+	var dead_title := content.get_node_or_null("DeadTitle")
+	var roster_title := Label.new()
+	roster_title.text = "—— 可出征名册 ——"
+	content.add_child(roster_title)
+	if roster_container:
+		content.move_child(roster_title, roster_container.get_index())
+	var rest_block: Dictionary = _make_roster_section("—— 养伤名册 ——")
+	rest_roster_container = rest_block.container
+	content.add_child(rest_block.root)
+	if dead_title:
+		content.move_child(rest_block.root, dead_title.get_index())
+	var mia_block: Dictionary = _make_roster_section("—— 战场遗留 ——")
+	mia_roster_container = mia_block.container
+	content.add_child(mia_block.root)
+	if dead_title:
+		content.move_child(mia_block.root, dead_title.get_index())
+
+
+func _clear_roster_container(container: VBoxContainer) -> void:
+	if container == null:
+		return
+	for child in container.get_children():
 		child.queue_free()
-	
+
+
+func _merc_needs_rest(merc: Mercenary) -> bool:
+	if merc == null or merc.is_test_stand_in or not merc.is_alive or merc.is_mia:
+		return false
+	if merc.is_near_death or merc.is_retreated or merc.is_personal_break:
+		return true
+	if not merc.is_personal_stability_ok():
+		return true
+	return merc.current_hp < StatResolver.get_max_hp(merc)
+
+
+func _roster_section_for(merc: Mercenary) -> String:
+	if merc.is_mia:
+		return "mia"
+	if merc.is_test_stand_in:
+		return "active"
+	if _merc_needs_rest(merc):
+		return "rest"
+	return "active"
+
+
+func _roster_container_for(section: String) -> VBoxContainer:
+	match section:
+		"mia":
+			return mia_roster_container if mia_roster_container else roster_container
+		"rest":
+			return rest_roster_container if rest_roster_container else roster_container
+		_:
+			return roster_container
+
+
+func _refresh_roster() -> void:
+	_clear_roster_container(roster_container)
+	_clear_roster_container(rest_roster_container)
+	_clear_roster_container(mia_roster_container)
+	var counts := {"active": 0, "rest": 0, "mia": 0}
 	var player = GameManager.player
 	if player and player.is_alive:
-		_add_alive_row("[主角]", player, "", player.merc_id)
-	
+		var sec_p := _roster_section_for(player)
+		_add_roster_row("[主角]", player, "", player.merc_id, sec_p)
+		counts[sec_p] = int(counts[sec_p]) + 1
 	for e in GameManager.elite_roster:
-		if e.is_alive:
-			_add_alive_row("[精英]", e, "elite", e.merc_id)
-	
+		if e.is_alive or e.is_test_stand_in:
+			var sec := _roster_section_for(e)
+			_add_roster_row("[精英]", e, "elite", e.merc_id, sec)
+			counts[sec] = int(counts[sec]) + 1
 	for n in GameManager.normal_roster:
-		if n.is_alive:
-			_add_alive_row("[佣兵]", n, "normal", n.merc_id)
-	
+		if n.is_alive or n.is_test_stand_in:
+			var sec_n := _roster_section_for(n)
+			_add_roster_row("[佣兵]", n, "normal", n.merc_id, sec_n)
+			counts[sec_n] = int(counts[sec_n]) + 1
+	_add_roster_empty_hint(roster_container, "（无可出征单位）", counts.active == 0)
+	_add_roster_empty_hint(rest_roster_container, "（无养伤单位）", counts.rest == 0)
+	_add_roster_empty_hint(mia_roster_container, "（无战场遗留）", counts.mia == 0)
+
+
+func _add_roster_empty_hint(container: VBoxContainer, text: String, show: bool) -> void:
+	if container == null or not show:
+		return
+	var hint := Label.new()
+	hint.text = text
+	hint.modulate = Color.GRAY
+	container.add_child(hint)
+
+
 func _append_infirmary_status() -> void:
 	var resting := _count_resting_mercs()
 	if resting <= 0:
@@ -418,11 +491,11 @@ func _refresh_dead_roster() -> void:
 		has_dead = true
 		_add_dead_row("[主角]", player, "player", player.merc_id)
 	for e in GameManager.elite_roster:
-		if not e.is_alive:
+		if not e.is_alive and not e.is_test_stand_in:
 			has_dead = true
 			_add_dead_row("[精英]", e, "elite", e.merc_id)
 	for n in GameManager.normal_roster:
-		if not n.is_alive:
+		if not n.is_alive and not n.is_test_stand_in:
 			has_dead = true
 			_add_dead_row("[佣兵]", n, "normal", n.merc_id)
 	
@@ -433,7 +506,7 @@ func _refresh_dead_roster() -> void:
 		dead_roster_container.add_child(hint)
 
 
-func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: String) -> void:
+func _add_roster_row(tag: String, merc: Mercenary, merc_type: String, merc_id: String, section: String) -> void:
 	var max_hp := StatResolver.get_max_hp(merc)
 	var atk := StatResolver.get_patk(merc)
 	var row: HBoxContainer = HBoxContainer.new()
@@ -441,16 +514,21 @@ func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: St
 	var label := Label.new()
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var extra := ""
-	if merc.is_mia:
-		extra = " [战场遗留·不可出征]"
-	elif merc.is_near_death:
-		extra = " [濒死·需在大营休养至满血]"
-	elif merc.is_personal_break or not merc.is_personal_stability_ok():
-		extra = " [个人稳定度不足]"
-	elif merc.is_retreated:
-		extra = " [休整·满血后可出征]"
-	elif merc.current_hp < max_hp:
-		extra = " [负伤]"
+	match section:
+		"active":
+			if merc.is_test_stand_in:
+				extra = " [测试·锁定]"
+		"mia":
+			extra = " [遗留]"
+		"rest":
+			if merc.is_near_death:
+				extra = " [濒死·需在大营休养至满血]"
+			elif merc.is_personal_break or not merc.is_personal_stability_ok():
+				extra = " [个人稳定度不足]"
+			elif merc.is_retreated:
+				extra = " [休整·满血后可出征]"
+			elif merc.current_hp < max_hp:
+				extra = " [负伤·医疗室恢复中]"
 	if merc.scar_stacks > 0:
 		var scar_fx: String = merc.get_scar_effect_summary()
 		extra += " 伤痕×%d" % merc.scar_stacks
@@ -459,33 +537,38 @@ func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: St
 	label.text = "%s %s %s HP:%d/%d 个人稳:%d ATK:%d%s" % [
 		tag, merc.merc_name, _level_exp_text(merc), merc.current_hp, max_hp, merc.personal_stability, atk, extra
 	]
-	if merc.is_mia:
-		label.modulate = Color(0.5, 0.52, 0.58)
-	elif merc.is_near_death:
-		label.modulate = Color(1.0, 0.45, 0.45)
-	elif merc.is_personal_break or not merc.is_personal_stability_ok():
-		label.modulate = Color.GOLD
-	elif merc.is_retreated:
-		label.modulate = Color.GOLD
-	elif merc.current_hp < max_hp:
-		label.modulate = Color(1.0, 0.85, 0.7)
-	else:
-		label.modulate = Color.WHITE
+	match section:
+		"active":
+			if merc.is_test_stand_in:
+				label.modulate = Color(0.75, 0.9, 1.0)
+			else:
+				label.modulate = Color.WHITE
+		"mia":
+			label.modulate = Color(0.5, 0.52, 0.58)
+		"rest":
+			if merc.is_near_death:
+				label.modulate = Color(1.0, 0.45, 0.45)
+			elif merc.is_personal_break or not merc.is_personal_stability_ok():
+				label.modulate = Color.GOLD
+			elif merc.is_retreated:
+				label.modulate = Color.GOLD
+			else:
+				label.modulate = Color(1.0, 0.85, 0.7)
 	row.add_child(label)
-	if merc == GameManager.player:
+	if merc == GameManager.player and section != "mia":
 		var equip_btn := Button.new()
 		equip_btn.text = "装备"
 		equip_btn.custom_minimum_size = Vector2(48, 24)
 		equip_btn.pressed.connect(_on_player_equip_pressed)
 		row.add_child(equip_btn)
-	if merc.scar_stacks > 0:
+	if merc.scar_stacks > 0 and section != "mia":
 		var scar_btn := Button.new()
 		scar_btn.text = "消伤×%d" % merc.scar_stacks
 		scar_btn.tooltip_text = "医疗室清除伤痕（%d 金币）" % GameManager.get_scar_treatment_cost(merc)
 		scar_btn.custom_minimum_size = Vector2(72, 24)
 		scar_btn.pressed.connect(_on_treat_scars_pressed.bind(merc_id))
 		row.add_child(scar_btn)
-	if merc_type != "" and merc_type != "player" and not merc.is_mia:
+	if merc_type != "" and merc_type != "player" and section == "active":
 		var btn := Button.new()
 		btn.text = "解雇"
 		btn.custom_minimum_size = Vector2(48, 24)
@@ -493,7 +576,7 @@ func _add_alive_row(tag: String, merc: Mercenary, merc_type: String, merc_id: St
 		btn.set_meta("merc_id", merc_id)
 		btn.pressed.connect(_on_dismiss_pressed.bind(btn))
 		row.add_child(btn)
-	roster_container.add_child(row)
+	_roster_container_for(section).add_child(row)
 
 
 func _on_player_equip_pressed() -> void:
@@ -503,7 +586,7 @@ func _on_player_equip_pressed() -> void:
 func _count_resting_mercs() -> int:
 	var n := 0
 	for m in GameManager._all_roster_mercs():
-		if not m.is_alive:
+		if m.is_test_stand_in or not m.is_alive or m.is_mia:
 			continue
 		if m.is_near_death or m.is_retreated or m.is_personal_break:
 			n += 1
@@ -660,12 +743,46 @@ func _on_map_card_selected(map_id: String) -> void:
 	if not GameManager.is_map_unlocked(map_id):
 		return
 	GameManager.selected_map_id = map_id
+	if GameManager.state == GameManager.GameState.BASE:
+		if (
+			TestScenarioService.should_lock_roster(DataLoader.map_data(map_id))
+			and TestScenarioService.should_skip_test_roster_inject(GameManager)
+			and _main_shell
+			and _main_shell.has_method("show_toast")
+		):
+			_main_shell.show_toast(
+				"已保留存档名册（含阵亡/遗留 fixture），未注入测试编队",
+				Color(0.75, 0.88, 1.0),
+				3.5
+			)
+		var injected: bool = TestScenarioService.sync_roster_for_map_selection(GameManager, map_id)
+		if injected and _main_shell and _main_shell.has_method("show_toast"):
+			var roster: Dictionary = TestRosterLoader.roster_for_map(map_id)
+			var hint: String = str(roster.get("display_name", "测试编队"))
+			if hint.length() > 48:
+				hint = hint.substr(0, 45) + "…"
+			_main_shell.show_toast("已注入测试编队 · %s" % hint, Color(0.75, 0.92, 1.0), 4.0)
 	_refresh_maps_panel()
+	_refresh_roster()
+	if _formation_ui and _formation_ui.has_method("_refresh"):
+		_formation_ui._refresh()
 	if _main_shell:
 		_main_shell.apply_state(GameManager.state)
 
 
 func _on_map_deploy(map_id: String) -> void:
+	var md: Dictionary = DataLoader.map_data(map_id)
+	if (
+		str(md.get("test_scenario", "")) == "mia_wipe"
+		and TestScenarioService.has_test_mia_casualties(GameManager)
+	):
+		if _main_shell and _main_shell.has_method("show_toast"):
+			_main_shell.show_toast(
+				"已有战场遗留：请 F5 后勤 · 回收，勿重复出征灭团",
+				Color(1.0, 0.85, 0.55),
+				4.5
+			)
+		return
 	GameManager.start_prepare(map_id)
 
 

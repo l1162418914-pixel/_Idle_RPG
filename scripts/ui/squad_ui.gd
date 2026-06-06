@@ -20,6 +20,8 @@ var _prepare_center_scroll: ScrollContainer = null
 var _prepare_expand_btn: Button = null
 var _prepare_full_text: String = ""
 var _prepare_detail_expanded: bool = false
+var _mutual_hint_label: Label = null
+var _skip_mutual_check: CheckButton = null
 
 
 func _ready() -> void:
@@ -58,6 +60,16 @@ func attach_to_shell(left_slot: Control, center_slot: Control, right_slot: Contr
 	_prepare_expand_btn.custom_minimum_size = Vector2(96, 36)
 	_prepare_expand_btn.pressed.connect(_on_prepare_expand_toggled)
 	left_wrap.add_child(_prepare_expand_btn)
+	_mutual_hint_label = Label.new()
+	_mutual_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mutual_hint_label.add_theme_font_size_override("font_size", 11)
+	_mutual_hint_label.modulate = Color(0.72, 0.82, 0.95)
+	left_wrap.add_child(_mutual_hint_label)
+	_skip_mutual_check = CheckButton.new()
+	_skip_mutual_check.text = "本趟正常远征（跳过互捞）"
+	_skip_mutual_check.visible = false
+	_skip_mutual_check.toggled.connect(func(_on: bool) -> void: _update_start_button())
+	left_wrap.add_child(_skip_mutual_check)
 	_prepare_left_scroll.add_child(left_wrap)
 	shell_left_root.add_child(_prepare_left_scroll)
 	left_slot.add_child(shell_left_root)
@@ -232,15 +244,49 @@ func _refresh_available() -> void:
 		DataLoader.map_data(GameManager.selected_map_id)
 	)
 	_add_player_stay_label()
+	var deploy: Array[Mercenary] = []
+	var rest: Array[Mercenary] = []
+	var mia: Array[Mercenary] = []
 	for e in GameManager.elite_roster:
-		var btn = _make_merc_button(e, false)
-		if lock_roster:
-			btn.disabled = true
-		available_list.add_child(btn)
-	
+		if e.is_test_stand_in:
+			deploy.append(e)
+			continue
+		if not e.is_alive:
+			continue
+		if e.is_mia:
+			mia.append(e)
+		elif not e.can_join_squad():
+			rest.append(e)
+		else:
+			deploy.append(e)
 	for n in GameManager.normal_roster:
-		var btn = _make_merc_button(n, false)
-		if lock_roster:
+		if n.is_test_stand_in:
+			deploy.append(n)
+			continue
+		if not n.is_alive:
+			continue
+		if n.is_mia:
+			mia.append(n)
+		elif not n.can_join_squad():
+			rest.append(n)
+		else:
+			deploy.append(n)
+	_add_available_section("可出征", deploy, lock_roster)
+	_add_available_section("养伤", rest, true)
+	_add_available_section("战场遗留", mia, true)
+
+
+func _add_available_section(title: String, mercs: Array[Mercenary], force_disabled: bool) -> void:
+	if mercs.is_empty():
+		return
+	var head := Label.new()
+	head.text = "—— %s ——" % title
+	head.add_theme_font_size_override("font_size", 11)
+	head.modulate = Color.DIM_GRAY
+	available_list.add_child(head)
+	for merc in mercs:
+		var btn := _make_merc_button(merc, false)
+		if force_disabled:
 			btn.disabled = true
 		available_list.add_child(btn)
 
@@ -268,13 +314,19 @@ func _add_player_stay_label() -> void:
 func _make_merc_button(merc: Mercenary, is_player: bool) -> Button:
 	var btn = Button.new()
 	var prefix = "[主角]" if is_player else ("[精英]" if merc is EliteMercenary else "[佣兵]")
-	
+	if merc.is_test_stand_in:
+		var max_hp_t: int = StatResolver.get_max_hp(merc)
+		btn.text = "%s %s Lv.%d HP:%d/%d [测试·锁定]" % [
+			prefix, merc.merc_name, merc.level, merc.current_hp, max_hp_t,
+		]
+		btn.modulate = Color(0.75, 0.9, 1.0)
+		return btn
 	if merc.is_dead():
 		btn.text = "%s %s Lv.%d [阵亡]" % [prefix, merc.merc_name, merc.level]
 		btn.modulate = Color.DIM_GRAY
 		btn.disabled = true
 	elif merc.is_mia:
-		btn.text = "%s %s Lv.%d [遗留·不可出征]" % [prefix, merc.merc_name, merc.level]
+		btn.text = "%s %s Lv.%d [遗留]" % [prefix, merc.merc_name, merc.level]
 		btn.modulate = Color(0.55, 0.5, 0.65)
 		btn.disabled = true
 	elif merc.is_near_death:
@@ -390,17 +442,59 @@ func scroll_prepare_center_to_top() -> void:
 		_prepare_center_scroll.scroll_vertical = 0
 
 
+func pulse_prepare_center(seconds: float = 2.0) -> void:
+	if shell_center_root == null:
+		return
+	var orig: Color = shell_center_root.modulate
+	shell_center_root.modulate = Color(0.7, 1.05, 1.2)
+	var tween := create_tween()
+	tween.tween_interval(maxf(0.1, seconds * 0.85))
+	tween.tween_property(shell_center_root, "modulate", orig, maxf(0.1, seconds * 0.15))
+
+
 func _update_start_button() -> void:
 	if start_button:
 		var half: String = SquadFormationService.pick_deploy_half(GameManager)
 		start_button.disabled = half == "" or GameManager.is_recovery_lock_active()
-		start_button.text = "出发" if half != "" else "无法出征"
+		var mutual_target: String = ""
+		if (
+			half != ""
+			and MutualRecoveryService.is_auto_enabled(GameManager)
+			and not (_skip_mutual_check and _skip_mutual_check.button_pressed)
+		):
+			mutual_target = MutualRecoveryService.pick_target(GameManager, half)
+		if mutual_target != "":
+			start_button.text = "出发·互捞"
+		else:
+			start_button.text = "出发" if half != "" else "无法出征"
+	_update_mutual_recovery_hint()
+
+
+func _update_mutual_recovery_hint() -> void:
+	if _mutual_hint_label == null:
+		return
+	var half: String = SquadFormationService.pick_deploy_half(GameManager)
+	if half == "" or not MutualRecoveryService.is_auto_enabled(GameManager):
+		_mutual_hint_label.text = ""
+		if _skip_mutual_check:
+			_skip_mutual_check.visible = false
+		return
+	var desc: String = MutualRecoveryService.describe_pending(GameManager, half)
+	if desc == "":
+		_mutual_hint_label.text = ""
+		if _skip_mutual_check:
+			_skip_mutual_check.visible = false
+	else:
+		_mutual_hint_label.text = desc
+		if _skip_mutual_check:
+			_skip_mutual_check.visible = true
 
 
 func _on_start_pressed() -> void:
 	if GameManager.selected_squad.size() < 1:
 		return
-	var code: int = GameManager.start_run()
+	var skip_mutual: bool = _skip_mutual_check != null and _skip_mutual_check.visible and _skip_mutual_check.button_pressed
+	var code: int = GameManager.start_run(skip_mutual)
 	if code != 0 and map_label:
 		map_label.text = GameManager.get_run_start_error_message(code)
 		map_label.modulate = Color.ORANGE_RED
