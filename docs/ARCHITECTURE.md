@@ -27,6 +27,7 @@ CombatEntity（战斗副本）
 - 面板、战斗、UI 查询 **最终战斗属性** → 只经 `StatResolver`（或 `CombatEntity.recalc_from_merc()` 间接调用）。
 - `Mercenary` 上的 `hp/patk/pdef/...` 字段语义为 **base**，不含装备/Buff/套装 final 结果。
 - 装备穿脱后调用 `EquipmentSystem.apply_to(merc)` → 仅 `refresh_base_stats()`，不直接改战斗 final。
+- **`Mercenary.is_mia`**（T-MIA）：仅为名册/编队/结算 **状态标记**；进入或清除 MIA **不得** 写入或持久化 `patk`/`max_hp`/`pdef` 等 final 战斗属性（与下文 §七 一致）。
 
 ### 禁止
 
@@ -55,6 +56,7 @@ BASE → PREPARE → RUNNING → RESULT → BASE
 
 - 状态切换由 **`GameManager`** 统一持有；UI 只发意图（按钮/信号），不私自改 `state`。
 - 出征生命周期：`start_run()` → `WorldRun` + `RUNNING` → `end_run()` 写 `_pending_run_result` → `return_to_base()` 时 **`apply_run_rewards()`** 发放金币/经验/掉落。
+- **`_pending_run_result.settlement_tier`**（T-MIA）：`end_run` 写入的运行时结算分档（`success` | `mia` | `manual` | `recovery`）；**不**写入槽位根存档；`apply_run_rewards` 按 tier 分支（如 `mia` 冻结经验、`manual` 不触发 MIA）。
 
 ### 禁止
 
@@ -132,12 +134,19 @@ main.gd（唯一驱动循环）
 ### 必须
 
 - 序列化入口：**`GameManager.to_save_dict` / `from_save_dict`** + `SaveManager`。
-- 佣兵存档：模板 id、等级、经验、**base 向字段**、`equipment_slots`、`buffs`、运行时状态（`current_hp` 等）；final 战斗属性 **读档重算**。
+- 佣兵存档：模板 id、等级、经验、**base 向字段**、`equipment_slots`、`buffs`、运行时状态（`current_hp`、`is_mia` 等）；final 战斗属性 **读档重算**。
+- **T-MIA 账号 meta 补丁（允许新增根字段）**：
+  - `account_meta`：`frozen_exp_pools[]`、`rescue_rank`、`rescue_reputation` 等槽位级 meta
+  - `rescue_squad`：与 `squad_formation` **并列**的第三队占位 `{ active[], bench[] }`
+  - 字段语义与缺键默认见 [SAVE_FORMAT.md](SAVE_FORMAT.md) §`account_meta`、§`rescue_squad`、§「T-MIA 旧档兼容」
+- 读档缺 `account_meta` / `rescue_squad` / `is_mia` 时 **只补默认**，**不得** 因缺键触发 MIA 或写入冻结经验。
 
 ### 禁止
 
 - 把 `CombatEntity`、`CombatController`、`WorldRun` 运行时对象 **原样写入存档**。
 - 把 `CombatStats` 快照、final `patk`/`max_hp`（含装备加成后的值） **持久化**。
+- **`is_mia` 或 MIA 结算写入 final 战斗属性**（MIA 仅布尔标记 + `account_meta.frozen_exp_pools` 经验冻结，见 [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) §八）。
+- 将 `settlement_tier`、`_pending_run_result` 整体 **持久化进槽位根存档**（仅 `RESULT` 态内存，领完后丢弃）。
 
 ---
 
@@ -170,4 +179,5 @@ main.gd（唯一驱动循环）
 - [TASK_PROTOCOL.md](TASK_PROTOCOL.md) — 交付模板与门禁
 - [DESIGN_INDEX.md](DESIGN_INDEX.md) — 玩法分册索引
 - [SAVE_FORMAT.md](SAVE_FORMAT.md) — 存档字段铁律
+- [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) — MIA 工程定案（T-MIA）
 - [UI_SUBSYSTEM_AUDIT.md](UI_SUBSYSTEM_AUDIT.md) — 接线缺口（非铁律）

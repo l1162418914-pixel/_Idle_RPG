@@ -36,12 +36,23 @@
   "auto_run_preferred": false,
   "rebirth_count": 0,
   "rebirth_bonus": 0.0,
+  "account_meta": {
+    "frozen_exp_pools": [],
+    "rescue_rank": 0,
+    "rescue_reputation": 0
+  },
+  "rescue_squad": {
+    "active": [],
+    "bench": []
+  },
   "cloud_reserved": {},
   "squad_stability": 100
 }
 ```
 
 读档时 `squad_stability` 仅作 **兼容旧档**；写入时与 `team_stability` 相同。新档请以 `team_stability` 为准。
+
+> **T-MIA Phase 0（文档定案）**：`account_meta`、`rescue_squad`、`Mercenary.is_mia` 见下文；玩法实现见 [PROJECT_STATUS.md](PROJECT_STATUS.md) §T-MIA、`T-MIA-0` 起。草案对照 [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) §8.1。
 
 ---
 
@@ -65,6 +76,8 @@
 | `squad_formation` | object | 双半组编队，见下文 |
 | `last_deploy_half` | string | 上一趟出征半组 `"A"` / `"B"` |
 | `last_run_squad_snapshot` | string[] | 自动再战 / `redeploy_same_map` 用的出战 id 快照 |
+| `account_meta` | object | 槽位级账号 meta（非 `_pending_run_result`），见下文 |
+| `rescue_squad` | object | 救援队编组占位（与 `squad_formation` 并列，**不**扩双半组），见下文 |
 | `cloud_reserved` | object | 云存档预留，当前恒为 `{}` |
 
 ### 不写入存档（运行时）
@@ -76,8 +89,64 @@
 | `auto_retreat_safe_only` | 智能撤离仅计安全箱，默认 `false`，未持久化 |
 | `current_run` / 出征中网格战利品 | 出征进行中 **不可存档**；关游戏时 `RUNNING` 会 `abort_run_to_base` |
 | `pending` 结算 | `RESULT` 态未领奖励在 `return_to_base` 时写入；直接关窗会走 `persist_on_shutdown` 领奖 |
+| `_pending_run_result` | 本趟结算字典，**不**写入槽位根存档；见「结算字段 `settlement_tier`」 |
+| `settlement_tier` | 仅存在于 `_pending_run_result`，`end_run` 写入、`return_to_base` 消费后丢弃 |
 
 允许存档的游戏状态：`BASE`、`PREPARE`（`is_save_allowed()`）。
+
+---
+
+## 账号 meta `account_meta`（T-MIA · 槽位级）
+
+与 `gold` / `roster` 同级，由 `GameManager.to_save_dict` / `from_save_dict` 读写（**T-MIA-0** 起实现桩）。
+
+```json
+{
+  "frozen_exp_pools": [
+    {
+      "run_id": "uuid-or-timestamp",
+      "total": 1200,
+      "mia_ratio": 0.5,
+      "map_id": "grassland"
+    }
+  ],
+  "rescue_rank": 0,
+  "rescue_reputation": 0
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `frozen_exp_pools` | array | MIA 结算时冻结的经验池；回收成功后再解冻入账（**T-MIA-3** / **T-MIA-P2**） |
+| `frozen_exp_pools[].run_id` | string | 关联出征批次 id（实现可先用时间戳或 run 实例 id） |
+| `frozen_exp_pools[].total` | int | 本批拟冻结经验总量 |
+| `frozen_exp_pools[].mia_ratio` | float | MIA 人数占比 0~1，用于拆分冻结量 |
+| `frozen_exp_pools[].map_id` | string | 出征地图 id |
+| `rescue_rank` | int | 救援队等级占位（**T-MIA-P4** 接） |
+| `rescue_reputation` | int | 救援队声望占位（**T-MIA-P4** 接） |
+
+- 经验冻结 **不得** 写入 `_pending_run_result` 后长期滞留；入账/解冻须经 `apply_run_rewards` 或回收 Run 专用 API。
+- `mia_batches` 等同批元数据：**Phase 1 可选**；缺省时以各佣兵 `is_mia` + 地图点列表为准（见 CTO §8.1 说明）。
+
+---
+
+## 救援队编组 `rescue_squad`（占位）
+
+与 `squad_formation`（A/B 双半组）**并列**的新根字段；**不**向 `squad_formation` 扩槽。
+
+```json
+{
+  "active": ["merc_id_01", "merc_id_02"],
+  "bench": []
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `active` | string[] | 救援队出战 merc_id 列表（**T-MIA-P4** 实装） |
+| `bench` | string[] | 救援队替补 id 列表 |
+
+Phase 0～1 可为空结构；读档缺键见「版本与兼容 · T-MIA 旧档」。
 
 ---
 
@@ -121,6 +190,7 @@
 | `max_level` | int | 等级上限 |
 | `current_hp` | int | 当前生命 |
 | `is_alive` | bool | 是否存活（永久死亡为 false） |
+| `is_mia` | bool | **失踪（MIA）**；`true` 时不可编入出征（`can_join_squad` 拦截，**T-MIA-1**）；**非** final 战斗属性 |
 | `is_near_death` | bool | 濒死标记（回城 ≥70% max 可清） |
 | `scar_stacks` | int | 伤痕层数（医疗室金币清除） |
 | `is_retreated` | bool | 当次出征中是否已撤离 |
@@ -150,8 +220,11 @@
 | `hp`, `max_hp`, `patk`, `matk`, `pdef`, `mdef`, `spd`, `crit_chance` 等 | **旧档忽略**；`refresh_base_stats()` + `StatResolver` + 装备重算 |
 | `run_awaken_used`, `is_awakening`, `supported_by_id` | 仅本趟 `WorldRun` |
 | `run_kills`, `run_damage_dealt` | 仅本趟统计 |
+| `is_mia` 的 final 衍生属性 | **禁止**；MIA 仅布尔标记 + 名册/编队拦截，不持久化 `patk`/`max_hp` 等 |
 
 读档流程要点：`_sanitize_active_skills` → `_restore_active_skills_if_missing` → `EquipmentSystem.apply_to` → `clamp_hp_to_max`。
+
+**MIA 与 `is_alive`：** Phase 1 定案为佣兵进入 `is_mia=true` 时 **不** 等同 `is_alive=false`（非永久死亡档）；主角 **永不** 写入 `is_mia`（CTO §八-A）。具体 `enter_mia_state` 见 **T-MIA-2**。
 
 ---
 
@@ -239,6 +312,21 @@
 
 ---
 
+## 结算字段 `settlement_tier`（运行时 · 非根存档）
+
+`GameManager.end_run()` 写入 **`_pending_run_result`**（`RESULT` 态展示与 `return_to_base` → `apply_run_rewards` 消费）。**不**作为槽位根 JSON 持久化字段。
+
+| 值 | 含义 | 典型触发（实现 TASK） |
+|----|------|----------------------|
+| `success` | 成功结算档 | Boss 讨伐、宝库守卫、追击击杀等现网成功路径（**默认**） |
+| `mia` | MIA 结算档 | 灭团 → `enter_mia_state`（**T-MIA-2/3**）；冻结经验、不全额入账 |
+| `manual` | 手动斩仓 | `manual_withdraw`（**B-8**）；**不**触发 MIA、**不** `enter_mia_state` |
+| `recovery` | 回收 Run 结算 | `WorldRun.run_mode=RECOVERY` 短 Run 回收成功（**T-MIA-P2**） |
+
+读档或新游戏 **无** `_pending_run_result`；缺 `settlement_tier` 时按现网逻辑视为无待领结算，**不**触发 MIA 分支。
+
+---
+
 ## 版本与兼容
 
 | `header.version` | 说明 |
@@ -249,6 +337,20 @@
 
 旧档中已删除的 final 战斗属性、无效技能 id 不会导致读档失败；缺失编队时会重建默认双半组结构。
 
+### T-MIA 旧档兼容（缺键默认）
+
+| 缺省键 | 读档默认 | 行为 |
+|--------|----------|------|
+| `account_meta` | `{}` | 不报错 |
+| `account_meta.frozen_exp_pools` | `[]` | 无冻结经验 |
+| `account_meta.rescue_rank` | `0` | 占位 |
+| `account_meta.rescue_reputation` | `0` | 占位 |
+| `rescue_squad` | `{ "active": [], "bench": [] }` | 无第三队 |
+| 佣兵 `is_mia` | `false` | 不拦截编组、不显示 `[遗留]` |
+| `_pending_run_result.settlement_tier` | （无 pending） | 不触发 MIA 结算逻辑 |
+
+**原则：** 缺键 **仅补默认**，读档 **不得** 因缺 `is_mia` / `account_meta` 自动将佣兵标为 MIA 或写入 `frozen_exp_pools`。
+
 ---
 
 ## 相关文档
@@ -257,3 +359,5 @@
 - [design-expedition-meta.md](design-expedition-meta.md) — 编队、再战、养伤锁  
 - [design-near-death.md](design-near-death.md) — 濒死、伤痕、觉醒（伤痕层数存档）  
 - [design-retreat.md](design-retreat.md) — 返程护盾 CD（存在装备 `shield_cd_runs_left`）
+- [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) — MIA 工程定案 §八、§8.1
+- [design-failure-lineage.md](design-failure-lineage.md) — 失败掉人玩法定案
