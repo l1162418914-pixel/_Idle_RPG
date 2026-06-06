@@ -80,7 +80,8 @@
       "danger_level": 1,
       "march_search": {
         "interval_m": 12,
-        "pool_id": "grassland_search"
+        "pool_id": "grassland_search",
+        "retreat_pool_id": "grassland_search_retreat"
       },
       "march_events": [
         { "at_distance": 80, "event_id": "abandoned_crate" },
@@ -157,7 +158,8 @@
       "danger_level": 0,
       "march_search": {
         "interval_m": 10,
-        "pool_id": "grassland_search"
+        "pool_id": "grassland_search",
+        "retreat_pool_id": "grassland_search_retreat"
       },
       "march_events": [
         { "at_distance": 50, "event_id": "waypoint_sign" }

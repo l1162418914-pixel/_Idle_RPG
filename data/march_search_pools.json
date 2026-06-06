@@ -1,6 +1,10 @@
 {
   "pools": {
     "grassland_search": {
+      "low_stability_threshold": 50,
+      "low_stability_negative_mult": 1.4,
+      "low_stability_positive_mult": 0.55,
+      "retreat_negative_mult": 1.35,
       "entries": [
         {
           "weight": 45,
@@ -31,8 +35,50 @@
           "team_delta": -3,
           "log": "瘴气扑面，队伍略感不适。"
         }
-      ],
-      "retreat_negative_mult": 1.35
+      ]
+    },
+    "grassland_search_retreat": {
+      "low_stability_threshold": 50,
+      "low_stability_negative_mult": 1.5,
+      "low_stability_positive_mult": 0.45,
+      "retreat_negative_mult": 1.6,
+      "entries": [
+        {
+          "weight": 38,
+          "result": "empty",
+          "log": "返程路旁一片死寂。"
+        },
+        {
+          "weight": 10,
+          "result": "gold",
+          "gold_min": 1,
+          "gold_max": 4,
+          "log": "仓促捡到几枚铜币。"
+        },
+        {
+          "weight": 6,
+          "result": "material",
+          "log": "勉强搜到一点物资。"
+        },
+        {
+          "weight": 18,
+          "result": "stability",
+          "team_delta": -4,
+          "log": "追兵压迫，队伍慌乱。"
+        },
+        {
+          "weight": 12,
+          "result": "stability",
+          "team_delta": -2,
+          "log": "路旁异响，人心浮动。"
+        },
+        {
+          "weight": 2,
+          "result": "stability",
+          "team_delta": 1,
+          "log": "远处号角，稍稍定神。"
+        }
+      ]
     }
   }
 }

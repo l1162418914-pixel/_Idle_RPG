@@ -5,6 +5,7 @@ const _ParallaxBackdropScene = preload("res://scripts/ui/parallax_backdrop.gd")
 const _FormationSlotCardScene = preload("res://scripts/ui/formation_slot_card.gd")
 const _BaseCampBagUIScene = preload("res://scripts/ui/base_camp_bag_ui.gd")
 const _MarchEventService = preload("res://scripts/run/march_event_service.gd")
+const _MarchSearchService = preload("res://scripts/run/march_search_service.gd")
 
 var _failed: Array[String] = []
 var _passed: Array[String] = []
@@ -110,6 +111,9 @@ func _run() -> void:
 	_probe_mv2_markers_hide_on_retreat()
 	_probe_mv3_gather_deferred_loot()
 	_probe_mv3_lane_gather_beat_state()
+	_probe_m3_retreat_search_pool()
+	_probe_m3_low_stability_weighting()
+	_probe_m3_shield_depleted_blocks_loot()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2143,6 +2147,68 @@ func _probe_mv3_lane_gather_beat_state() -> void:
 	lane.queue_free()
 	_pass("MV3c", "T-MARCH-V3 GATHER_BEAT 冻结里程+采集视图")
 	_pass("MV3d", "T-MARCH-V3 采集结束恢复行军")
+
+
+func _probe_m3_retreat_search_pool() -> void:
+	var cfg: Dictionary = DataLoader.map_data("grassland").get("march_search", {})
+	var advance_id: String = _MarchSearchService.resolve_pool_id(cfg, false)
+	var retreat_id: String = _MarchSearchService.resolve_pool_id(cfg, true)
+	if advance_id != "grassland_search":
+		_fail("M3a", "进军应使用 grassland_search (got %s)" % advance_id)
+		return
+	if retreat_id != "grassland_search_retreat":
+		_fail("M3a", "返程应使用 grassland_search_retreat (got %s)" % retreat_id)
+		return
+	var advance_pool: Dictionary = DataLoader.march_search_pool(advance_id)
+	var retreat_pool: Dictionary = DataLoader.march_search_pool(retreat_id)
+	var ctx_advance: Dictionary = {"retreating": false, "team_stability": 80, "shields_depleted": false}
+	var ctx_retreat: Dictionary = {"retreating": true, "team_stability": 80, "shields_depleted": false}
+	var neg_advance: float = _MarchSearchService.pool_negative_weight_share(advance_pool, ctx_advance, cfg)
+	var neg_retreat: float = _MarchSearchService.pool_negative_weight_share(retreat_pool, ctx_retreat, cfg)
+	if neg_retreat <= neg_advance:
+		_fail("M3b", "返程池负面占比应高于进军 (%.3f vs %.3f)" % [neg_retreat, neg_advance])
+		return
+	_pass("M3a", "T-MARCH-M3 返程分池 retreat_pool_id")
+	_pass("M3b", "T-MARCH-M3 返程搜索负面权重更高")
+
+
+func _probe_m3_low_stability_weighting() -> void:
+	var pool: Dictionary = DataLoader.march_search_pool("grassland_search")
+	var cfg: Dictionary = {}
+	var entry: Dictionary = {"weight": 3, "result": "stability", "team_delta": -3}
+	var mat_entry: Dictionary = {"weight": 18, "result": "material"}
+	var ctx_high: Dictionary = {"retreating": false, "team_stability": 80, "shields_depleted": false}
+	var ctx_low: Dictionary = {"retreating": false, "team_stability": 40, "shields_depleted": false}
+	var neg_high: float = _MarchSearchService.entry_weight(entry, pool, ctx_high, cfg)
+	var neg_low: float = _MarchSearchService.entry_weight(entry, pool, ctx_low, cfg)
+	var mat_high: float = _MarchSearchService.entry_weight(mat_entry, pool, ctx_high, cfg)
+	var mat_low: float = _MarchSearchService.entry_weight(mat_entry, pool, ctx_low, cfg)
+	if neg_low <= neg_high:
+		_fail("M3c", "稳定≤50 应提高负面条目权重")
+		return
+	if mat_low >= mat_high:
+		_fail("M3c", "稳定≤50 应压低正面物资权重")
+		return
+	_pass("M3c", "T-MARCH-M3 低稳定加权")
+
+
+func _probe_m3_shield_depleted_blocks_loot() -> void:
+	var pool: Dictionary = DataLoader.march_search_pool("grassland_search_retreat")
+	var cfg: Dictionary = {}
+	var gold_entry: Dictionary = {"weight": 10, "result": "gold"}
+	var neg_entry: Dictionary = {"weight": 12, "result": "stability", "team_delta": -2}
+	var ctx_broken: Dictionary = {"retreating": true, "team_stability": 60, "shields_depleted": true}
+	var ctx_ok: Dictionary = {"retreating": true, "team_stability": 60, "shields_depleted": false}
+	if _MarchSearchService.entry_weight(gold_entry, pool, ctx_broken, cfg) != 0.0:
+		_fail("M3d", "盾破后不应保留金币搜索权重")
+		return
+	if _MarchSearchService.entry_weight(neg_entry, pool, ctx_broken, cfg) <= 0.0:
+		_fail("M3d", "盾破后仍应可触发负面搜索")
+		return
+	if _MarchSearchService.entry_weight(gold_entry, pool, ctx_ok, cfg) <= 0.0:
+		_fail("M3d", "有盾时不应屏蔽金币搜索")
+		return
+	_pass("M3d", "T-MARCH-M3 盾破禁正面物资搜索")
 
 
 func _probe_mia_excluded_from_formation() -> void:
