@@ -9,14 +9,14 @@ static func exp_required_for_next_level(current_level: int) -> int:
 	return 40 + current_level * 25
 
 
-static func get_exp_multiplier(merc: Mercenary) -> float:
-	if merc is Player:
-		return 1.0 + (merc as Player).base_exp_multiplier
+static func get_exp_multiplier(merc) -> float:
+	if merc != null and merc.get("base_exp_multiplier") != null:
+		return 1.0 + float(merc.base_exp_multiplier)
 	return 1.0
 
 
 ## 发放经验并自动升级。返回 { levels_gained, exp_applied }
-static func grant_exp(merc: Mercenary, base_amount: int) -> Dictionary:
+static func grant_exp(merc, base_amount: int) -> Dictionary:
 	var result := {"levels_gained": 0, "exp_applied": 0}
 	if base_amount <= 0 or merc == null:
 		return result

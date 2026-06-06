@@ -1292,19 +1292,20 @@
       "normal": []
     },
     "test_09_long_chase_pressure": {
-      "display_name": "⑨ 濒死追击灭团：⑨·前排+⑨·术士+⑨·游侠（主角留营，L15普通装）",
+      "display_name": "⑨ 死战灭团：A=⑨·前排+⑨·术士（易灭）；B=⑨·援军（留营可捞人）",
       "formation": {
         "active_half": "A",
         "A": {
           "active": [
             "t09_tank",
-            "t09_mage",
-            "t09_ranger"
+            "t09_mage"
           ],
           "bench": []
         },
         "B": {
-          "active": [],
+          "active": [
+            "t09_rescue"
+          ],
           "bench": []
         }
       },
@@ -1314,10 +1315,10 @@
           "merc_name": "⑨·前排",
           "merc_type": 1,
           "merc_class": "warrior",
-          "level": 15,
+          "level": 14,
           "exp": 0,
           "max_level": 60,
-          "current_hp": 560,
+          "current_hp": 508,
           "is_alive": true,
           "is_near_death": false,
           "scar_stacks": 0,
@@ -1329,36 +1330,21 @@
           "equipment_slots": {
             "weapon": {
               "item_id": "eq_weapon_090",
-              "item_name": "普通·weapon",
+              "item_name": "破损·weapon",
               "slot": "weapon",
-              "quality": 1,
-              "quality_name": "普通",
+              "quality": 0,
+              "quality_name": "破损",
               "prefix_name": "",
               "set_id": "",
               "grid_w": 1,
               "grid_h": 1,
               "shield_cd_runs_left": 0,
               "stats": {
-                "patk": 13,
-                "hp": 36
+                "patk": 10,
+                "hp": 28
               }
             },
-            "armor": {
-              "item_id": "eq_armor_091",
-              "item_name": "普通·armor",
-              "slot": "armor",
-              "quality": 1,
-              "quality_name": "普通",
-              "prefix_name": "",
-              "set_id": "",
-              "grid_w": 1,
-              "grid_h": 1,
-              "shield_cd_runs_left": 0,
-              "stats": {
-                "pdef": 11,
-                "hp": 44
-              }
-            },
+            "armor": null,
             "helmet": null,
             "boots": null,
             "ring": null,
@@ -1382,10 +1368,10 @@
           "merc_name": "⑨·术士",
           "merc_type": 1,
           "merc_class": "mage",
-          "level": 15,
+          "level": 14,
           "exp": 0,
           "max_level": 60,
-          "current_hp": 560,
+          "current_hp": 498,
           "is_alive": true,
           "is_near_death": false,
           "scar_stacks": 0,
@@ -1397,18 +1383,18 @@
           "equipment_slots": {
             "weapon": {
               "item_id": "eq_weapon_100",
-              "item_name": "普通·weapon",
+              "item_name": "破损·weapon",
               "slot": "weapon",
-              "quality": 1,
-              "quality_name": "普通",
+              "quality": 0,
+              "quality_name": "破损",
               "prefix_name": "",
               "set_id": "",
               "grid_w": 1,
               "grid_h": 1,
               "shield_cd_runs_left": 0,
               "stats": {
-                "patk": 13,
-                "hp": 36
+                "patk": 10,
+                "hp": 28
               }
             },
             "armor": null,
@@ -1427,16 +1413,18 @@
           },
           "template_id": "mage_elite",
           "player_extra": {}
-        },
+        }
+      ],
+      "normal": [
         {
-          "merc_id": "t09_ranger",
-          "merc_name": "⑨·游侠",
-          "merc_type": 1,
-          "merc_class": "ranger",
-          "level": 15,
+          "merc_id": "t09_rescue",
+          "merc_name": "⑨·援军",
+          "merc_type": 2,
+          "merc_class": "warrior",
+          "level": 18,
           "exp": 0,
           "max_level": 60,
-          "current_hp": 560,
+          "current_hp": 596,
           "is_alive": true,
           "is_near_death": false,
           "scar_stacks": 0,
@@ -1447,40 +1435,71 @@
           "attack_speed": 1.2,
           "equipment_slots": {
             "weapon": {
-              "item_id": "eq_weapon_110",
-              "item_name": "普通·weapon",
+              "item_id": "eq_weapon_120",
+              "item_name": "精良·weapon",
               "slot": "weapon",
-              "quality": 1,
-              "quality_name": "普通",
+              "quality": 2,
+              "quality_name": "精良",
               "prefix_name": "",
               "set_id": "",
               "grid_w": 1,
               "grid_h": 1,
               "shield_cd_runs_left": 0,
               "stats": {
-                "patk": 13,
-                "hp": 36
+                "patk": 16,
+                "hp": 44
               }
             },
-            "armor": null,
-            "helmet": null,
+            "armor": {
+              "item_id": "eq_armor_121",
+              "item_name": "精良·armor",
+              "slot": "armor",
+              "quality": 2,
+              "quality_name": "精良",
+              "prefix_name": "",
+              "set_id": "",
+              "grid_w": 1,
+              "grid_h": 1,
+              "shield_cd_runs_left": 0,
+              "stats": {
+                "pdef": 14,
+                "hp": 52
+              }
+            },
+            "helmet": {
+              "item_id": "eq_helmet_122",
+              "item_name": "精良·helmet",
+              "slot": "helmet",
+              "quality": 2,
+              "quality_name": "精良",
+              "prefix_name": "",
+              "set_id": "",
+              "grid_w": 1,
+              "grid_h": 1,
+              "shield_cd_runs_left": 0,
+              "stats": {
+                "pdef": 14,
+                "hp": 52
+              }
+            },
             "boots": null,
             "ring": null,
             "amulet": null
           },
           "passive_skills": [],
           "buffs": [],
-          "active_skills": [],
+          "active_skills": [
+            "taunt"
+          ],
           "growth_per_level": {
             "hp": 10,
             "patk": 1.2,
             "pdef": 0.8
           },
-          "template_id": "ranger_elite",
+          "template_id": "warrior_normal",
           "player_extra": {}
         }
-      ],
-      "normal": []
+      ]
     }
   }
 }

@@ -50,6 +50,8 @@ var is_alive: bool = true
 var is_near_death: bool = false
 ## 失踪（MIA / 战场遗留）；名册可见，不可编入出征
 var is_mia: bool = false
+## 测试图注入佣兵：锁定，不受伤/濒死/MIA/永久死亡（不写入存档）
+var is_test_stand_in: bool = false
 var is_retreated: bool = false
 ## 个人稳定度过低，无法出征直至基地恢复
 var is_personal_break: bool = false
@@ -58,6 +60,8 @@ var run_kills: int = 0
 var run_damage_dealt: int = 0
 ## 伤痕层数（每次进入濒死 +1）
 var scar_stacks: int = 0
+## 濒死护盾（本趟临时，不写入存档；T-MIA-P3 二段死亡）
+var near_death_shield: int = 0
 ## 搀扶者 merc_id（本趟临时）
 var supported_by_id: String = ""
 ## 本趟是否已触发绝境觉醒
@@ -120,17 +124,77 @@ func get_hp_ratio() -> float:
 
 
 func modify_personal_stability(delta: int) -> void:
+	var was: int = personal_stability
 	personal_stability = clampi(personal_stability + delta, 0, _StabilitySystem.MAX_STABILITY)
 	if personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD:
 		try_clear_personal_break()
+	elif was > 0 and personal_stability == 0:
+		_try_pressure_zero_near_death()
+
+
+func _try_pressure_zero_near_death() -> void:
+	if not is_alive or is_near_death or is_mia or is_test_stand_in:
+		return
+	if GameManager.state == GameManager.GameState.RUNNING and GameManager.current_run != null:
+		if PressureOutcomeService.try_single_pressure_substitute(GameManager.current_run, self):
+			return
+		enter_near_death_state(0.05)
+	elif personal_stability <= _StabilitySystem.PERSONAL_BREAK_THRESHOLD:
+		is_personal_break = true
 
 
 func is_personal_stability_ok() -> bool:
 	return personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD
 
 
+func is_test_roster_locked() -> bool:
+	return is_test_stand_in
+
+
 ## 是否可编入出征队
+## 停尸间待医疗（救援队运回，非 MIA）
+var is_morgue_pending: bool = false
+## 救援队失败养伤 CD 截止 unix 时间戳（B-12f）
+var rescue_injury_cd_until: int = 0
+
+
+func is_on_rescue_injury_cd() -> bool:
+	return rescue_injury_cd_until > Time.get_unix_time_from_system()
+
+
+func apply_rescue_injury_cd(duration_sec: int) -> void:
+	rescue_injury_cd_until = Time.get_unix_time_from_system() + maxi(1, duration_sec)
+	is_alive = true
+	is_mia = false
+	is_near_death = false
+	current_hp = maxi(1, int(float(get_max_hp_value()) * 0.35))
+
+
+func enter_morgue_pending() -> void:
+	if merc_type == MercType.PLAYER:
+		return
+	is_morgue_pending = true
+	is_mia = false
+	is_near_death = false
+	is_alive = false
+	current_hp = 0
+
+
+func clear_morgue_pending() -> void:
+	is_morgue_pending = false
+
+
 func can_join_squad() -> bool:
+	if is_test_stand_in:
+		return (
+			is_alive
+			and not is_mia
+			and not is_retreated
+			and not is_personal_break
+			and is_personal_stability_ok()
+		)
+	if is_morgue_pending or is_on_rescue_injury_cd():
+		return false
 	try_clear_near_death_for_deploy()
 	return is_alive and not is_mia and not is_near_death and not is_retreated and not is_personal_break and is_personal_stability_ok()
 
@@ -218,6 +282,8 @@ func should_auto_retreat(threshold: float = _RosterHealth.RETREAT_HP_RATIO) -> b
 
 
 func mark_retreated() -> void:
+	if is_test_stand_in:
+		return
 	is_retreated = true
 
 
@@ -316,10 +382,51 @@ func enter_near_death_state(hp_ratio: float = 0.08) -> void:
 	var was_near: bool = is_near_death
 	is_alive = true
 	is_near_death = true
+	is_mia = false
 	if not was_near:
 		add_scar_stack()
+		_grant_near_death_shield()
 	var max_hp_val := _StatResolver.get_max_hp(self)
 	current_hp = maxi(1, int(float(max_hp_val) * hp_ratio))
+	personal_stability = _near_death_pressure_lock()
+
+
+func _near_death_pressure_lock() -> int:
+	var cfg: Dictionary = DataLoader.near_death_config().get("downed_shield", {})
+	return maxi(1, int(cfg.get("pressure_lock", 1)))
+
+
+func _grant_near_death_shield() -> void:
+	var cfg: Dictionary = DataLoader.near_death_config().get("downed_shield", {})
+	if not bool(cfg.get("enabled", true)):
+		near_death_shield = 0
+		return
+	near_death_shield = maxi(0, int(cfg.get("base_amount", 80)))
+
+
+func absorb_near_death_shield_damage(amount: int) -> int:
+	if amount <= 0 or near_death_shield <= 0:
+		return amount
+	var absorbed: int = mini(near_death_shield, amount)
+	near_death_shield -= absorbed
+	return amount - absorbed
+
+
+func is_near_death_shield_broken() -> bool:
+	var cfg: Dictionary = DataLoader.near_death_config().get("downed_shield", {})
+	if not bool(cfg.get("enabled", true)):
+		return true
+	return near_death_shield <= 0
+
+
+## 濒死护盾击破后再受击 → 进 MIA（主角永不 MIA）
+func try_enter_mia_from_downed_kill() -> bool:
+	if merc_type == MercType.PLAYER or is_mia or is_test_stand_in:
+		return false
+	if not is_near_death or not is_near_death_shield_broken():
+		return false
+	enter_mia_state()
+	return true
 
 
 ## 紧急撤离成功后的濒死惩罚
@@ -334,6 +441,7 @@ func enter_mia_state() -> void:
 	is_alive = true
 	is_near_death = false
 	is_mia = true
+	near_death_shield = 0
 	current_hp = 1
 
 
@@ -343,6 +451,8 @@ func clear_mia_state() -> void:
 
 ## 撤离失败：永久死亡
 func mark_permanent_death() -> void:
+	if is_test_stand_in:
+		return
 	is_near_death = false
 	is_mia = false
 	is_alive = false

@@ -1,4 +1,52 @@
 {
+  "downed_shield": {
+    "enabled": true,
+    "base_amount": 80,
+    "pressure_lock": 1
+  },
+  "player_forced_return": {
+    "animation_sec": 2.2,
+    "fall_hp_ratio": 0.05
+  },
+  "pressure_outcome": {
+    "intact_ratio_threshold": 0.34,
+    "mia_quota_min": 1,
+    "team_break_personal_snap": 8,
+    "loot_loss_chance": 0.12,
+    "substitute_recovery_stability": 20,
+    "substitute_swap_sec": 1.4,
+    "stage2_base_chance": 0.52,
+    "stage2_distressed_bonus": 0.28,
+    "stage2_miss_near_death_ratio": 0.1
+  },
+  "mutual_recovery": {
+    "auto_enabled_default": true
+  },
+  "return_scroll": {
+    "discount": 0.55
+  },
+  "instant_recovery": {
+    "readbar_sec": 2.0,
+    "hv_cost_ratio": 0.42
+  },
+  "rescue": {
+    "distance": 96,
+    "max_active": 3,
+    "min_active": 1,
+    "injury_cd_sec": 180,
+    "reputation_per_success": 12,
+    "rank_rep_step": 50,
+    "bonus_exp_per_member": 40,
+    "medical_revive_base_gold": 120,
+    "medical_revive_per_level": 8
+  },
+  "mia_deterioration": {
+    "max_skipped_runs": 2,
+    "tier1_ratio_min": 0.5,
+    "tier1_ratio_max": 0.7,
+    "tier2_ratio_min": 0.2,
+    "tier2_ratio_max": 0.3
+  },
   "awakening": {
     "base_chance": 0.04,
     "duration_sec": 5.0,

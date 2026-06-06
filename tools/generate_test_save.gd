@@ -27,19 +27,25 @@ func _main() -> void:
 		GameManager.inventory.items.size(),
 		GameManager.unlocked_maps.size(),
 	])
+	print("[generate_test_save] mia=%d dead=%d frozen_exp=%d" % [
+		GameManager.get_mia_roster_entries().size(),
+		_count_dead_fixtures(),
+		GameManager.get_total_frozen_exp(),
+	])
 	quit(0 if ok else 1)
 
 
 func _populate_test_state() -> void:
 	GameManager.gold = 500000
 	GameManager.team_stability = 100
-	GameManager.selected_map_id = "test_06_near_death_duo"
+	GameManager.selected_map_id = "grassland"
 	GameManager.auto_run_preferred = false
 	GameManager.last_deploy_half = "A"
 
 	_set_buildings_for_test()
 	_create_test_player()
 	_spawn_test_roster()
+	_seed_casualty_fixtures()
 	_fill_test_inventory()
 	_unlock_all_maps_for_test()
 	_set_test_formation()
@@ -154,6 +160,84 @@ func _unlock_all_maps_for_test() -> void:
 			GameManager.unlocked_maps.append(map_id)
 	GameManager.sync_always_unlocked_maps()
 	GameManager.defeated_map_bosses = ["grassland", "forest", "cave"]
+
+
+func _seed_casualty_fixtures() -> void:
+	## 正式佣兵 fixture：F5 回收 / 阵亡页手测（非 test_stand_in）
+	_add_fixture_mia_elite(
+		"fixture_mia_elite", "mage_elite", 12, "fixture·奥术遗留"
+	)
+	_add_fixture_mia_normal(
+		"fixture_mia_normal", "warrior_normal", 10, "fixture·新兵遗留"
+	)
+	_add_fixture_dead_elite(
+		"fixture_dead_elite", "ranger_elite", 15, "fixture·游侠阵亡"
+	)
+	_add_fixture_dead_normal(
+		"fixture_dead_normal", "mage_normal", 8, "fixture·学徒阵亡"
+	)
+	GameManager.account_meta = SaveSerializer.normalize_account_meta(GameManager.account_meta)
+	var pools: Array = GameManager.account_meta.get("frozen_exp_pools", [])
+	pools.append({
+		"run_id": "fixture_mia_pool_1",
+		"map_id": "grassland",
+		"total": 1200,
+		"mia_count": 2,
+		"field_count": 4,
+		"mia_ratio": 0.5,
+		"timestamp": int(Time.get_unix_time_from_system()),
+		"member_ids": ["fixture_mia_elite", "fixture_mia_normal"],
+	})
+	GameManager.account_meta["frozen_exp_pools"] = pools
+	GameManager.account_meta["seed_casualty_fixtures"] = true
+
+
+func _add_fixture_mia_elite(merc_id: String, template_id: String, lvl: int, display_name: String) -> void:
+	_spawn_elite(merc_id, template_id, lvl)
+	var m := GameManager.find_mercenary_by_id(merc_id) as EliteMercenary
+	if m == null:
+		return
+	m.merc_name = display_name
+	m.enter_mia_state()
+
+
+func _add_fixture_mia_normal(merc_id: String, template_id: String, lvl: int, display_name: String) -> void:
+	_spawn_normal(merc_id, template_id, lvl)
+	var m := GameManager.find_mercenary_by_id(merc_id) as NormalMercenary
+	if m == null:
+		return
+	m.merc_name = display_name
+	m.enter_mia_state()
+
+
+func _add_fixture_dead_elite(merc_id: String, template_id: String, lvl: int, display_name: String) -> void:
+	_spawn_elite(merc_id, template_id, lvl)
+	var m := GameManager.find_mercenary_by_id(merc_id) as EliteMercenary
+	if m == null:
+		return
+	m.merc_name = display_name
+	m.is_dead_permanently = true
+	m.mark_permanent_death()
+
+
+func _add_fixture_dead_normal(merc_id: String, template_id: String, lvl: int, display_name: String) -> void:
+	_spawn_normal(merc_id, template_id, lvl)
+	var m := GameManager.find_mercenary_by_id(merc_id) as NormalMercenary
+	if m == null:
+		return
+	m.merc_name = display_name
+	m.mark_dead()
+
+
+func _count_dead_fixtures() -> int:
+	var n := 0
+	for e in GameManager.elite_roster:
+		if e != null and not e.is_alive and not e.is_test_stand_in:
+			n += 1
+	for m in GameManager.normal_roster:
+		if m != null and not m.is_alive and not m.is_test_stand_in:
+			n += 1
+	return n
 
 
 func _set_test_formation() -> void:

@@ -1,20 +1,21 @@
 {
 	"header": {
 		"version": 1,
-		"timestamp": "2026-06-06T06:58:53",
+		"timestamp": "2026-06-06T18:31:19",
 		"play_time_seconds": 0
 	},
 	"gold": 500000,
 	"player": {
 		"merc_id": "player_01",
-		"merc_name": "测试主角",
+		"merc_name": "测试指挥官",
 		"merc_type": 0,
 		"merc_class": "warrior",
-		"level": 10,
+		"level": 20,
 		"exp": 0,
 		"max_level": 60,
 		"current_hp": 200,
 		"is_alive": true,
+		"is_mia": false,
 		"is_near_death": false,
 		"scar_stacks": 0,
 		"is_retreated": false,
@@ -46,13 +47,268 @@
 		"player_extra": {
 			"base_exp_multiplier": 0.2,
 			"squad_stability_influence": 0.1,
-			"owned_elite_ids": [],
-			"owned_normal_ids": []
+			"owned_elite_ids": [
+				"elite_01",
+				"fixture_mia_elite",
+				"fixture_dead_elite"
+			],
+			"owned_normal_ids": [
+				"normal_01",
+				"fixture_mia_normal",
+				"fixture_dead_normal"
+			]
 		}
 	},
 	"roster": {
-		"elite": [],
-		"normal": []
+		"elite": [
+			{
+				"merc_id": "elite_01",
+				"merc_name": "钢铁守卫",
+				"merc_type": 1,
+				"merc_class": "warrior",
+				"level": 18,
+				"exp": 0,
+				"max_level": 60,
+				"current_hp": 100,
+				"is_alive": true,
+				"is_mia": false,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 50.0,
+				"attack_speed": 1.2,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [
+					"toughness",
+					"iron_wall"
+				],
+				"buffs": [],
+				"active_skills": [
+					"taunt"
+				],
+				"growth_per_level": {
+					"hp": 12,
+					"patk": 1.5,
+					"pdef": 1.0,
+					"spd": 0.3
+				},
+				"template_id": "warrior_elite",
+				"player_extra": {},
+				"is_dead_permanently": false
+			},
+			{
+				"merc_id": "fixture_mia_elite",
+				"merc_name": "fixture·奥术遗留",
+				"merc_type": 1,
+				"merc_class": "mage",
+				"level": 12,
+				"exp": 0,
+				"max_level": 60,
+				"current_hp": 1,
+				"is_alive": true,
+				"is_mia": true,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 120.0,
+				"attack_speed": 1.5,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [
+					"arcane_affinity",
+					"mana_shield"
+				],
+				"buffs": [],
+				"active_skills": [
+					"fireball"
+				],
+				"growth_per_level": {
+					"hp": 7,
+					"matk": 2.5,
+					"mdef": 0.8,
+					"spd": 0.4
+				},
+				"template_id": "mage_elite",
+				"player_extra": {},
+				"is_dead_permanently": false
+			},
+			{
+				"merc_id": "fixture_dead_elite",
+				"merc_name": "fixture·游侠阵亡",
+				"merc_type": 1,
+				"merc_class": "ranger",
+				"level": 15,
+				"exp": 0,
+				"max_level": 60,
+				"current_hp": 0,
+				"is_alive": false,
+				"is_mia": false,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 100.0,
+				"attack_speed": 1.0,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [
+					"shadow_step",
+					"keen_eye"
+				],
+				"buffs": [],
+				"active_skills": [
+					"snipe"
+				],
+				"growth_per_level": {
+					"hp": 9,
+					"patk": 1.8,
+					"spd": 0.6
+				},
+				"template_id": "ranger_elite",
+				"player_extra": {},
+				"is_dead_permanently": true
+			}
+		],
+		"normal": [
+			{
+				"merc_id": "normal_01",
+				"merc_name": "新兵",
+				"merc_type": 2,
+				"merc_class": "warrior",
+				"level": 15,
+				"exp": 0,
+				"max_level": 30,
+				"current_hp": 100,
+				"is_alive": true,
+				"is_mia": false,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 50.0,
+				"attack_speed": 1.2,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [],
+				"buffs": [],
+				"active_skills": [],
+				"growth_per_level": {
+					"hp": 8,
+					"patk": 1.0
+				},
+				"template_id": "warrior_normal",
+				"player_extra": {},
+				"is_dead_permanently": false
+			},
+			{
+				"merc_id": "fixture_mia_normal",
+				"merc_name": "fixture·新兵遗留",
+				"merc_type": 2,
+				"merc_class": "warrior",
+				"level": 10,
+				"exp": 0,
+				"max_level": 30,
+				"current_hp": 1,
+				"is_alive": true,
+				"is_mia": true,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 50.0,
+				"attack_speed": 1.2,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [],
+				"buffs": [],
+				"active_skills": [],
+				"growth_per_level": {
+					"hp": 8,
+					"patk": 1.0
+				},
+				"template_id": "warrior_normal",
+				"player_extra": {},
+				"is_dead_permanently": false
+			},
+			{
+				"merc_id": "fixture_dead_normal",
+				"merc_name": "fixture·学徒阵亡",
+				"merc_type": 2,
+				"merc_class": "mage",
+				"level": 8,
+				"exp": 0,
+				"max_level": 30,
+				"current_hp": 0,
+				"is_alive": false,
+				"is_mia": false,
+				"is_near_death": false,
+				"scar_stacks": 0,
+				"is_retreated": false,
+				"is_personal_break": false,
+				"personal_stability": 100,
+				"attack_range": 110.0,
+				"attack_speed": 1.6,
+				"equipment_slots": {
+					"weapon": null,
+					"armor": null,
+					"helmet": null,
+					"boots": null,
+					"ring": null,
+					"amulet": null
+				},
+				"passive_skills": [],
+				"buffs": [],
+				"active_skills": [
+					"fireball"
+				],
+				"growth_per_level": {
+					"hp": 5,
+					"matk": 1.5,
+					"mdef": 0.5
+				},
+				"template_id": "mage_normal",
+				"player_extra": {},
+				"is_dead_permanently": true
+			}
+		]
 	},
 	"inventory": [],
 	"buildings": {
@@ -101,7 +357,11 @@
 	"squad_formation": {
 		"active_half": "A",
 		"A": {
-			"active": [],
+			"active": [
+				"player_01",
+				"elite_01",
+				"normal_01"
+			],
 			"bench": []
 		},
 		"B": {
@@ -110,11 +370,39 @@
 		}
 	},
 	"last_deploy_half": "A",
-	"last_run_squad_snapshot": [],
-	"selected_map_id": "test_06_near_death_duo",
+	"last_run_squad_snapshot": [
+		"player_01",
+		"elite_01",
+		"normal_01"
+	],
+	"selected_map_id": "grassland",
 	"auto_run_preferred": false,
 	"rebirth_count": 0,
 	"rebirth_bonus": 0.0,
+	"account_meta": {
+		"seed_casualty_fixtures": true,
+		"frozen_exp_pools": [
+			{
+				"run_id": "fixture_mia_pool_1",
+				"map_id": "grassland",
+				"total": 1200,
+				"mia_count": 2,
+				"field_count": 4,
+				"mia_ratio": 0.5,
+				"timestamp": 1780770679,
+				"member_ids": [
+					"fixture_mia_elite",
+					"fixture_mia_normal"
+				]
+			}
+		],
+		"rescue_rank": 0,
+		"rescue_reputation": 0
+	},
+	"rescue_squad": {
+		"active": [],
+		"bench": []
+	},
 	"cloud_reserved": {},
 	"squad_stability": 100
 }

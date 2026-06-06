@@ -17,7 +17,7 @@ static func get_heal_ratio_per_tick(infirmary_speed_mult: float) -> float:
 
 
 static func heal_mercenary(merc: Mercenary, heal_ratio: float) -> int:
-	if merc == null or not merc.is_alive:
+	if merc == null or not merc.is_alive or merc.is_mia:
 		return 0
 	var max_hp: int = StatResolver.get_max_hp(merc)
 	if merc.current_hp >= max_hp:
@@ -33,7 +33,7 @@ static func heal_mercenary(merc: Mercenary, heal_ratio: float) -> int:
 
 
 static func recover_personal_stability(merc: Mercenary, heal_ratio: float) -> int:
-	if merc == null or not merc.is_alive:
+	if merc == null or not merc.is_alive or merc.is_mia:
 		return 0
 	if merc.personal_stability >= StabilitySystem.MAX_STABILITY:
 		merc.try_clear_personal_break()

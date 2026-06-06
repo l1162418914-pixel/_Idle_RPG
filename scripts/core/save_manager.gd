@@ -99,12 +99,51 @@ func _read_save_json_string(file_text: String) -> String:
 func get_slot_list() -> Array:
 	var list = []
 	for i in range(1, MAX_SLOTS + 1):
-		var path = _slot_path(i)
-		list.append({
-			"slot": i,
-			"exists": FileAccess.file_exists(path)
-		})
+		list.append(peek_slot_summary(i))
 	return list
+
+
+func peek_slot_summary(slot: int) -> Dictionary:
+	var summary := {
+		"slot": slot,
+		"exists": false,
+		"name": "",
+		"level": 1,
+		"class_id": "",
+		"gold": 0,
+		"timestamp": "",
+		"play_time": 0,
+		"test_fixtures": false,
+	}
+	if slot < 1 or slot > MAX_SLOTS:
+		return summary
+	var path := _slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return summary
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return summary
+	var text := f.get_as_text()
+	f.close()
+	var json := JSON.new()
+	var json_str := _read_save_json_string(text)
+	if json.parse(json_str) != OK or not (json.data is Dictionary):
+		summary["exists"] = true
+		summary["name"] = "（存档损坏）"
+		return summary
+	var data: Dictionary = json.data
+	var header: Dictionary = data.get("header", {})
+	var player: Dictionary = data.get("player", {})
+	var meta: Dictionary = data.get("account_meta", {})
+	summary["exists"] = true
+	summary["name"] = str(player.get("merc_name", "未命名"))
+	summary["level"] = int(player.get("level", 1))
+	summary["class_id"] = str(player.get("merc_class", ""))
+	summary["gold"] = int(data.get("gold", 0))
+	summary["timestamp"] = str(header.get("timestamp", ""))
+	summary["play_time"] = int(header.get("play_time_seconds", 0))
+	summary["test_fixtures"] = bool(meta.get("seed_casualty_fixtures", false))
+	return summary
 
 
 func set_current_slot(slot: int) -> void:
