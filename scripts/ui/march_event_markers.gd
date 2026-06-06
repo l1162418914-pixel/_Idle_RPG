@@ -1,11 +1,16 @@
 class_name MarchEventMarkers
 extends Control
-## T-MARCH-V2 骨架 · 里程碑/路旁点标记（无美术时色块三角，跟 scroll_x）
+## T-MARCH-V2 · 里程碑标记（读地图 march_events[]，跟 scroll_x）
 
 
 const MARKER_COLOR: Color = Color(0.9, 0.75, 0.35, 0.85)
+const FIRED_COLOR: Color = Color(0.55, 0.5, 0.4, 0.42)
+const HORIZON_START: float = 0.12
+const HORIZON_SPAN: float = 0.76
+const PASSED_MARGIN_M: float = 3.0
 
 var _markers: Array[ColorRect] = []
+var _last_marker_count: int = 0
 
 
 func _ready() -> void:
@@ -13,35 +18,61 @@ func _ready() -> void:
 	visible = false
 
 
-func set_milestone_markers(distances: Array, scroll_x: float, lane_width: float, max_distance: float) -> void:
+func get_marker_count() -> int:
+	return _last_marker_count
+
+
+func set_milestones(
+	entries: Array,
+	scroll_x: float,
+	lane_width: float,
+	max_distance: float,
+	fired_indices: Array = [],
+	show_markers: bool = true
+) -> void:
 	_clear_markers()
-	if distances.is_empty() or lane_width <= 1.0 or max_distance <= 0.0:
+	_last_marker_count = 0
+	if not show_markers or entries.is_empty() or lane_width <= 1.0 or max_distance <= 0.0:
 		visible = false
 		return
 	visible = true
-	for d in distances:
-		var dist: float = float(d)
-		var rel: float = dist - scroll_x
-		var x_ratio: float = clampf(rel / max_distance, -0.05, 1.05)
-		var px: float = lane_width * (0.12 + x_ratio * 0.76)
+	for item in entries:
+		if item is not Dictionary:
+			continue
+		var at_dist: float = float(item.get("at_distance", -1.0))
+		if at_dist < scroll_x - PASSED_MARGIN_M:
+			continue
+		var idx: int = int(item.get("index", -1))
+		var fired: bool = idx in fired_indices
+		var px: float = _distance_to_px(at_dist, scroll_x, lane_width, max_distance)
 		if px < -8.0 or px > lane_width + 8.0:
 			continue
 		var tri := ColorRect.new()
-		tri.color = MARKER_COLOR
+		tri.color = FIRED_COLOR if fired else MARKER_COLOR
 		tri.custom_minimum_size = Vector2(6, 6)
 		tri.size = Vector2(6, 6)
 		tri.position = Vector2(px, size.y * 0.18)
 		tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(tri)
 		_markers.append(tri)
+		_last_marker_count += 1
+
+
+func set_milestone_markers(distances: Array, scroll_x: float, lane_width: float, max_distance: float) -> void:
+	var entries: Array = []
+	for i in range(distances.size()):
+		entries.append({
+			"index": i,
+			"at_distance": float(distances[i]),
+			"event_id": "",
+		})
+	set_milestones(entries, scroll_x, lane_width, max_distance, [], true)
 
 
 func flash_at_distance(distance: float, scroll_x: float, lane_width: float, max_distance: float) -> void:
 	if lane_width <= 1.0 or max_distance <= 0.0:
 		return
-	var rel: float = distance - scroll_x
-	var x_ratio: float = clampf(rel / max_distance, 0.0, 1.0)
-	var px: float = lane_width * (0.12 + x_ratio * 0.76)
+	var px: float = _distance_to_px(distance, scroll_x, lane_width, max_distance)
 	var flash := ColorRect.new()
 	flash.color = Color(1.0, 0.9, 0.5, 0.95)
 	flash.custom_minimum_size = Vector2(10, 10)
@@ -53,6 +84,12 @@ func flash_at_distance(distance: float, scroll_x: float, lane_width: float, max_
 	var tween := create_tween()
 	tween.tween_property(flash, "modulate:a", 0.0, 0.45)
 	tween.tween_callback(flash.queue_free)
+
+
+func _distance_to_px(distance: float, scroll_x: float, lane_width: float, max_distance: float) -> float:
+	var rel: float = distance - scroll_x
+	var x_ratio: float = clampf(rel / max_distance, -0.05, 1.05)
+	return lane_width * (HORIZON_START + x_ratio * HORIZON_SPAN)
 
 
 func _clear_markers() -> void:

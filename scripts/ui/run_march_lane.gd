@@ -48,7 +48,8 @@ var _boss_chase_active: bool = false
 var _boss_chase_gap: float = 9999.0
 var _pending_march_after_combat: bool = false
 var _combat_resume_timer: float = 0.0
-var _milestone_distances: Array = []
+var _milestone_entries: Array = []
+var _fired_milestone_indices: Array = []
 
 
 func _ready() -> void:
@@ -162,7 +163,8 @@ func on_run_started(run: WorldRun, party_count: int = 3) -> void:
 		visible = false
 		return
 	_max_distance = run.max_distance
-	_milestone_distances = _MarchEventService.milestone_distances(run.map_data)
+	_milestone_entries = _MarchEventService.milestone_entries(run.map_data)
+	_fired_milestone_indices = run.march_events_fired.duplicate()
 	_is_retreating = run.is_retreating
 	_frozen_distance = run.distance_traveled
 	_display_distance = run.distance_traveled
@@ -180,6 +182,7 @@ func on_world_tick(run: WorldRun, world_run_ticked: bool) -> void:
 	_is_retreating = run.is_retreating
 	_boss_chase_active = run.boss_chase_active
 	_boss_chase_gap = run.get_boss_chase_gap()
+	_fired_milestone_indices = run.march_events_fired.duplicate()
 	var dist: float = run.distance_traveled
 
 	if _gather_active:
@@ -388,8 +391,20 @@ func _refresh_visuals() -> void:
 		_march_view.apply_lane(lane_state, _is_retreating, visual_busy, _party_count)
 	if _gather_view:
 		_gather_view.visible = _gather_active
-	if _event_markers and _event_markers.has_method("set_milestone_markers"):
-		_event_markers.set_milestone_markers(_milestone_distances, scroll_x, size.x, _max_distance)
+	if _event_markers and _event_markers.has_method("set_milestones"):
+		var show_milestones: bool = (
+			not _is_retreating
+			and not visual_busy
+			and lane_state == LaneState.MARCH_ADVANCE
+		)
+		_event_markers.set_milestones(
+			_milestone_entries,
+			scroll_x,
+			size.x,
+			_max_distance,
+			_fired_milestone_indices,
+			show_milestones
+		)
 	if _boss_chase_silhouette:
 		_boss_chase_silhouette.apply_chase(
 			_boss_chase_active,

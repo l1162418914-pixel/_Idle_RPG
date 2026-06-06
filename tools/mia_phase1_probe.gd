@@ -106,6 +106,8 @@ func _run() -> void:
 	_probe_b4_base_ui_bag_integration()
 	_probe_m2_milestone_fire_once()
 	_probe_m2_milestone_pause_rules()
+	_probe_mv2_lane_markers_from_map()
+	_probe_mv2_markers_hide_on_retreat()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -1998,6 +2000,70 @@ func _probe_m2_milestone_pause_rules() -> void:
 		_fail("M2b", "allowed=false 时不应触发")
 		return
 	_pass("M2b", "T-MARCH-M2 接战/返程/暂停门禁")
+
+
+func _probe_mv2_lane_markers_from_map() -> void:
+	var lane := RunMarchLane.new()
+	lane.size = Vector2(480, 48)
+	add_child(lane)
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.is_retreating = false
+	run.distance_traveled = 0.0
+	lane.on_run_started(run, 2)
+	lane.on_world_tick(run, true)
+	var markers := lane.get_node_or_null("MarchEventMarkers")
+	if markers == null:
+		_fail("MV2a", "RunMarchLane 应含 MarchEventMarkers")
+		lane.queue_free()
+		return
+	if not markers.visible:
+		_fail("MV2a", "进军起步应显示里程碑标记")
+		lane.queue_free()
+		return
+	if markers.get_marker_count() < 2:
+		_fail("MV2a", "grassland 应绘制≥2 个前方里程碑 (got %d)" % markers.get_marker_count())
+		lane.queue_free()
+		return
+	run.distance_traveled = 85.0
+	run.march_events_fired = [0]
+	lane.on_world_tick(run, true)
+	if markers.get_marker_count() < 1:
+		_fail("MV2a", "触发 80m 后应仍显示前方里程碑")
+		lane.queue_free()
+		return
+	lane.queue_free()
+	_pass("MV2a", "T-MARCH-V2 地图里程碑标记跟 scroll_x")
+
+
+func _probe_mv2_markers_hide_on_retreat() -> void:
+	var lane := RunMarchLane.new()
+	lane.size = Vector2(480, 48)
+	add_child(lane)
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.is_retreating = true
+	run.distance_traveled = 40.0
+	lane.on_run_started(run, 2)
+	lane.on_world_tick(run, true)
+	var markers := lane.get_node_or_null("MarchEventMarkers")
+	if markers == null:
+		_fail("MV2b", "应含 MarchEventMarkers")
+		lane.queue_free()
+		return
+	if markers.visible and markers.get_marker_count() > 0:
+		_fail("MV2b", "返程不应显示进军里程碑")
+		lane.queue_free()
+		return
+	lane.on_combat_start(run, false)
+	lane.on_world_tick(run, false)
+	markers = lane.get_node_or_null("MarchEventMarkers")
+	if markers != null and markers.visible and markers.get_marker_count() > 0:
+		_fail("MV2b", "接战期间不应显示里程碑")
+		lane.queue_free()
+		return
+	lane.queue_free()
+	_pass("MV2b", "T-MARCH-V2 返程/接战隐藏里程碑")
 
 
 func _probe_mia_excluded_from_formation() -> void:

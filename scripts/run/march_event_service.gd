@@ -38,12 +38,29 @@ static func tick(run: WorldRun, allowed: bool) -> Array:
 
 static func milestone_distances(map_data: Dictionary) -> Array:
 	var out: Array = []
-	for entry in map_data.get("march_events", []):
-		if entry is Dictionary:
-			var at_dist: float = float(entry.get("at_distance", -1.0))
-			if at_dist >= 0.0:
-				out.append(at_dist)
-	out.sort()
+	for item in milestone_entries(map_data):
+		if item is Dictionary:
+			out.append(float(item.get("at_distance", 0.0)))
+	return out
+
+
+static func milestone_entries(map_data: Dictionary) -> Array:
+	var out: Array = []
+	var raw: Array = map_data.get("march_events", [])
+	for i in range(raw.size()):
+		var entry: Dictionary = raw[i] if raw[i] is Dictionary else {}
+		if entry.is_empty():
+			continue
+		var at_dist: float = float(entry.get("at_distance", -1.0))
+		var event_id: String = str(entry.get("event_id", ""))
+		if at_dist < 0.0 or event_id == "":
+			continue
+		out.append({
+			"index": i,
+			"at_distance": at_dist,
+			"event_id": event_id,
+		})
+	out.sort_custom(func(a, b): return float(a.at_distance) < float(b.at_distance))
 	return out
 
 
