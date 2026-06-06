@@ -121,6 +121,9 @@ func _run() -> void:
 	_probe_fw2_gather_and_boss_slots()
 	_probe_fw3_art_manifest()
 	_probe_fw3_visual_slot_texture()
+	_probe_02a_enemy_skips_downed()
+	_probe_02a_downed_rear_snap()
+	_probe_02a_only_downed_no_crash()
 	_print_report()
 	_restore_gm()
 	get_tree().quit(1 if not _failed.is_empty() else 0)
@@ -2384,6 +2387,78 @@ func _probe_fw3_visual_slot_texture() -> void:
 	slot.queue_free()
 	_ArtManifest.configure(DataLoader.art_manifest_data())
 	_pass("FW3b", "T-ART-FW-3 VisualSlot manifest 优先于占位")
+
+
+func _probe_02a_enemy_skips_downed() -> void:
+	var combat := CombatController.new()
+	var tank := CombatEntity.new()
+	tank.init_from_merc(_make_probe_normal("02a_tank", "铁卫"), "ally_t")
+	tank.formation_slot = 0
+	tank.position = 180.0
+	tank.action_state = CombatEntity.ActionState.DOWNED
+	tank.current_hp = 1
+	var mage := CombatEntity.new()
+	mage.init_from_merc(_make_probe_normal("02a_mage", "术士"), "ally_m")
+	mage.formation_slot = 1
+	mage.position = 100.0
+	combat.allies = [tank, mage]
+	var target: CombatEntity = combat.find_nearest_in_range(
+		combat.allies, 250.0, 200.0, combat._any_ally_fighter_on_field()
+	)
+	if target == null or target == tank:
+		_fail("02a-1", "敌方应优先打可战友方，而非濒死前排")
+		return
+	if target.entity_id != mage.entity_id:
+		_fail("02a-1", "应选中后排可战友方")
+		return
+	_pass("02a-1", "T-02a 敌方跳过濒死目标")
+
+
+func _probe_02a_downed_rear_snap() -> void:
+	var combat := CombatController.new()
+	var fighter := CombatEntity.new()
+	fighter.init_from_merc(_make_probe_normal("02a_f", "游侠"), "ally_f")
+	fighter.formation_slot = 1
+	fighter.position = 140.0
+	var downed := CombatEntity.new()
+	downed.init_from_merc(_make_probe_normal("02a_d", "铁卫"), "ally_d")
+	downed.formation_slot = 0
+	downed.position = 200.0
+	downed.action_state = CombatEntity.ActionState.DOWNED
+	downed.current_hp = 1
+	combat.allies = [fighter, downed]
+	combat.set_march_retreat_combat(true)
+	if downed.position >= fighter.position:
+		_fail(
+			"02a-2",
+			"濒死应归位后排 (downed=%.1f fighter=%.1f)" % [downed.position, fighter.position]
+		)
+		return
+	_pass("02a-2", "T-02a 返程入场濒死后排归位")
+
+
+func _probe_02a_only_downed_no_crash() -> void:
+	var combat := CombatController.new()
+	var downed := CombatEntity.new()
+	downed.init_from_merc(_make_probe_normal("02a_solo", "铁卫"), "ally_s")
+	downed.formation_slot = 0
+	downed.position = 160.0
+	downed.action_state = CombatEntity.ActionState.DOWNED
+	downed.current_hp = 1
+	combat.allies = [downed]
+	var no_fighter_target: CombatEntity = combat.find_nearest_in_range(
+		combat.allies, 200.0, 300.0, true
+	)
+	if no_fighter_target != null:
+		_fail("02a-3", "仅濒死时 fighters_only 应无目标")
+		return
+	var fallback: CombatEntity = combat.find_nearest_in_range(
+		combat.allies, 200.0, 300.0, false
+	)
+	if fallback == null:
+		_fail("02a-3", "fallback 应仍能选中濒死")
+		return
+	_pass("02a-3", "T-02a 仅濒死剩场 fallback 不崩")
 
 
 func _probe_mia_excluded_from_formation() -> void:

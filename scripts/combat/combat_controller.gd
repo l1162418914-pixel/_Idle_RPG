@@ -351,9 +351,11 @@ func _drift_homeward(entity: CombatEntity, delta: float) -> void:
 	entity.is_facing_right = false
 
 
-func _opponent_target_fighters_only(is_ally: bool) -> bool:
-	## 敌方需能打到濒死单位（追击处决/前排倒地）；友方仍只寻敌
-	return false
+func _opponent_target_fighters_only(is_attacker_ally: bool) -> bool:
+	## T-02a：敌方在场上有可战友方时跳过 DOWNED；仅濒死剩场时才 fallback 打濒死
+	if is_attacker_ally:
+		return false
+	return _any_ally_fighter_on_field()
 
 
 func _ally_retreat_speed_mult() -> float:
@@ -442,10 +444,7 @@ func _enemy_retreat_chase_step_toward(
 
 
 func _find_enemy_chase_move_target(ally_list: Array, from_pos: float) -> CombatEntity:
-	var prefer_fighters: bool = (
-		_movement_policy.allows_downed_execute(self) and _any_ally_fighter_on_field()
-	)
-	return _find_nearest_alive(ally_list, from_pos, prefer_fighters)
+	return _find_nearest_alive(ally_list, from_pos, _any_ally_fighter_on_field())
 
 
 ## 近战接敌理想 X：前排贴射程，后排按 formation_slot 逐级后撤，避免共抢同一点。
@@ -693,16 +692,13 @@ func _any_ally_fighter_on_field() -> bool:
 	return false
 
 
-## 追击处决接战：场上仍有可战队员时，首领优先打可战目标，避免只刷濒死导致战斗永不结束。
+## T-02a + 追击处决：有可战友方时优先打可战目标；仅濒死剩场时 fallback 打濒死。
 func _find_enemy_attack_target(
 	ally_list: Array, from_pos: float, max_range: float
 ) -> CombatEntity:
-	var prefer_fighters: bool = (
-		_movement_policy.allows_downed_execute(self) and _any_ally_fighter_on_field()
+	return find_nearest_in_range(
+		ally_list, from_pos, max_range, _any_ally_fighter_on_field()
 	)
-	if prefer_fighters:
-		return find_nearest_in_range(ally_list, from_pos, max_range, true)
-	return find_nearest_in_range(ally_list, from_pos, max_range, false)
 
 
 func find_nearest_in_range(
