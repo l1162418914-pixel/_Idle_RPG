@@ -48,6 +48,8 @@ var current_hp: int = 0
 var is_alive: bool = true
 ## 濒死：仍算存活、可触发撤离；无法攻击与移动；撤离失败才转为永久死亡
 var is_near_death: bool = false
+## 失踪（MIA / 战场遗留）；名册可见，不可编入出征
+var is_mia: bool = false
 var is_retreated: bool = false
 ## 个人稳定度过低，无法出征直至基地恢复
 var is_personal_break: bool = false
@@ -130,7 +132,7 @@ func is_personal_stability_ok() -> bool:
 ## 是否可编入出征队
 func can_join_squad() -> bool:
 	try_clear_near_death_for_deploy()
-	return is_alive and not is_near_death and not is_retreated and not is_personal_break and is_personal_stability_ok()
+	return is_alive and not is_mia and not is_near_death and not is_retreated and not is_personal_break and is_personal_stability_ok()
 
 
 func try_clear_near_death_for_deploy() -> void:
@@ -318,7 +320,6 @@ func enter_near_death_state(hp_ratio: float = 0.08) -> void:
 		add_scar_stack()
 	var max_hp_val := _StatResolver.get_max_hp(self)
 	current_hp = maxi(1, int(float(max_hp_val) * hp_ratio))
-	hp = current_hp
 
 
 ## 紧急撤离成功后的濒死惩罚
@@ -326,9 +327,24 @@ func apply_near_death_state(hp_ratio: float = 0.08) -> void:
 	enter_near_death_state(hp_ratio)
 
 
+## 进入 MIA（战场遗留）；与濒死互斥，非永久死亡
+func enter_mia_state() -> void:
+	if merc_type == MercType.PLAYER:
+		return
+	is_alive = true
+	is_near_death = false
+	is_mia = true
+	current_hp = 1
+
+
+func clear_mia_state() -> void:
+	is_mia = false
+
+
 ## 撤离失败：永久死亡
 func mark_permanent_death() -> void:
 	is_near_death = false
+	is_mia = false
 	is_alive = false
 	current_hp = 0
 	hp = 0
@@ -343,6 +359,8 @@ func is_dead() -> bool:
 func get_status_label() -> String:
 	if is_dead():
 		return "[死亡] %s Lv.%d" % [merc_name, level]
+	if is_mia:
+		return "[遗留] %s Lv.%d" % [merc_name, level]
 	if is_near_death:
 		var scar_hint := " 伤×%d" % scar_stacks if scar_stacks > 0 else ""
 		return "[濒死] %s Lv.%d HP:%d/%d%s" % [

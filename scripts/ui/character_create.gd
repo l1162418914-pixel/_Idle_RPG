@@ -114,6 +114,13 @@ func _on_create_pressed() -> void:
 	GameManager.player = Player.new()
 	GameManager.player.merc_name = player_name
 	GameManager.player.init_from_template(template)
+	GameManager.elite_roster.clear()
+	GameManager.normal_roster.clear()
+	GameManager.selected_squad.clear()
+	GameManager.squad_formation = {}
+	SquadFormationService.ensure_formation(GameManager)
+	SquadFormationService.rebalance_from_roster(GameManager)
+	var got_starter: bool = GameManager.grant_starter_merc()
 	GameManager.sync_always_unlocked_maps()
 	GameManager.refresh_map_unlocks()
 	GameManager.state = GameManager.GameState.BASE
@@ -121,7 +128,10 @@ func _on_create_pressed() -> void:
 		status_label.text = "存档失败，请重试"
 		status_label.modulate = Color.RED
 		return
-	status_label.text = "创建成功，进入游戏..."
+	if got_starter:
+		status_label.text = "创建成功！已配备 1 名起始佣兵，主角留营指挥…"
+	else:
+		status_label.text = "创建成功，进入游戏…"
 	status_label.modulate = Color.GREEN
 	await get_tree().create_timer(0.5).timeout
 	get_tree().change_scene_to_file("res://scenes/main.tscn")

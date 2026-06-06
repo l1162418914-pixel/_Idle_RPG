@@ -22,6 +22,7 @@ static func heal_mercenary(merc: Mercenary, heal_ratio: float) -> int:
 	var max_hp: int = StatResolver.get_max_hp(merc)
 	if merc.current_hp >= max_hp:
 		merc.try_clear_retreat_on_full_heal()
+		merc.try_clear_near_death_for_deploy()
 		return 0
 	var amount: int = maxi(1, int(float(max_hp) * heal_ratio))
 	var before: int = merc.current_hp

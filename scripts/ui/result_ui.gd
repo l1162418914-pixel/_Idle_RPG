@@ -13,8 +13,18 @@ var _auto_continue_timer: Timer = null
 var _stop_auto_button: Button = null
 var _redeploy_button: Button = null
 
+var shell_left_root: Control = null
+var shell_center_root: Control = null
+var shell_right_root: Control = null
+var _center_exp_label: Label = null
+var _shell_attached: bool = false
+
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	z_index = 20
+	_ensure_overlay_bg()
+	_fix_scroll_layout()
 	GameManager.run_ended.connect(_show_result)
 	GameManager.state_changed.connect(_on_state_changed)
 	if return_button:
@@ -24,6 +34,55 @@ func _ready() -> void:
 	_setup_auto_continue_timer()
 	_setup_stop_auto_button()
 	_setup_redeploy_button()
+
+
+func _ensure_overlay_bg() -> void:
+	if get_node_or_null("PanelBg") != null:
+		return
+	var bg := ColorRect.new()
+	bg.name = "PanelBg"
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	bg.grow_vertical = Control.GROW_DIRECTION_BOTH
+	bg.color = Color(0.08, 0.1, 0.14, 0.96)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	move_child(bg, 0)
+
+
+func _fix_scroll_layout() -> void:
+	if result_label:
+		result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if stats_label == null:
+		return
+	var parent: Node = stats_label.get_parent()
+	if parent == null or parent.get_node_or_null("StatsScroll") != null:
+		return
+	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var idx: int = stats_label.get_index()
+	parent.remove_child(stats_label)
+	var scroll := ScrollContainer.new()
+	scroll.name = "StatsScroll"
+	scroll.custom_minimum_size = Vector2(0, 100)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.add_child(stats_label)
+	stats_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(scroll)
+	parent.move_child(scroll, idx)
+	var main_vbox: VBoxContainer = parent as VBoxContainer
+	if main_vbox:
+		main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var margin: MarginContainer = main_vbox.get_parent() as MarginContainer if main_vbox else null
+	if margin:
+		margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if loot_status_label:
+		loot_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		loot_status_label.max_lines_visible = 3
+	if equip_all_button:
+		equip_all_button.size_flags_vertical = Control.SIZE_SHRINK_END
+	if return_button:
+		return_button.size_flags_vertical = Control.SIZE_SHRINK_END
 
 
 func _setup_redeploy_button() -> void:
@@ -62,14 +121,63 @@ func _setup_auto_continue_timer() -> void:
 	add_child(_auto_continue_timer)
 
 
-func _on_state_changed(new_state: int) -> void:
-	visible = (new_state == GameManager.GameState.RESULT)
+func _on_state_changed(_new_state: int) -> void:
+	pass
+
+
+func attach_to_shell(left_slot: Control, center_slot: Control, right_slot: Control, grid_snapshot: Control = null) -> void:
+	if _shell_attached:
+		return
+	_shell_attached = true
+	var main_vbox: VBoxContainer = $MarginContainer/MainVBox
+	shell_left_root = VBoxContainer.new()
+	shell_left_root.name = "ResultLeftSummary"
+	shell_left_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell_left_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if result_label:
+		result_label.reparent(shell_left_root)
+	var stats_scroll := main_vbox.get_node_or_null("StatsScroll") as Control
+	if stats_scroll:
+		stats_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		stats_scroll.reparent(shell_left_root)
+	elif stats_label:
+		stats_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		stats_label.reparent(shell_left_root)
+	left_slot.add_child(shell_left_root)
+	shell_center_root = VBoxContainer.new()
+	shell_center_root.name = "ResultCenterMeta"
+	shell_center_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell_center_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_center_exp_label = Label.new()
+	_center_exp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_center_exp_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shell_center_root.add_child(_center_exp_label)
+	center_slot.add_child(shell_center_root)
+	shell_right_root = VBoxContainer.new()
+	shell_right_root.name = "ResultRightLoot"
+	shell_right_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell_right_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if grid_snapshot:
+		grid_snapshot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		shell_right_root.add_child(grid_snapshot)
+	var loot_scroll := main_vbox.get_node_or_null("LootScroll") as Control
+	if loot_scroll:
+		loot_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		loot_scroll.reparent(shell_right_root)
+	if loot_status_label:
+		loot_status_label.reparent(shell_right_root)
+	if equip_all_button:
+		equip_all_button.reparent(shell_right_root)
+	if return_button:
+		return_button.custom_minimum_size = Vector2(120, 36)
+		return_button.reparent(shell_right_root)
+	right_slot.add_child(shell_right_root)
+	visible = false
 
 
 func _show_result(result: Dictionary) -> void:
 	if GameManager.state != GameManager.GameState.RESULT:
 		return
-	visible = true
 	_last_result = result
 	
 	var player_alive: bool = result.get("player_alive", false)
@@ -78,16 +186,19 @@ func _show_result(result: Dictionary) -> void:
 	var boss: bool = result.get("boss_defeated", false)
 	var extract_clear: bool = result.get("extract_clear", false)
 	var success: bool = result.get("run_success", player_alive and not forced)
+	var settlement_tier: String = str(result.get("settlement_tier", "success"))
 	
 	var title := ""
-	if extract_clear and boss:
+	if settlement_tier == "mia":
+		title = "战场遗留"
+	elif extract_clear and boss:
 		title = "Boss讨伐成功!"
 	elif extract_clear:
 		title = "宝库守卫战胜利!"
 	elif manual:
 		title = "手动斩仓撤离"
 	elif not player_alive:
-		title = "全军覆没"
+		title = "全军覆没（永久阵亡）"
 	elif forced:
 		if result.get("near_death_penalty", false):
 			title = "紧急撤离成功·全队濒死"
@@ -105,12 +216,17 @@ func _show_result(result: Dictionary) -> void:
 	
 	if stats_label:
 		var lost_on_retreat: int = int(result.get("loot_lost_on_retreat", 0))
-		var stats_text := "击杀敌人: %d\n获得金币: %d\n获得经验: %d (队伍每人)\n获得装备: %d件\n行进距离: %.0fm" % [
+		var dist: float = float(result.get("distance", 0))
+		var origin: float = float(result.get("retreat_origin", 0))
+		var dist_line := "行进距离: %.0fm" % dist
+		if origin > dist + 1.0:
+			dist_line += "（最深推进 %.0fm）" % origin
+		var stats_text := "击杀敌人: %d\n获得金币: %d\n获得经验: %d (队伍每人)\n获得装备: %d件\n%s" % [
 			result.get("enemies_defeated", 0),
 			result.get("total_gold", 0),
 			result.get("total_exp", 0),
 			result.get("total_loot", []).size(),
-			result.get("distance", 0)
+			dist_line
 		]
 		if lost_on_retreat > 0:
 			stats_text += "\n返程遗失装备: %d 件" % lost_on_retreat
@@ -154,7 +270,9 @@ func _show_result(result: Dictionary) -> void:
 		var abandoned: int = int(result.get("loot_abandoned_manual", 0))
 		if abandoned > 0:
 			stats_text += "\n斩仓舍弃外露: %d 件（仅安全箱带回）" % abandoned
-		if result.get("near_death_penalty", false):
+		if settlement_tier == "mia":
+			stats_text += "\n队员失踪（战场遗留 / MIA），名册可见；大营回收功能待接"
+		elif result.get("near_death_penalty", false):
 			stats_text += "\n全队濒死（需在大营休养至满血，撤离失败才会阵亡）"
 		if GameManager.last_run_stability_note != "":
 			stats_text += "\n\n" + GameManager.last_run_stability_note
@@ -166,6 +284,21 @@ func _show_result(result: Dictionary) -> void:
 				names.append(str(md.get("name", mid)))
 			stats_text += "\n\n★ 解锁新地图: %s" % ", ".join(names)
 		stats_label.text = stats_text
+	if _center_exp_label:
+		var center_lines: PackedStringArray = []
+		center_lines.append("—— 升级 / 再战 ——")
+		center_lines.append("经验: +%d (队伍每人)" % int(result.get("total_exp", 0)))
+		if not GameManager.last_run_level_up_log.is_empty():
+			center_lines.append("升级: " + ", ".join(GameManager.last_run_level_up_log))
+		if GameManager.is_recovery_lock_active():
+			center_lines.append(SquadFormationService.get_recovery_lock_message(GameManager))
+		else:
+			center_lines.append("可再战 / 回大营领取奖励")
+		_center_exp_label.text = "\n".join(center_lines)
+		if GameManager.is_recovery_lock_active():
+			_center_exp_label.modulate = Color.ORANGE_RED
+		else:
+			_center_exp_label.modulate = Color(0.85, 0.95, 1.0)
 	
 	_refresh_loot(result.get("total_loot", []))
 	_update_equip_all_button()
@@ -349,6 +482,7 @@ func _on_stop_auto_pressed() -> void:
 func _retreat_reason_label(reason: String) -> String:
 	match reason:
 		"forced": return "稳定度过低"
+		"boss_auto": return "到达Boss线自动返程"
 		"auto_value": return "携带价值达标"
 		"auto_rule": return "自动规则"
 		"manual": return "手动斩仓"

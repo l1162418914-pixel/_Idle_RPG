@@ -1,6 +1,7 @@
 # 2/7 返程（Retreat）· 讨论定稿
 
-> **状态：核心返程链路已实现**（网格、斩仓、撤离点、双池盾、智能撤离、守卫战、刷怪档位）。可选扩展见各专项文档。
+> **状态：核心返程链路已实现**（网格、斩仓、撤离点、双池盾、智能撤离、守卫战、刷怪档位）。  
+> **物资血统**：塔科夫 / 三角洲向 — 见 [design-loot-lineage.md](design-loot-lineage.md)。**压力血统**：提灯向 — 见 [design-stability-lineage.md](design-stability-lineage.md)。
 
 ## 一、流程总览
 

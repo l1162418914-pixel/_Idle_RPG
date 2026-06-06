@@ -1,22 +1,15 @@
-# 测试验收进度（勾选后 commit）
+# 验收进度（ACCEPTANCE_PROGRESS）
 
-对照 **[TEST_PLAYBOOK.md](TEST_PLAYBOOK.md)**（推荐，可打印/双屏）或 [TEST_SCENARIOS.md](TEST_SCENARIOS.md)。测完一项改 `[ ]` → `[x]`，收工与 worklog 一起 commit。
+> 测试图 **点选时自动注入自带人物**；`map_id` 见 [TEST_PLAYBOOK.md](TEST_PLAYBOOK.md) §0。
 
-| 序 | 内容 | 状态 | 备注 / commit |
-|----|------|------|----------------|
-| — | 编队 UI（大营双半组） | [ ] | 拖放、右键清空、养伤锁 |
-| ① | `retreat_drill` 稳定度返程 | [ ] | |
-| ② | `test_extract` 撤离物线 | [ ] | |
-| ③ | `test_boss_chase` Boss追击 | [ ] | 勿杀区域首领、深度反击≠通关 |
-| ④ | `test_auto_value` 价值撤离 | [ ] | 阈值 140 |
-| ④b | `test_loot_full` 网格满撤 | [ ] | 阈值 9999，靠格子满 |
-| ⑤ | `test_near_death_solo` | [ ] | |
-| ⑥ | `test_near_death_duo` | [ ] | |
-| ⑦ | `test_awakening` | [ ] | |
-
-## 记录模板（异常时）
-
-- 地图：
-- 现象：
-- 期望（手册）：
-- `git log -1 --oneline`：
+| 序 | 地图 `map_id` | 通过 | 备注 |
+|----|---------------|------|------|
+| ① | `test_01_stability_retreat` | [ ] | |
+| ② | `test_02_extract_line` | [ ] | |
+| ③ | `test_03_boss_chase` | [ ] | |
+| ④ | `test_04_auto_value` | [ ] | 阈值 140 |
+| ④b | `test_05_loot_full` | [ ] | 网格满 |
+| ⑤ | `test_07_near_death_solo` | [ ] | |
+| ⑥ | `test_06_near_death_duo` | [ ] | T-02a / T-02e |
+| ⑦ | `test_08_awakening` | [ ] | |
+| — | 编队 UI（非测试图） | [ ] | 正式图仍用大营编队 |

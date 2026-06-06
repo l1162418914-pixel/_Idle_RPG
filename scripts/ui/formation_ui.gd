@@ -5,7 +5,10 @@ const SLOT_ACTIVE := "active"
 const SLOT_BENCH := "bench"
 
 var _recovery_panel: PanelContainer = null
+var _recovery_title: Label = null
 var _recovery_body: Label = null
+var _player_panel: PanelContainer = null
+var _player_body: Label = null
 var _halves_row: HBoxContainer = null
 var _pool_label: Label = null
 var _selected: Dictionary = {}  # {half, kind, index} or empty
@@ -21,8 +24,7 @@ func _ready() -> void:
 
 
 func _on_state_changed(new_state: int) -> void:
-	visible = (new_state == GameManager.GameState.BASE)
-	if visible:
+	if new_state == GameManager.GameState.BASE:
 		_refresh()
 
 
@@ -34,13 +36,32 @@ func _build_ui() -> void:
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status_label.add_theme_font_size_override("font_size", 11)
 	add_child(_status_label)
+	_player_panel = PanelContainer.new()
+	var pv := VBoxContainer.new()
+	_player_panel.add_child(pv)
+	var pt := Label.new()
+	pt.text = "战略核心（留营）"
+	pt.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+	pv.add_child(pt)
+	_player_body = Label.new()
+	_player_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_player_body.add_theme_font_size_override("font_size", 11)
+	pv.add_child(_player_body)
+	var player_tools := HBoxContainer.new()
+	player_tools.add_theme_constant_override("separation", 8)
+	var player_equip_btn := Button.new()
+	player_equip_btn.text = "管理装备"
+	player_equip_btn.pressed.connect(_on_player_equip_pressed)
+	player_tools.add_child(player_equip_btn)
+	pv.add_child(player_tools)
+	add_child(_player_panel)
 	_recovery_panel = PanelContainer.new()
 	var rv := VBoxContainer.new()
 	_recovery_panel.add_child(rv)
-	var rt := Label.new()
-	rt.text = "全队养伤锁"
-	rt.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
-	rv.add_child(rt)
+	_recovery_title = Label.new()
+	_recovery_title.text = "全队养伤锁"
+	_recovery_title.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+	rv.add_child(_recovery_title)
 	_recovery_body = Label.new()
 	_recovery_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_recovery_body.add_theme_font_size_override("font_size", 11)
@@ -63,7 +84,7 @@ func _build_ui() -> void:
 	tools.add_child(fill_btn)
 	add_child(tools)
 	var hint := Label.new()
-	hint.text = "拖拽换位；右键移出至未编入（出征前主角须在任一半组出战位）。"
+	hint.text = "拖拽换位；右键移出至未编入。A/B 仅编佣兵，主角留营；纯佣兵可出征。"
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.modulate = Color.DIM_GRAY
 	add_child(hint)
@@ -73,6 +94,8 @@ func _refresh() -> void:
 	if not visible and GameManager.state != GameManager.GameState.BASE:
 		return
 	SquadFormationService.ensure_formation(GameManager)
+	GameManager.repair_roster_base_stats()
+	_refresh_player_card()
 	_refresh_recovery()
 	_refresh_halves()
 	_refresh_pool()
@@ -89,6 +112,42 @@ func _refresh() -> void:
 			_status_label.modulate = Color(0.85, 0.95, 1.0)
 
 
+func _on_player_equip_pressed() -> void:
+	var base_ui := _find_base_ui()
+	if base_ui and base_ui.has_method("open_equipment_for"):
+		base_ui.open_equipment_for(GameManager.player)
+
+
+func _find_base_ui() -> Node:
+	var n: Node = self
+	while n != null:
+		if n.has_method("open_equipment_for"):
+			return n
+		n = n.get_parent()
+	return null
+
+
+func _refresh_player_card() -> void:
+	if _player_panel == null or _player_body == null:
+		return
+	var p = GameManager.player
+	if p == null:
+		_player_panel.visible = false
+		return
+	_player_panel.visible = true
+	var max_hp: int = maxi(1, StatResolver.get_max_hp(p))
+	var pct: int = int(float(p.current_hp) / float(max_hp) * 100.0)
+	var status := "可出战"
+	if p.is_near_death:
+		status = "濒死·留营恢复"
+	elif not p.can_join_squad():
+		status = "休整·留营恢复"
+	_player_body.text = (
+		"★ %s Lv.%d · %d%%HP · %s\n"
+		+ "主角留营指挥，不占 A/B 槽；出征请编佣兵。点「管理装备」配置主角。"
+	) % [p.merc_name, p.level, pct, status]
+
+
 func _refresh_recovery() -> void:
 	if _recovery_panel == null:
 		return
@@ -96,28 +155,41 @@ func _refresh_recovery() -> void:
 	_recovery_panel.visible = st.get("locked", false)
 	if not _recovery_panel.visible:
 		return
+	var no_mercs: bool = st.get("no_mercs", false)
+	if _recovery_title:
+		_recovery_title.text = "无法出征" if no_mercs else "全队养伤锁"
 	var lines: PackedStringArray = []
-	lines.append("两半组均无法出征。医疗室优先治疗最快能满编的一组。")
+	if no_mercs:
+		lines.append("暂无佣兵可编组。请打开兵营招募至少 1 名佣兵，再编入 A/B 半组出战位。")
+	else:
+		lines.append("两半组均无法出征。医疗室优先治疗最快能满编的一组。")
 	var eta: float = float(st.get("eta_seconds", 0.0))
-	if eta > 0.5:
+	if not no_mercs and eta > 0.5:
 		if eta >= 120.0:
 			lines.append("预计约 %.0f 分钟后可恢复出征" % (eta / 60.0))
 		else:
 			lines.append("预计约 %.0f 秒后可恢复出征" % eta)
 	var nh: String = str(st.get("next_deploy_half", ""))
-	if nh != "":
+	if not no_mercs and nh != "":
 		lines.append("解锁后优先半组: %s" % nh)
+	if no_mercs:
+		_recovery_body.text = "\n".join(lines)
+		return
 	for half in ["A", "B"]:
 		var hd: Dictionary = st.halves.get(half, {})
 		var tag := "可出战" if hd.get("can_deploy", false) else "休整"
 		lines.append("\n【半组 %s · %s】" % [half, tag])
 		for m in hd.get("members", []):
 			var md: Dictionary = m
-			var pct: int = int(md.get("hp_pct", 0.0) * 100.0)
+			var cur_hp: int = int(md.get("current_hp", 0))
+			var max_hp: int = maxi(1, int(md.get("max_hp", 1)))
+			var pct: int = int(float(cur_hp) / float(max_hp) * 100.0)
 			lines.append(
-				"  · %s%s — %d%%HP — %s" % [
+				"  · %s%s — HP %d/%d (%d%%) — %s" % [
 					"★" if md.get("is_player", false) else "",
 					md.get("name", "?"),
+					cur_hp,
+					max_hp,
 					pct,
 					md.get("reason", ""),
 				]
@@ -255,15 +327,27 @@ func _slot_text(merc_id: String, kind: String, index: int) -> String:
 	var tag := "★" if GameManager.player and GameManager.player.merc_id == merc_id else ""
 	var max_hp: int = maxi(1, StatResolver.get_max_hp(m))
 	var pct: int = int(float(m.current_hp) / float(max_hp) * 100.0)
-	var st := "✓" if m.can_join_squad() else "×"
-	return "%s%d · %s%s %d%% %s" % [
+	var st := "✓" if _slot_merc_ready(m) else "×"
+	return "%s%d · %s%s %d/%d (%d%%) %s" % [
 		"战" if kind == SLOT_ACTIVE else "替",
 		index + 1,
 		tag,
 		m.merc_name,
+		m.current_hp,
+		max_hp,
 		pct,
 		st,
 	]
+
+
+func _slot_merc_ready(m: Mercenary) -> bool:
+	if m == null or not m.is_alive:
+		return false
+	if m.is_mia or m.is_near_death or m.is_retreated or m.is_personal_break:
+		return false
+	if not m.is_personal_stability_ok():
+		return false
+	return m.get_hp_ratio() >= RosterHealth.DEPLOY_HP_RATIO
 
 
 func _slot_color(merc_id: String) -> Color:
@@ -272,8 +356,10 @@ func _slot_color(merc_id: String) -> Color:
 	var m := GameManager.find_mercenary_by_id(merc_id)
 	if m == null:
 		return Color.GRAY
-	if m.can_join_squad():
+	if _slot_merc_ready(m):
 		return Color.WHITE
+	if m.is_mia:
+		return Color(0.55, 0.5, 0.65)
 	if m.is_near_death:
 		return Color(1.0, 0.5, 0.5)
 	return Color.GOLD
@@ -319,6 +405,12 @@ func _get_slot_merc_id(half: String, kind: String, index: int) -> String:
 
 
 func _on_pool_merc_pressed(merc_id: String) -> void:
+	var m := GameManager.find_mercenary_by_id(merc_id)
+	if m != null and m.is_mia:
+		if _status_label:
+			_status_label.text = "战场遗留，不可编入"
+			_status_label.modulate = Color.ORANGE_RED
+		return
 	var half: String = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
 	for h in [half, SquadFormationService.HALF_B if half == SquadFormationService.HALF_A else SquadFormationService.HALF_A]:
 		var active: Array[String] = SquadFormationService.get_active_ids(GameManager.squad_formation, h)
@@ -342,9 +434,9 @@ func _clear_pool_row() -> void:
 	var parent: Node = _pool_label.get_parent()
 	if parent == null:
 		return
-	var old_row: Node = parent.get_node_or_null("FormationPoolRow")
-	if old_row:
-		old_row.queue_free()
+	for child in parent.get_children():
+		if child.name == "FormationPoolRow":
+			child.queue_free()
 
 
 func _refresh_pool() -> void:
@@ -357,8 +449,6 @@ func _refresh_pool() -> void:
 	in_form.append_array(SquadFormationService.get_active_ids(GameManager.squad_formation, SquadFormationService.HALF_B))
 	in_form.append_array(SquadFormationService.get_bench_ids(GameManager.squad_formation, SquadFormationService.HALF_B))
 	var unassigned: Array[String] = []
-	if GameManager.player and GameManager.player.merc_id not in in_form:
-		unassigned.append(GameManager.player.merc_id)
 	for e in GameManager.elite_roster:
 		if e.is_alive and e.merc_id not in in_form:
 			unassigned.append(e.merc_id)
@@ -366,7 +456,10 @@ func _refresh_pool() -> void:
 		if n.is_alive and n.merc_id not in in_form:
 			unassigned.append(n.merc_id)
 	if unassigned.is_empty():
-		_pool_label.text = "未编入：无（全员已在 A/B 槽位）"
+		if not SquadFormationService.has_living_merc_roster(GameManager):
+			_pool_label.text = "未编入：无佣兵（请先在兵营招募）"
+		else:
+			_pool_label.text = "未编入：无（全员已在 A/B 槽位）"
 		return
 	_pool_label.text = "未编入（点名字填入优先半组空位）："
 	var parent: Node = _pool_label.get_parent()

@@ -47,6 +47,10 @@ var last_run_loot_log: Array[String] = []
 var last_run_stability_note: String = ""
 ## 基地/下次出征共用的队伍稳定度（0-100）
 var team_stability: int = 100
+## 槽位级账号 meta（经验冻结池等，见 SAVE_FORMAT §account_meta）
+var account_meta: Dictionary = {}
+## 救援队编组占位（与 squad_formation 并列，见 SAVE_FORMAT §rescue_squad）
+var rescue_squad: Dictionary = {}
 
 const REVIVE_COST_BASE: int = 80
 const BASE_STABILITY_RECOVER_PER_SEC: float = 2.5
@@ -78,6 +82,8 @@ func _ready() -> void:
 	if SaveManager.has_save():
 		SaveManager.load_game()
 	else:
+		account_meta = _default_account_meta()
+		rescue_squad = _default_rescue_squad()
 		state = GameState.BASE
 		state_changed.emit(GameState.BASE)
 		refresh_map_unlocks()
@@ -105,15 +111,20 @@ func _create_player(pclass: String) -> void:
 
 
 func start_prepare(map_id: String) -> void:
-	if is_recovery_lock_active():
-		run_start_failed.emit(-5)
-		return
 	if not is_map_unlocked(map_id):
 		push_warning("地图未解锁: %s" % map_id)
 		run_start_failed.emit(-4)
 		return
 	selected_map_id = map_id
-	TestScenarioService.apply_on_prepare(self, map_id)
+	var md: Dictionary = DataLoader.map_data(map_id)
+	var inject_test_roster_first: bool = TestScenarioService.should_lock_roster(md)
+	if inject_test_roster_first:
+		TestScenarioService.apply_on_prepare(self, map_id)
+	if is_recovery_lock_active():
+		run_start_failed.emit(-5)
+		return
+	if not inject_test_roster_first:
+		TestScenarioService.apply_on_prepare(self, map_id)
 	if auto_run_preferred:
 		var code: int = start_auto_expedition(map_id)
 		if code != 0:
@@ -130,11 +141,11 @@ func get_run_start_error_message(code: int) -> String:
 		-2:
 			return "无法出征：地图数据异常"
 		-3:
-			return "无法出征：主角无法出战（濒死/阵亡/休整中）"
+			return "无法出征：半组无可用佣兵"
 		-4:
 			return "无法出征：地图尚未解锁"
 		-5:
-			return "全队养伤锁：两半组均无法出征，请在大营恢复（≥70% 生命可清濒死）"
+			return SquadFormationService.get_recovery_lock_message(self)
 		_:
 			return "无法出征（错误码 %d）" % code
 
@@ -199,14 +210,58 @@ func formation_set_preferred_half(half: String) -> void:
 	formation_changed.emit()
 
 
+## 测试图选图时注入自带编队（见 data/test_map_rosters.json）
+## 不覆盖主角姓名/存档身份，避免与角色创建档冲突；仅注入佣兵与槽位。
+func apply_map_test_roster(roster: Dictionary) -> void:
+	if roster.is_empty():
+		return
+	var mia_ids: Dictionary = {}
+	for m in _all_roster_mercs():
+		if m.is_mia:
+			mia_ids[m.merc_id] = true
+	elite_roster.clear()
+	for e in roster.get("elite", []):
+		if e is Dictionary:
+			elite_roster.append(_deserialize_elite(e))
+	normal_roster.clear()
+	for n in roster.get("normal", []):
+		if n is Dictionary:
+			normal_roster.append(_deserialize_normal(n))
+	for m in _all_roster_mercs():
+		if mia_ids.get(m.merc_id, false):
+			m.enter_mia_state()
+	var form: Variant = roster.get("formation", {})
+	if form is Dictionary:
+		squad_formation["active_half"] = str(form.get("active_half", SquadFormationService.HALF_A))
+		for half in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+			var part: Variant = form.get(half, {})
+			if part is Dictionary:
+				squad_formation[half] = {
+					"active": _copy_string_array(part.get("active", [])),
+					"bench": _copy_string_array(part.get("bench", [])),
+				}
+	SquadFormationService.ensure_formation(self)
+	formation_changed.emit()
+
+
+func _copy_string_array(raw: Variant) -> Array[String]:
+	var out: Array[String] = []
+	if raw is Array:
+		for v in raw:
+			out.append(str(v))
+	return out
+
+
 func formation_error_message(code: int) -> String:
 	match code:
 		-2:
 			return "该佣兵已在另一半组"
 		-3:
-			return "主角须在某半组出战位（可从未编入拖入）"
+			return "主角不占半组槽位，请编入佣兵后出征"
 		-4:
-			return "主角不能放替补席"
+			return "主角不占半组槽位"
+		-5:
+			return "战场遗留，不可编入"
 		_:
 			return "编队调整失败(%d)" % code
 
@@ -224,9 +279,7 @@ func should_continue_auto_run(result: Dictionary = {}) -> bool:
 		if result.get("manual_withdraw", false):
 			return false
 		return true
-	if player == null or not player.is_alive or player.is_near_death:
-		return false
-	return true
+	return not is_recovery_lock_active()
 
 
 ## 结算后：换装 → 回城领奖励 → 再次出发
@@ -237,7 +290,7 @@ func continue_auto_loop_after_result(result: Dictionary) -> void:
 	equip_all_pending_upgrades_for_player()
 	var map_id: String = auto_run_map_id
 	return_to_base()
-	if auto_run_enabled and player and player.is_alive and not player.is_near_death and is_map_unlocked(map_id):
+	if auto_run_enabled and is_map_unlocked(map_id):
 		if is_recovery_lock_active():
 			stop_auto_run()
 			return
@@ -328,8 +381,6 @@ func _unlock_maps_by_progress() -> void:
 func start_run() -> int:
 	if is_recovery_lock_active():
 		return -5
-	if player == null or not player.can_join_squad():
-		return -3
 	SquadFormationService.ensure_formation(self)
 	var half: String = SquadFormationService.pick_deploy_half(self)
 	if half == "":
@@ -376,7 +427,9 @@ func end_run(forced_withdraw: bool = false) -> void:
 	last_run_stability_note = ""
 	_apply_map_clear_stability_penalty(result)
 	SquadFormationService.save_run_snapshot(self, result)
+	SquadFormationService.ensure_formation(self)
 	SquadFormationService.rebalance_from_roster(self)
+	formation_changed.emit()
 	_pending_run_result = result
 	_run_rewards_applied = false
 	state = GameState.RESULT
@@ -618,12 +671,13 @@ func abort_run_to_base() -> void:
 
 ## 结算或基地：不离开当前地图，领完奖后立刻再出征（非自动循环）
 func redeploy_same_map() -> int:
-	if is_recovery_lock_active():
-		return -5
 	if selected_map_id == "" or not is_map_unlocked(selected_map_id):
 		return -4
-	if player == null or not player.can_join_squad():
-		return -3
+	var md: Dictionary = DataLoader.map_data(selected_map_id)
+	if TestScenarioService.should_lock_roster(md):
+		TestScenarioService.apply_on_prepare(self, selected_map_id)
+	if is_recovery_lock_active():
+		return -5
 	if state == GameState.RESULT:
 		if not _pending_run_result.is_empty():
 			apply_run_rewards(_pending_run_result)
@@ -631,7 +685,8 @@ func redeploy_same_map() -> int:
 		current_run = null
 	elif state != GameState.BASE:
 		return -1
-	TestScenarioService.apply_on_prepare(self, selected_map_id)
+	if not TestScenarioService.should_lock_roster(md):
+		TestScenarioService.apply_on_prepare(self, selected_map_id)
 	SquadFormationService.rebuild_auto_squad(self)
 	var code: int = start_run()
 	if code != 0:
@@ -643,11 +698,14 @@ func return_to_base() -> void:
 	if not _pending_run_result.is_empty():
 		apply_run_rewards(_pending_run_result)
 	_pending_run_result = {}
-	state = GameState.BASE
 	if current_run:
 		current_run = null
 	selected_squad.clear()
 	_sanitize_roster_for_base()
+	SquadFormationService.ensure_formation(self)
+	formation_changed.emit()
+	state = GameState.BASE
+	_base_heal_timer = RosterHealth.BASE_HEAL_TICK_SEC
 	state_changed.emit(GameState.BASE)
 	if SaveManager and is_instance_valid(SaveManager):
 		SaveManager.save_game()
@@ -748,6 +806,7 @@ func _tick_base_healing(delta: float) -> void:
 			healed_any = true
 	if healed_any:
 		roster_healed.emit()
+		formation_changed.emit()
 
 
 func _all_roster_mercs() -> Array[Mercenary]:
@@ -796,14 +855,30 @@ func get_infirmary_heal_speed_multiplier() -> float:
 	return 1.0 + float(int(arr[lv - 1])) / 100.0
 
 
+func repair_roster_base_stats() -> void:
+	for m in _all_roster_mercs():
+		if m != null and m.is_alive:
+			m.refresh_base_stats()
+			m.try_clear_near_death_for_deploy()
+
+
 func _sanitize_roster_for_base() -> void:
-	## 回基地：仅清 Buff、钳制 HP，不自动回满
+	## 回基地：修复基础属性镜像、清 Buff；濒死/MIA 不回满
 	for m in _all_roster_mercs():
 		m.buff_system.clear()
+		m.refresh_base_stats()
+		if m.is_mia:
+			m.is_near_death = false
+			m.current_hp = maxi(1, m.current_hp)
+			continue
 		if m.is_alive:
-			m.clamp_hp_to_max()
-			m.try_clear_retreat_on_full_heal()
-			m.try_clear_near_death_for_deploy()
+			if m.is_near_death:
+				var cap: int = StatResolver.get_max_hp(m)
+				m.current_hp = clampi(m.current_hp, 1, cap)
+			else:
+				m.clamp_hp_to_max()
+				m.try_clear_retreat_on_full_heal()
+				m.try_clear_near_death_for_deploy()
 		else:
 			m.current_hp = 0
 
@@ -879,6 +954,8 @@ func reset_game_state() -> void:
 	squad_formation.clear()
 	last_run_squad_snapshot.clear()
 	last_deploy_half = "A"
+	account_meta = _default_account_meta()
+	rescue_squad = _default_rescue_squad()
 	
 	print("  player 清空后: %s" % ("null" if player == null else player.merc_name))
 	print("[GameManager] reset_game_state: 完成, state=%s" % state)
@@ -908,6 +985,8 @@ func to_save_dict() -> Dictionary:
 		"last_deploy_half": last_deploy_half,
 		"last_run_squad_snapshot": last_run_squad_snapshot.duplicate(),
 		"selected_map_id": selected_map_id,
+		"account_meta": _normalize_account_meta(account_meta).duplicate(true),
+		"rescue_squad": _normalize_rescue_squad(rescue_squad).duplicate(true),
 		"cloud_reserved": {}
 	}
 
@@ -949,6 +1028,8 @@ func from_save_dict(data: Dictionary) -> void:
 	for mid in data.get("last_run_squad_snapshot", []):
 		last_run_squad_snapshot.append(str(mid))
 	selected_map_id = str(data.get("selected_map_id", selected_map_id))
+	account_meta = _normalize_account_meta(data.get("account_meta", {}))
+	rescue_squad = _normalize_rescue_squad(data.get("rescue_squad", {}))
 	SquadFormationService.ensure_formation(self)
 	SquadFormationService.rebalance_from_roster(self)
 	
@@ -961,6 +1042,41 @@ func from_save_dict(data: Dictionary) -> void:
 
 
 # ─── 内部序列化辅助 ────────────────────────────────────
+
+func _default_account_meta() -> Dictionary:
+	return {
+		"frozen_exp_pools": [],
+		"rescue_rank": 0,
+		"rescue_reputation": 0
+	}
+
+
+func _default_rescue_squad() -> Dictionary:
+	return {
+		"active": [],
+		"bench": []
+	}
+
+
+func _normalize_account_meta(raw: Variant) -> Dictionary:
+	var meta: Dictionary = raw if raw is Dictionary else {}
+	if not meta.has("frozen_exp_pools"):
+		meta["frozen_exp_pools"] = []
+	if not meta.has("rescue_rank"):
+		meta["rescue_rank"] = 0
+	if not meta.has("rescue_reputation"):
+		meta["rescue_reputation"] = 0
+	return meta
+
+
+func _normalize_rescue_squad(raw: Variant) -> Dictionary:
+	var sq: Dictionary = raw if raw is Dictionary else {}
+	if not sq.has("active"):
+		sq["active"] = []
+	if not sq.has("bench"):
+		sq["bench"] = []
+	return sq
+
 
 func _serialize_merc(merc: Mercenary) -> Dictionary:
 	if merc == null:
@@ -976,6 +1092,7 @@ func _serialize_merc(merc: Mercenary) -> Dictionary:
 		"max_level": merc.max_level,
 		"current_hp": merc.current_hp,
 		"is_alive": merc.is_alive,
+		"is_mia": merc.is_mia,
 		"is_near_death": merc.is_near_death,
 		"scar_stacks": merc.scar_stacks,
 		"is_retreated": merc.is_retreated,
@@ -1064,6 +1181,7 @@ func _apply_merc_data(merc: Mercenary, data: Dictionary) -> void:
 	merc.max_level = data.get("max_level", 60)
 	merc.current_hp = data.get("current_hp", 100)
 	merc.is_alive = data.get("is_alive", true)
+	merc.is_mia = data.get("is_mia", false)
 	merc.is_near_death = data.get("is_near_death", false)
 	merc.scar_stacks = maxi(0, int(data.get("scar_stacks", 0)))
 	merc.is_retreated = data.get("is_retreated", false)
@@ -1093,6 +1211,7 @@ func _apply_merc_data(merc: Mercenary, data: Dictionary) -> void:
 	EquipmentSystem.apply_to(merc)
 	merc.clamp_hp_to_max()
 	merc.try_clear_retreat_on_full_heal()
+	merc.try_clear_near_death_for_deploy()
 	merc.try_clear_personal_break()
 	# 忽略旧版存档中的 final 属性字段（hp/patk 等），由模板+装备重算
 
@@ -1131,6 +1250,27 @@ func get_max_normal_slots() -> int:
 	if bdata.has("effects"):
 		return bdata.effects.normal_slots[lv - 1]
 	return 2
+
+
+## 新档赠送 1 名普通佣兵（不扣金币），便于首次编队出征
+func grant_starter_merc() -> bool:
+	if not normal_roster.is_empty() or not elite_roster.is_empty():
+		return false
+	var pool: Array = []
+	for tpl in DataLoader.all_merc_templates():
+		if tpl.get("type", "") == "normal":
+			pool.append(tpl)
+	if pool.is_empty():
+		return false
+	var tpl: Dictionary = pool[randi() % pool.size()]
+	var m := NormalMercenary.new()
+	m.merc_id = "normal_starter_%d" % int(Time.get_unix_time_from_system())
+	m.init_from_template(tpl)
+	normal_roster.append(m)
+	SquadFormationService.ensure_formation(self)
+	SquadFormationService.rebalance_from_roster(self)
+	formation_changed.emit()
+	return true
 
 
 ## 招募佣兵。type: "normal" 或 "elite"

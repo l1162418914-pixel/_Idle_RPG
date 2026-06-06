@@ -83,8 +83,20 @@ func _on_sell_junk_pressed() -> void:
 func open_panel() -> void:
 	if GameManager.state != GameManager.GameState.BASE:
 		return
-	visible = true
 	_select_default_merc()
+	open_panel_for_merc(_selected_merc)
+
+
+func open_panel_for_merc(merc: Mercenary) -> void:
+	if GameManager.state != GameManager.GameState.BASE:
+		return
+	if merc == null:
+		_select_default_merc()
+		merc = _selected_merc
+	if merc == null:
+		return
+	_selected_merc = merc
+	visible = true
 	_rebuild_merc_tabs()
 	_refresh_all()
 	status_label.text = ""

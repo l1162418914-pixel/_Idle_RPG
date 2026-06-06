@@ -5,6 +5,9 @@ extends RefCounted
 enum Team { ALLY, ENEMY }
 enum ActionState { IDLE, MOVING, ATTACKING, DEAD, DOWNED, AWAKENING }
 
+## CQ 式：attack_range >= 此值为远程（后排站桩 + 投射物结算）
+const RANGED_ATTACK_THRESHOLD := 75.0
+
 var entity_id: String = ""
 var team: int = Team.ALLY
 var source_merc = null  # 源 Mercenary 引用
@@ -29,6 +32,10 @@ var move_speed: float = 60.0
 var action_state: int = ActionState.IDLE
 var attack_timer: float = 0.0
 var position: float = 0.0
+## CQ 编队槽位（友方 0=后排远程，递增向前；敌方 0=接敌前排）
+var formation_slot: int = 0
+## 接战时初始站位（远程守此锚点，不前压）
+var spawn_anchor_x: float = 0.0
 var is_facing_right: bool = true
 ## 主动技能冷却 skill_id -> 剩余秒数
 var skill_cooldowns: Dictionary = {}
@@ -78,6 +85,10 @@ func set_skill_cooldown(skill_id: String, seconds: float) -> void:
 	skill_cooldowns[skill_id] = seconds
 
 
+func is_ranged_unit() -> bool:
+	return attack_range >= RANGED_ATTACK_THRESHOLD
+
+
 func recalc_from_merc() -> void:
 	## 从 StatResolver 读取 final 快照；不写回 Mercenary
 	if source_merc == null:
@@ -119,7 +130,10 @@ func init_from_enemy(data: Dictionary) -> void:
 	block_chance = float(stats.get("block_chance", 0.05))
 	attack_range = float(stats.get("attack_range", 50))
 	attack_speed = 1.0 + spd * 0.05
-	move_speed = 18.0 + spd * 0.85
+	if stats.has("move_speed"):
+		move_speed = float(stats.get("move_speed"))
+	else:
+		move_speed = 18.0 + spd * 0.85
 	
 	is_facing_right = false
 	is_boss = bool(data.get("is_boss", false))

@@ -16,6 +16,7 @@ var _auto_retreat_rules: Dictionary = {}
 var _extract_items: Dictionary = {}
 var _near_death_config: Dictionary = {}
 var _chase_drop_tables: Dictionary = {}
+var _test_map_rosters: Dictionary = {}
 
 
 func load_all() -> void:
@@ -31,6 +32,7 @@ func load_all() -> void:
 	_extract_items = _load_json("res://data/extract_items.json")
 	_near_death_config = _load_json("res://data/near_death_config.json")
 	_chase_drop_tables = _load_json("res://data/chase_drop_tables.json")
+	_test_map_rosters = _load_json("res://data/test_map_rosters.json")
 	_EquipmentSetRegistry.load_from_data(_equipment_sets)
 	_index_merc()
 	_index_player_classes()
@@ -211,3 +213,7 @@ func chase_drop_table(table_id: String) -> Dictionary:
 
 func skill_template(skill_id: String) -> Dictionary:
 	return _indexed_skills.get(skill_id, {})
+
+
+func test_map_rosters_data() -> Dictionary:
+	return _test_map_rosters

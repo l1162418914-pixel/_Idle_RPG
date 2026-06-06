@@ -2,7 +2,7 @@ extends VBoxContainer
 class_name UnitView
 ## UnitView — 战斗场景中单个单位（佣兵/敌人）的视觉表现
 
-const RANGED_ATTACK_RANGE := 60.0
+const RANGED_ATTACK_RANGE := CombatEntity.RANGED_ATTACK_THRESHOLD
 
 var entity_id: String = ""
 var unit_name: String = ""
@@ -33,9 +33,10 @@ func setup(entity: CombatEntity) -> void:
 	max_hp = entity.max_hp
 	current_hp = entity.current_hp
 	is_dead = false
-	is_ranged = entity.attack_range >= RANGED_ATTACK_RANGE
+	is_ranged = entity.is_ranged_unit()
 
-	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	custom_minimum_size = Vector2(60, 0)
 	alignment = BoxContainer.ALIGNMENT_CENTER
 
@@ -155,23 +156,35 @@ func play_skill_flash() -> void:
 	tween.tween_property(_sprite_rect, "color", original, 0.14)
 
 
-func play_ranged_strike(target: UnitView, projectile_layer: Control) -> void:
+func play_ranged_strike(target: UnitView, projectile_layer: Control, travel_time: float = 0.14) -> void:
+	play_projectile_strike(target, projectile_layer, travel_time, Color(1.0, 0.88, 0.25))
+
+
+func play_projectile_strike(
+	target: UnitView,
+	projectile_layer: Control,
+	travel_time: float,
+	color: Color,
+	bolt_size: Vector2 = Vector2(10, 4)
+) -> void:
 	if is_dead or _sprite_rect == null:
 		return
 	if target == null or target._sprite_rect == null or projectile_layer == null:
 		play_attack_flash()
 		return
+	var duration: float = clampf(travel_time, 0.06, 0.55)
 	var proj := ColorRect.new()
-	proj.color = Color(1.0, 0.88, 0.25)
-	proj.custom_minimum_size = Vector2(10, 4)
-	proj.size = Vector2(10, 4)
+	proj.color = color
+	proj.custom_minimum_size = bolt_size
+	proj.size = bolt_size
 	proj.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	projectile_layer.add_child(proj)
-	var start := _sprite_rect.global_position + SPRITE_SIZE * 0.5 - Vector2(5, 2)
-	var end := target._sprite_rect.global_position + SPRITE_SIZE * 0.5 - Vector2(5, 2)
+	var half := bolt_size * 0.5
+	var start := _sprite_rect.global_position + SPRITE_SIZE * 0.5 - half
+	var end := target._sprite_rect.global_position + SPRITE_SIZE * 0.5 - half
 	proj.global_position = start
 	var tween := proj.create_tween()
-	tween.tween_property(proj, "global_position", end, 0.14)
+	tween.tween_property(proj, "global_position", end, duration)
 	tween.tween_callback(proj.queue_free)
 	play_attack_flash()
 

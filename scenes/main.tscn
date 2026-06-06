@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://6fdhc4h2huww"]
+[gd_scene load_steps=9 format=3 uid="uid://6fdhc4h2huww"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/main_shell.gd" id="8_shell"]
 [ext_resource type="Script" path="res://scripts/ui/base_ui.gd" id="2_baseui"]
 [ext_resource type="Script" path="res://scripts/ui/squad_ui.gd" id="3_squadui"]
 [ext_resource type="Script" path="res://scripts/ui/run_ui.gd" id="4_runui"]
@@ -25,6 +26,16 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.1, 0.12, 0.18, 1)
+
+[node name="MainShell" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("8_shell")
 
 [node name="BaseUI" type="Control" parent="."]
 layout_mode = 1

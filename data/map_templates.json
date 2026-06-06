@@ -18,9 +18,30 @@
       "retreat_shield_mult_manual": 0.6,
       "drop_chance_boss": 1.0,
       "enemy_pool": [
-        { "template": "slime", "weight": 50, "level_range": [1, 3] },
-        { "template": "wolf", "weight": 30, "level_range": [2, 4] },
-        { "template": "goblin", "weight": 20, "level_range": [3, 5] }
+        {
+          "template": "slime",
+          "weight": 50,
+          "level_range": [
+            1,
+            3
+          ]
+        },
+        {
+          "template": "wolf",
+          "weight": 30,
+          "level_range": [
+            2,
+            4
+          ]
+        },
+        {
+          "template": "goblin",
+          "weight": 20,
+          "level_range": [
+            3,
+            5
+          ]
+        }
       ],
       "boss": "goblin_chief",
       "chase_boss_id": "grassland_stalker",
@@ -75,129 +96,178 @@
       "chase_w_loot": 0.12
     },
     {
-      "map_id": "retreat_drill",
+      "map_id": "test_01_stability_retreat",
       "name": "测试①·稳定度返程",
-      "description": "【正常】接战1~2波后团队稳定≤30→强制返程，有双池护盾、无Boss追击。可打成濒死测紧急撤离。",
-      "test_scenario": "retreat_drill",
+      "description": "【自带编队】约3~4波后稳定≤30强制返程；双池护盾；无Boss追击。",
+      "test_scenario": "stability_retreat",
       "test_priority": 1,
+      "test_target_duration": "3~4 分钟",
       "always_unlocked": true,
       "unlock_base_level": 1,
       "unlock_after_boss_on_map": "",
       "background": "grassland_bg",
-      "spawn_interval": 2.2,
-      "retreat_spawn_interval_mult": 0.65,
-      "retreat_spawn_pack": 2,
-      "retreat_start_ambush": 1,
-      "stability_decay_mult": 6.0,
-      "stability_loss_mult": 2.4,
+      "spawn_interval": 3.0,
       "drop_chance": 0.08,
       "mob_drop_mult": 1.0,
       "mob_drop_bonus": 0.0,
-      "mob_max_quality": 0,
-      "retreat_hit_drop_chance": 0.04,
-      "retreat_shield_mult": 1.25,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
       "retreat_shield_mult_manual": 0.85,
       "emergency_near_death_hp_ratio": 0.1,
-      "drop_chance_boss": 0.5,
+      "drop_chance_boss": 0.0,
       "disable_boss_chase": true,
-      "enemy_stat_mult": 1.35,
+      "stability_decay_mult": 1.15,
+      "stability_loss_mult": 0.95,
+      "enemy_stat_mult": 1.05,
       "enemy_pool": [
-        { "template": "slime_striker", "weight": 100, "level_range": [2, 3] }
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
       ],
       "boss": "slime_king",
-      "boss_distance": 320.0,
+      "boss_distance": 520.0,
       "retreat_destination": 0,
-      "retreat_speed_mult": 1.0,
-      "advance_speed_mult": 0.9,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.82,
       "boss_zone_ratio": 0.99,
-      "resource_yield": 0.6,
+      "resource_yield": 0.5,
       "danger_level": 0,
       "loot_quality_shift": 0,
       "loot_level_bonus": 0,
       "loot_min_quality": 0,
-      "set_drop_chance": 0.05,
-      "featured_set_id": "iron_guard"
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1
     },
     {
-      "map_id": "test_near_death_solo",
-      "name": "测试⑤·单人濒死",
-      "description": "【正常】仅主角出征；稳定度骤降强制返程；HP归零进濒死非阵亡，可紧急撤离回营。",
-      "test_scenario": "solo_player_near_death_retreat",
-      "test_priority": 5,
+      "map_id": "test_02_extract_line",
+      "name": "测试②·撤离物线",
+      "description": "【自带编队】高掉率撤离物；拾取引守卫；首段返程经55m撤离点。",
+      "test_scenario": "extract_line",
+      "test_priority": 2,
+      "test_target_duration": "3~5 分钟",
       "always_unlocked": true,
       "unlock_base_level": 1,
       "unlock_after_boss_on_map": "",
       "background": "grassland_bg",
-      "spawn_interval": 2.0,
-      "retreat_spawn_interval_mult": 0.6,
+      "spawn_interval": 2.5,
+      "drop_chance": 0.14,
+      "mob_drop_mult": 1.0,
+      "mob_drop_bonus": 0.0,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 1.0,
+      "stability_loss_mult": 0.9,
+      "enemy_stat_mult": 1.0,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 420.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.9,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.7,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
       "retreat_spawn_pack": 2,
       "retreat_start_ambush": 1,
-      "stability_decay_mult": 5.5,
-      "stability_loss_mult": 2.6,
-      "drop_chance": 0.0,
-      "mob_drop_mult": 1.0,
-      "mob_drop_bonus": 0.0,
-      "mob_max_quality": 0,
-      "retreat_hit_drop_chance": 0.02,
-      "retreat_shield_mult": 1.35,
-      "retreat_shield_mult_manual": 0.9,
-      "emergency_near_death_hp_ratio": 0.1,
-      "drop_chance_boss": 0.0,
-      "disable_boss_chase": true,
-      "enemy_stat_mult": 1.5,
-      "enemy_pool": [
-        { "template": "slime_striker", "weight": 100, "level_range": [2, 3] }
-      ],
-      "boss": "slime_king",
-      "boss_distance": 300.0,
-      "retreat_destination": 0,
-      "retreat_speed_mult": 0.85,
-      "advance_speed_mult": 0.9,
-      "boss_zone_ratio": 0.99,
-      "resource_yield": 0.0,
-      "danger_level": 0,
-      "loot_quality_shift": 0,
-      "loot_level_bonus": 0,
-      "loot_min_quality": 0,
-      "set_drop_chance": 0.0,
-      "featured_set_id": "iron_guard"
+      "extract_distance": 55.0,
+      "extract_drop_chance": 0.35,
+      "extract_guard": "goblin_chief",
+      "extract_guard_stat_mult": 0.95,
+      "auto_carry_value_threshold": 200
     },
     {
-      "map_id": "test_near_death_duo",
-      "name": "测试⑥·双人濒死",
-      "description": "【正常】主角+1佣兵；约2波后强制返程；可连续接战使两人濒死。",
-      "test_scenario": "duo_near_death_retreat",
-      "test_priority": 6,
+      "map_id": "test_03_boss_chase",
+      "name": "测试③·Boss追击",
+      "description": "【自带编队】约90m自动返程；追击条；反击/蓄力/深度≠通关，杀追击首领=通关。",
+      "test_scenario": "boss_chase",
+      "test_priority": 3,
+      "test_target_duration": "4~5 分钟",
       "always_unlocked": true,
       "unlock_base_level": 1,
       "unlock_after_boss_on_map": "",
       "background": "grassland_bg",
-      "spawn_interval": 2.0,
-      "retreat_spawn_interval_mult": 0.65,
-      "retreat_spawn_pack": 2,
-      "retreat_start_ambush": 2,
-      "stability_decay_mult": 5.0,
-      "stability_loss_mult": 2.3,
-      "drop_chance": 0.0,
+      "spawn_interval": 3.2,
+      "drop_chance": 0.05,
       "mob_drop_mult": 1.0,
       "mob_drop_bonus": 0.0,
-      "mob_max_quality": 0,
-      "retreat_hit_drop_chance": 0.03,
-      "retreat_shield_mult": 1.3,
-      "retreat_shield_mult_manual": 0.88,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
       "emergency_near_death_hp_ratio": 0.1,
       "drop_chance_boss": 0.0,
-      "disable_boss_chase": true,
-      "enemy_stat_mult": 1.4,
+      "disable_boss_chase": false,
+      "stability_decay_mult": 1.0,
+      "stability_loss_mult": 0.9,
+      "enemy_stat_mult": 1.0,
       "enemy_pool": [
-        { "template": "slime_striker", "weight": 50, "level_range": [2, 3] },
-        { "template": "wolf_striker", "weight": 50, "level_range": [2, 3] }
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
       ],
-      "boss": "slime_king",
-      "boss_distance": 280.0,
+      "boss": "goblin_chief",
+      "boss_distance": 90.0,
       "retreat_destination": 0,
-      "retreat_speed_mult": 0.85,
-      "advance_speed_mult": 0.9,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 2.2,
       "boss_zone_ratio": 0.99,
       "resource_yield": 0.0,
       "danger_level": 0,
@@ -205,7 +275,388 @@
       "loot_level_bonus": 0,
       "loot_min_quality": 0,
       "set_drop_chance": 0.0,
-      "featured_set_id": "iron_guard"
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1,
+      "auto_retreat_on_boss_spawn": true,
+      "chase_boss_id": "grassland_stalker",
+      "chase_drop_table": "chase_grassland",
+      "chase_boss_stat_mult": 0.6,
+      "chase_pressure_min": 0.06,
+      "boss_chase_speed": 50.0,
+      "boss_chase_start_offset": 32.0,
+      "boss_chase_pushback": 150.0,
+      "chase_spawn_interval_mult": 0.55,
+      "chase_spawn_pack": 2
+    },
+    {
+      "map_id": "test_04_auto_value",
+      "name": "测试④·携带价值撤离",
+      "description": "【自带编队】长图、低烈度、高掉率；拾荒凑满价值≥140自动返程。",
+      "test_scenario": "auto_value",
+      "test_priority": 4,
+      "test_target_duration": "4~6 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 3.8,
+      "drop_chance": 0.42,
+      "mob_drop_mult": 1.45,
+      "mob_drop_bonus": 0.12,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 0.85,
+      "stability_loss_mult": 0.75,
+      "enemy_stat_mult": 0.68,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            14,
+            16
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            14,
+            16
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 780.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.72,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.85,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1,
+      "auto_carry_value_threshold": 140,
+      "exposed_grid_w": 4,
+      "exposed_grid_h": 3
+    },
+    {
+      "map_id": "test_05_loot_full",
+      "name": "测试④b·网格满撤",
+      "description": "【自带编队】长图、低烈度、高掉率；填满网格触发自动规则返程。",
+      "test_scenario": "loot_full",
+      "test_priority": 4,
+      "test_target_duration": "4~6 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 3.6,
+      "drop_chance": 0.4,
+      "mob_drop_mult": 1.5,
+      "mob_drop_bonus": 0.1,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 0.85,
+      "stability_loss_mult": 0.75,
+      "enemy_stat_mult": 0.65,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            14,
+            16
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            14,
+            16
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 760.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.72,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.8,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1,
+      "exposed_grid_w": 3,
+      "exposed_grid_h": 2,
+      "auto_carry_value_threshold": 9999
+    },
+    {
+      "map_id": "test_06_near_death_duo",
+      "name": "测试⑥·双人濒死",
+      "description": "【自带编队·T-02a】前排主角+铁卫；返程多波，便于濒死与后排站位验收。",
+      "test_scenario": "duo_near_death",
+      "test_priority": 6,
+      "test_target_duration": "3~5 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 3.0,
+      "drop_chance": 0.06,
+      "mob_drop_mult": 1.0,
+      "mob_drop_bonus": 0.0,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 1.0,
+      "stability_loss_mult": 0.9,
+      "enemy_stat_mult": 1.05,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 540.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.82,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.0,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1
+    },
+    {
+      "map_id": "test_07_near_death_solo",
+      "name": "测试⑦·单人濒死",
+      "description": "【自带编队】仅主角；稳定骤降返程；HP0=濒死可紧急撤离。",
+      "test_scenario": "solo_near_death",
+      "test_priority": 5,
+      "test_target_duration": "3~4 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 2.8,
+      "drop_chance": 0.06,
+      "mob_drop_mult": 1.0,
+      "mob_drop_bonus": 0.0,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 1.2,
+      "stability_loss_mult": 1.0,
+      "enemy_stat_mult": 1.05,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 480.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.82,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.0,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1
+    },
+    {
+      "map_id": "test_08_awakening",
+      "name": "测试⑧·绝境觉醒",
+      "description": "【自带编队】约50%濒死触发觉醒；无Boss追击。",
+      "test_scenario": "awakening",
+      "test_priority": 7,
+      "test_target_duration": "4~5 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 2.6,
+      "drop_chance": 0.06,
+      "mob_drop_mult": 1.0,
+      "mob_drop_bonus": 0.0,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": true,
+      "stability_decay_mult": 1.1,
+      "stability_loss_mult": 0.95,
+      "enemy_stat_mult": 1.35,
+      "enemy_pool": [
+        {
+          "template": "slime_striker",
+          "weight": 55,
+          "level_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "template": "wolf_striker",
+          "weight": 45,
+          "level_range": [
+            16,
+            18
+          ]
+        }
+      ],
+      "boss": "slime_king",
+      "boss_distance": 500.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 0.82,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.0,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 2,
+      "retreat_start_ambush": 1,
+      "awakening_chance": 0.5
+    },
+    {
+      "map_id": "test_09_long_chase_pressure",
+      "name": "测试⑨·濒死追击灭团",
+      "description": "【偏弱编队·仅首领】推至Boss线接战→濒死紧急撤离→追击开启；濒死移速×0.5，追猎者追上灭团。",
+      "test_scenario": "long_chase_pressure",
+      "test_priority": 9,
+      "test_target_duration": "2~4 分钟",
+      "always_unlocked": true,
+      "unlock_base_level": 1,
+      "unlock_after_boss_on_map": "",
+      "background": "grassland_bg",
+      "spawn_interval": 99.0,
+      "drop_chance": 0.0,
+      "mob_drop_mult": 1.0,
+      "mob_drop_bonus": 0.0,
+      "mob_max_quality": 1,
+      "retreat_hit_drop_chance": 0.05,
+      "retreat_shield_mult": 1.2,
+      "retreat_shield_mult_manual": 0.85,
+      "emergency_near_death_hp_ratio": 0.1,
+      "drop_chance_boss": 0.0,
+      "disable_boss_chase": false,
+      "stability_decay_mult": 0.6,
+      "stability_loss_mult": 0.75,
+      "enemy_stat_mult": 1.0,
+      "enemy_pool": [],
+      "boss": "goblin_chief",
+      "boss_distance": 260.0,
+      "retreat_destination": 0,
+      "retreat_speed_mult": 0.95,
+      "advance_speed_mult": 2.5,
+      "boss_zone_ratio": 0.99,
+      "resource_yield": 0.0,
+      "danger_level": 0,
+      "loot_quality_shift": 0,
+      "loot_level_bonus": 0,
+      "loot_min_quality": 0,
+      "set_drop_chance": 0.0,
+      "featured_set_id": "iron_guard",
+      "retreat_spawn_interval_mult": 0.7,
+      "retreat_spawn_pack": 0,
+      "retreat_start_ambush": 0,
+      "disable_mob_spawns": true,
+      "boss_level_bonus": 10,
+      "line_boss_stat_mult": 3.2,
+      "auto_retreat_on_boss_spawn": false,
+      "chase_catch_executes_downed": true,
+      "awakening_chance": 0.0,
+      "chase_boss_id": "grassland_stalker",
+      "chase_drop_table": "chase_grassland",
+      "chase_boss_stat_mult": 2.85,
+      "chase_boss_move_speed": 108.0,
+      "chase_pressure_min": 0.03,
+      "boss_chase_speed": 96.0,
+      "boss_chase_combat_mult": 1.55,
+      "boss_chase_start_offset": 88.0,
+      "boss_chase_pushback": 120.0,
+      "chase_speed_pressure_mult": 0.68,
+      "chase_start_ambush_extra": 0,
+      "chase_spawn_pack": 0
     },
     {
       "map_id": "forest",
@@ -224,9 +675,30 @@
       "retreat_shield_mult_manual": 0.65,
       "drop_chance_boss": 1.0,
       "enemy_pool": [
-        { "template": "spider", "weight": 40, "level_range": [4, 7] },
-        { "template": "treant", "weight": 35, "level_range": [5, 8] },
-        { "template": "bear", "weight": 25, "level_range": [6, 9] }
+        {
+          "template": "spider",
+          "weight": 40,
+          "level_range": [
+            4,
+            7
+          ]
+        },
+        {
+          "template": "treant",
+          "weight": 35,
+          "level_range": [
+            5,
+            8
+          ]
+        },
+        {
+          "template": "bear",
+          "weight": 25,
+          "level_range": [
+            6,
+            9
+          ]
+        }
       ],
       "boss": "ancient_treant",
       "chase_boss_id": "forest_stalker",
@@ -297,9 +769,30 @@
       "retreat_shield_mult_manual": 0.62,
       "drop_chance_boss": 1.0,
       "enemy_pool": [
-        { "template": "skeleton", "weight": 40, "level_range": [7, 10] },
-        { "template": "zombie", "weight": 35, "level_range": [8, 11] },
-        { "template": "gargoyle", "weight": 25, "level_range": [9, 12] }
+        {
+          "template": "skeleton",
+          "weight": 40,
+          "level_range": [
+            7,
+            10
+          ]
+        },
+        {
+          "template": "zombie",
+          "weight": 35,
+          "level_range": [
+            8,
+            11
+          ]
+        },
+        {
+          "template": "gargoyle",
+          "weight": 25,
+          "level_range": [
+            9,
+            12
+          ]
+        }
       ],
       "boss": "lich",
       "chase_boss_id": "cave_shade",
@@ -353,187 +846,6 @@
       "chase_w_loot": 0.18
     },
     {
-      "map_id": "test_extract",
-      "name": "测试②·撤离物线",
-      "description": "【正常】杀几只怪易掉撤离物；拾取可能引守卫战；首段返程目标约55m撤离点。",
-      "test_scenario": "extract_line",
-      "test_priority": 2,
-      "always_unlocked": true,
-      "unlock_base_level": 1,
-      "unlock_after_boss_on_map": "",
-      "background": "grassland_bg",
-      "spawn_interval": 1.2,
-      "drop_chance": 0.12,
-      "mob_drop_mult": 1.0,
-      "enemy_stat_mult": 0.7,
-      "enemy_pool": [
-        { "template": "slime", "weight": 100, "level_range": [1, 2] }
-      ],
-      "boss": "goblin_chief",
-      "boss_distance": 140.0,
-      "retreat_destination": 0,
-      "extract_distance": 55.0,
-      "exposed_grid_w": 4,
-      "exposed_grid_h": 3,
-      "auto_carry_value_threshold": 200,
-      "extract_drop_chance": 0.32,
-      "extract_guard": "goblin_chief",
-      "extract_guard_stat_mult": 0.9,
-      "disable_boss_chase": true,
-      "advance_speed_mult": 2.2,
-      "retreat_speed_mult": 1.1,
-      "resource_yield": 0.8,
-      "danger_level": 0
-    },
-    {
-      "map_id": "test_auto_value",
-      "name": "测试④·携带价值撤离",
-      "description": "【正常】高掉率+阈值140；拾取若干装备后应自动「携带价值达标」返程（可勾仅安全箱对比）。",
-      "test_scenario": "auto_value",
-      "test_priority": 4,
-      "always_unlocked": true,
-      "unlock_base_level": 1,
-      "unlock_after_boss_on_map": "",
-      "background": "grassland_bg",
-      "spawn_interval": 1.0,
-      "drop_chance": 0.42,
-      "mob_drop_mult": 1.35,
-      "mob_drop_bonus": 0.1,
-      "mob_max_quality": 1,
-      "retreat_hit_drop_chance": 0.08,
-      "retreat_shield_mult": 1.1,
-      "retreat_shield_mult_manual": 0.7,
-      "drop_chance_boss": 0.0,
-      "disable_boss_chase": true,
-      "enemy_stat_mult": 0.55,
-      "enemy_pool": [
-        { "template": "slime", "weight": 60, "level_range": [1, 2] },
-        { "template": "wolf", "weight": 40, "level_range": [1, 3] }
-      ],
-      "boss": "slime_king",
-      "boss_distance": 160.0,
-      "retreat_destination": 0,
-      "advance_speed_mult": 2.0,
-      "retreat_speed_mult": 1.1,
-      "exposed_grid_w": 4,
-      "exposed_grid_h": 3,
-      "auto_carry_value_threshold": 140,
-      "resource_yield": 0.9,
-      "danger_level": 0
-    },
-    {
-      "map_id": "test_loot_full",
-      "name": "测试④b·网格满撤",
-      "description": "【正常】高掉率易填满安全箱/外露格→触发自动规则返程（与价值撤离不同）。",
-      "test_scenario": "loot_full",
-      "test_priority": 4,
-      "always_unlocked": true,
-      "unlock_base_level": 1,
-      "unlock_after_boss_on_map": "",
-      "background": "grassland_bg",
-      "spawn_interval": 0.9,
-      "drop_chance": 0.38,
-      "mob_drop_mult": 1.4,
-      "mob_drop_bonus": 0.12,
-      "mob_max_quality": 1,
-      "retreat_hit_drop_chance": 0.06,
-      "retreat_shield_mult": 1.15,
-      "retreat_shield_mult_manual": 0.65,
-      "drop_chance_boss": 0.0,
-      "disable_boss_chase": true,
-      "enemy_stat_mult": 0.5,
-      "enemy_pool": [
-        { "template": "slime", "weight": 100, "level_range": [1, 2] }
-      ],
-      "boss": "slime_king",
-      "boss_distance": 200.0,
-      "retreat_destination": 0,
-      "advance_speed_mult": 1.8,
-      "retreat_speed_mult": 1.0,
-      "exposed_grid_w": 3,
-      "exposed_grid_h": 2,
-      "auto_carry_value_threshold": 9999,
-      "resource_yield": 0.85,
-      "danger_level": 0
-    },
-    {
-      "map_id": "test_boss_chase",
-      "name": "测试③·Boss追击",
-      "description": "【正常】到90m自动返程勿杀区域首领；有追击条；反击/蓄力/深度击退≠通关，杀追击首领=通关。",
-      "test_scenario": "boss_chase",
-      "test_priority": 3,
-      "always_unlocked": true,
-      "unlock_base_level": 1,
-      "unlock_after_boss_on_map": "",
-      "background": "grassland_bg",
-      "spawn_interval": 3.5,
-      "drop_chance": 0.05,
-      "mob_drop_mult": 1.0,
-      "enemy_stat_mult": 0.65,
-      "enemy_pool": [
-        { "template": "slime", "weight": 100, "level_range": [1, 2] }
-      ],
-      "boss": "goblin_chief",
-      "chase_boss_id": "grassland_stalker",
-      "chase_drop_table": "chase_grassland",
-      "chase_boss_stat_mult": 0.55,
-      "chase_pressure_min": 0.05,
-      "chase_repelled_exp": 40,
-      "chase_evade_exp": 50,
-      "chase_counter_stability_cost": 5,
-      "chase_counter_push_mult": 1.7,
-      "chase_counter_cooldown": 8.0,
-      "chase_counter_max_gap": 140.0,
-      "chase_stagger_charge_rate": 1.4,
-      "chase_stagger_push_mult": 1.5,
-      "chase_deep_counter_stability_cost": 8,
-      "chase_deep_counter_damage_ratio": 0.28,
-      "chase_deep_counter_min_charge": 0.18,
-      "chase_deep_counter_cooldown": 12.0,
-      "boss_distance": 90.0,
-      "advance_speed_mult": 2.8,
-      "retreat_speed_mult": 1.15,
-      "auto_retreat_on_boss_spawn": true,
-      "boss_chase_speed": 52.0,
-      "boss_chase_start_offset": 35.0,
-      "boss_chase_pushback": 160.0,
-      "boss_chase_combat_mult": 1.2,
-      "retreat_spawn_interval_mult": 0.7,
-      "chase_spawn_interval_mult": 0.55,
-      "chase_spawn_pack": 2,
-      "shield_damage_mult_chase": 1.2,
-      "retreat_destination": 0,
-      "resource_yield": 0.0,
-      "danger_level": 0
-    },
-    {
-      "map_id": "test_awakening",
-      "name": "测试⑦·绝境觉醒",
-      "description": "【正常】约50%濒死触发觉醒（爆发/盾援/铁壁/回光）；无Boss追击。",
-      "test_scenario": "awakening",
-      "test_priority": 7,
-      "always_unlocked": true,
-      "unlock_base_level": 1,
-      "unlock_after_boss_on_map": "",
-      "background": "grassland_bg",
-      "spawn_interval": 1.4,
-      "drop_chance": 0.0,
-      "awakening_chance": 0.5,
-      "disable_boss_chase": true,
-      "enemy_stat_mult": 1.8,
-      "enemy_pool": [
-        { "template": "slime_striker", "weight": 100, "level_range": [3, 4] }
-      ],
-      "boss": "slime_king",
-      "boss_distance": 200.0,
-      "retreat_destination": 0,
-      "stability_loss_mult": 2.0,
-      "stability_decay_mult": 3.0,
-      "retreat_shield_mult": 1.4,
-      "resource_yield": 0.0,
-      "danger_level": 0
-    },
-    {
       "map_id": "death_trial",
       "name": "绝境试炼",
       "description": "极高难度·无 Boss 追击。击败洞穴 Boss 后解锁；侧重阵亡/稳定度压力测试，非撤离物主线。",
@@ -553,9 +865,30 @@
       "stability_decay_mult": 1.35,
       "drop_chance_boss": 1.0,
       "enemy_pool": [
-        { "template": "gargoyle", "weight": 35, "level_range": [11, 13] },
-        { "template": "bear", "weight": 35, "level_range": [10, 12] },
-        { "template": "zombie", "weight": 30, "level_range": [11, 14] }
+        {
+          "template": "gargoyle",
+          "weight": 35,
+          "level_range": [
+            11,
+            13
+          ]
+        },
+        {
+          "template": "bear",
+          "weight": 35,
+          "level_range": [
+            10,
+            12
+          ]
+        },
+        {
+          "template": "zombie",
+          "weight": 30,
+          "level_range": [
+            11,
+            14
+          ]
+        }
       ],
       "boss": "lich",
       "boss_distance": 350.0,

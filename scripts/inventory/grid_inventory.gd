@@ -33,6 +33,11 @@ func item_count() -> int:
 	return _entries.size()
 
 
+## 只读快照，供 UI 渲染占格（不暴露可写引用）
+func get_placement_snapshots() -> Array:
+	return _entries.duplicate(true)
+
+
 func get_all_equipment() -> Array[Equipment]:
 	var list: Array[Equipment] = []
 	for e in _entries:

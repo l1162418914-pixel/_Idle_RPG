@@ -2,6 +2,8 @@ class_name WorldRun
 extends RefCounted
 ## WorldRun — 单次出征的顶层逻辑
 
+enum RunMode { NORMAL, RECOVERY, RESCUE }
+
 const _EXTRACT_ITEM_SERVICE_PATH := "res://scripts/run/extract_item_service.gd"
 
 signal enemy_spawned(enemy_data: Dictionary)
@@ -11,6 +13,7 @@ signal run_completed(result: Dictionary)
 signal run_event(event_name: String, data: Dictionary)
 
 var map_id: String = ""
+var run_mode: int = RunMode.NORMAL
 var map_data: Dictionary = {}
 var squad: Squad = null
 var stability: StabilitySystem = null
@@ -78,6 +81,8 @@ var pending_extract_guard: RunExtractItem = null
 var last_extract_item_name: String = ""
 var bench_reserves: Array[Mercenary] = []
 var deploy_half: String = "A"
+## 本趟是否因灭团收场（T-MIA：结算 tier=mia）
+var squad_wiped: bool = false
 var _enemy_pool: Array = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## 返程开始时立即注入 tick 的遇敌（避免等计时器）
@@ -126,6 +131,7 @@ func start() -> int:
 		m.run_damage_dealt = 0
 	NearDeathRunService.assign_carry_support(squad)
 	NearDeathAwakeningService.reset_run_flags(self)
+	squad_wiped = false
 	is_active = true
 	is_retreating = false
 	retreat_origin_distance = 0.0
@@ -223,9 +229,9 @@ func tick(delta: float) -> Dictionary:
 					"test_auto_retreat",
 					{"reason": "到达首领线，测试图自动返程以触发追击"}
 				)
-				begin_retreat("forced")
+				begin_retreat("boss_auto")
 		
-		if not boss_spawned:
+		if not boss_spawned and not bool(map_data.get("disable_mob_spawns", false)):
 			spawn_timer += delta
 			var interval := spawn_interval * _rng.randf_range(0.7, 1.3)
 			if spawn_timer >= interval:
@@ -235,20 +241,21 @@ func tick(delta: float) -> Dictionary:
 					enemy_spawned.emit(enemy_data)
 					result.events.append({"type": "enemy_spawn", "data": enemy_data})
 	else:
-		spawn_timer += delta
 		var profile: Dictionary = RetreatSpawnService.get_spawn_profile(self)
 		retreat_spawn_tier = str(profile.get("tier", ""))
-		var retreat_mult: float = float(profile.get("interval_mult", 1.15))
-		var interval: float = spawn_interval * retreat_mult * _rng.randf_range(0.75, 1.05)
-		if spawn_timer >= interval:
-			spawn_timer = 0.0
-			var pack: int = int(profile.get("pack", 1))
-			for _pack_i in range(pack):
-				var enemy_data: Dictionary = _spawn_random_enemy()
-				if enemy_data.is_empty():
-					break
-				enemy_spawned.emit(enemy_data)
-				result.events.append({"type": "enemy_spawn", "data": enemy_data})
+		var pack: int = int(profile.get("pack", 0))
+		if pack > 0:
+			spawn_timer += delta
+			var retreat_mult: float = float(profile.get("interval_mult", 1.15))
+			var interval: float = spawn_interval * retreat_mult * _rng.randf_range(0.75, 1.05)
+			if spawn_timer >= interval:
+				spawn_timer = 0.0
+				for _pack_i in range(pack):
+					var enemy_data: Dictionary = _spawn_random_enemy()
+					if enemy_data.is_empty():
+						break
+					enemy_spawned.emit(enemy_data)
+					result.events.append({"type": "enemy_spawn", "data": enemy_data})
 	
 	result.distance = distance_traveled
 	result.is_retreating = is_retreating
@@ -330,7 +337,7 @@ func _spawn_random_enemy() -> Dictionary:
 	var map_mult: float = float(map_data.get("enemy_stat_mult", 1.0))
 	if absf(map_mult - 1.0) > 0.001:
 		instance.stats = _multiply_enemy_stats(instance.stats, map_mult)
-	return instance
+	return _apply_chase_move_speed(instance)
 
 
 func _spawn_boss() -> Dictionary:
@@ -347,13 +354,50 @@ func _spawn_boss_from_id(boss_id: String, uid_prefix: String) -> Dictionary:
 	instance.uid = "%s_%s" % [uid_prefix, boss_id]
 	instance["is_boss"] = true
 	var boss_level: int = int(tpl.get("level", 10))
-	instance.stats = _scale_enemy_stats(instance.stats, boss_level + 2, tpl.get("level", 1))
-	var map_mult: float = float(map_data.get("enemy_stat_mult", 1.0))
-	if absf(map_mult - 1.0) > 0.001:
-		instance.stats = _multiply_enemy_stats(instance.stats, map_mult)
-	var chase_mult: float = float(map_data.get("chase_boss_stat_mult", 1.0))
-	if uid_prefix == "chase" and absf(chase_mult - 1.0) > 0.001:
-		instance.stats = _multiply_enemy_stats(instance.stats, chase_mult)
+	var level_bonus: int = int(map_data.get("boss_level_bonus", 2))
+	instance.stats = _scale_enemy_stats(
+		instance.stats, boss_level + level_bonus, tpl.get("level", 1)
+	)
+	if uid_prefix == "boss":
+		var line_mult: float = float(
+			map_data.get("line_boss_stat_mult", map_data.get("enemy_stat_mult", 1.0))
+		)
+		if absf(line_mult - 1.0) > 0.001:
+			instance.stats = _multiply_boss_stats(instance.stats, line_mult)
+	else:
+		var map_mult: float = float(map_data.get("enemy_stat_mult", 1.0))
+		if absf(map_mult - 1.0) > 0.001:
+			instance.stats = _multiply_boss_stats(instance.stats, map_mult)
+		var chase_mult: float = float(map_data.get("chase_boss_stat_mult", 1.0))
+		if absf(chase_mult - 1.0) > 0.001:
+			instance.stats = _multiply_boss_stats(instance.stats, chase_mult)
+	if uid_prefix == "chase":
+		var chase_move: float = float(map_data.get("chase_boss_move_speed", 0.0))
+		if chase_move > 0.01:
+			instance.stats["move_speed"] = chase_move
+	return _apply_chase_move_speed(instance)
+
+
+func _enemy_base_move_speed(stats: Dictionary) -> float:
+	if stats.has("move_speed"):
+		return float(stats.get("move_speed"))
+	var spd: int = int(stats.get("spd", 5))
+	return 18.0 + float(spd) * 0.85
+
+
+func _apply_chase_move_speed(instance: Dictionary) -> Dictionary:
+	if not RetreatSpawnService.is_intense_chase(self):
+		return instance
+	var mult: float = float(map_data.get("chase_enemy_move_speed_mult", 1.0))
+	var fixed_move: float = float(map_data.get("chase_enemy_move_speed", 0.0))
+	if absf(mult - 1.0) < 0.001 and fixed_move <= 0.01:
+		return instance
+	var stats: Dictionary = instance.get("stats", {}).duplicate(true)
+	if fixed_move > 0.01:
+		stats["move_speed"] = fixed_move
+	else:
+		stats["move_speed"] = _enemy_base_move_speed(stats) * mult
+	instance["stats"] = stats
 	return instance
 
 
@@ -371,6 +415,13 @@ func _multiply_enemy_stats(stats: Dictionary, mult: float) -> Dictionary:
 	for key in ["hp", "patk", "matk", "pdef", "mdef"]:
 		if s.has(key):
 			s[key] = int(s[key] * mult)
+	return s
+
+
+func _multiply_boss_stats(stats: Dictionary, mult: float) -> Dictionary:
+	var s := _multiply_enemy_stats(stats, mult)
+	if s.has("spd"):
+		s["spd"] = maxi(1, int(int(s["spd"]) * mult))
 	return s
 
 
@@ -933,6 +984,14 @@ func sync_stability_to_manager() -> void:
 		GameManager.set_team_stability(stability.team_stability)
 
 
+func _resolve_settlement_tier(manual: bool) -> String:
+	if manual:
+		return "manual"
+	if squad_wiped:
+		return "mia"
+	return "success"
+
+
 func end_run(forced: bool = false) -> Dictionary:
 	sync_stability_to_manager()
 	is_active = false
@@ -974,7 +1033,8 @@ func end_run(forced: bool = false) -> Dictionary:
 		"material_shield_max": material_shield_max,
 		"squad_alive": squad.get_alive_count() > 0,
 		"player_alive": squad.has_anyone_alive(),
-		"level_up_log": []
+		"level_up_log": [],
+		"settlement_tier": _resolve_settlement_tier(manual)
 	}
 	_apply_loot_stats_to_dict(result, manual)
 	run_completed.emit(result)

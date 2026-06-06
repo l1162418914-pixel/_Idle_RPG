@@ -8,14 +8,16 @@
 
 | 序 | 地图 | 用时 | 验什么 |
 |----|------|------|--------|
-| ① | 测试①·稳定度返程 `retreat_drill` | 3 min | 稳定≤30 强制返程、双池盾、无追击 |
-| ② | 测试②·撤离物线 `test_extract` | 3 min | 撤离物、守卫战、55m 撤离点 |
-| ③ | 测试③·Boss追击 `test_boss_chase` | 5 min | 自动返程、追击、反击/蓄力/深度/击杀通关 |
-| ④ | 测试④·携带价值撤离 `test_auto_value` | 3 min | 携带价值≥140 自动返程 |
-| ④b | 测试④b·网格满撤 `test_loot_full` | 3 min | 格子填满自动规则返程 |
-| ⑤ | 测试⑤·单人濒死 `test_near_death_solo` | 4 min | 仅主角、濒死、紧急撤离 |
-| ⑥ | 测试⑥·双人濒死 `test_near_death_duo` | 4 min | 双人濒死 |
-| ⑦ | 测试⑦·绝境觉醒 `test_awakening` | 5 min | 约 50% 觉醒 |
+| ① | `test_01_stability_retreat` | 3~4 min | 自带编队；稳定≤30 返程 |
+| ② | `test_02_extract_line` | 3~5 min | 自带编队；撤离物/守卫 |
+| ③ | `test_03_boss_chase` | 4~5 min | 自带编队；追击 |
+| ④ | `test_04_auto_value` | 3~5 min | 自带编队；价值≥140 |
+| ④b | `test_05_loot_full` | 3~5 min | 自带编队；网格满 |
+| ⑤ | `test_07_near_death_solo` | 3~4 min | 仅主角（图内注入） |
+| ⑥ | `test_06_near_death_duo` | **3~5 min** | T-02a/T-02e；双人濒死 |
+| ⑦ | `test_08_awakening` | 4~5 min | 觉醒 |
+
+旧 `map_id`（`retreat_drill`、`test_near_death_duo` 等）已删除；选图即注入 `data/test_map_rosters.json`。
 
 编队 UI（大营双半组面板）建议最先或穿插：拖拽、右键清空、养伤锁。
 
@@ -66,10 +68,12 @@
 - 主角 HP→0 → **濒死**，非立刻永久死亡；可 **紧急撤离**。
 - 回营养到 **≥70% HP** 可再出征。
 
-### ⑥ 双人濒死 `test_near_death_duo`
+### ⑥ 双人濒死 `test_near_death_duo`（T-02e 平衡）
 
-- 准备页 **主角 + 1 佣兵**。
-- 其余同⑤，可尝试两人都打濒死。
+- 使用 **`tools/seed_saves`** 测试档（约 Lv16–17 + 精良双件）；敌人 **Lv17–20**。
+- 准备页 **主角 + 1 佣兵**（前排槽便于 T-02a 濒死观察）。
+- 单趟 **约 3~5 分钟**（出征→稳定返程→返程 **≥2 波** 接战→回营）。
+- 去程多波后再返程，可尝试两人都打濒死；非秒结束碾压。
 
 ### ⑦ 绝境觉醒 `test_awakening`
 

@@ -3,6 +3,7 @@ extends Node
 
 const _EXTRACT_ITEM_SERVICE_PATH := "res://scripts/run/extract_item_service.gd"
 
+var _main_shell: MainShell = null
 var _base_ui: Control = null
 var _squad_ui: Control = null
 var _run_ui: Control = null
@@ -14,9 +15,9 @@ var _combat: CombatController = null
 var _in_combat: bool = false
 var _run_tick_timer: float = 0.0
 var _combat_resolved_enemies: Array = []
-var _chase_combat_active: bool = false
-var _extract_guard_active: bool = false
+var _encounter_session: EncounterSession = null
 var _manual_withdraw_dialog: ConfirmationDialog = null
+var _run_march_lane: RunMarchLane = null
 
 
 func _ready() -> void:
@@ -45,22 +46,40 @@ func _notification(what: int) -> void:
 
 
 func _find_ui_refs() -> void:
+	_main_shell = get_node_or_null("MainShell") as MainShell
 	_base_ui = get_node_or_null("BaseUI")
 	_squad_ui = get_node_or_null("SquadUI")
 	_run_ui = get_node_or_null("RunUI")
 	_result_ui = get_node_or_null("ResultUI")
-	_combat_view = _run_ui.get_node_or_null("MarginContainer/MainVBox/CombatView") if _run_ui else null
+	if _main_shell:
+		_main_shell.setup(_base_ui, _squad_ui, _run_ui, _result_ui)
+		_combat_view = _main_shell.get_combat_view()
+		_run_march_lane = _main_shell.get_run_march_lane()
+		var equip_ui := get_node_or_null("EquipmentUI") as Control
+		if equip_ui:
+			equip_ui.move_to_front()
+	elif _run_ui:
+		_combat_view = _run_ui.get_node_or_null("MarginContainer/MainVBox/CombatView") as CombatView
 
 
 func _on_state_changed(new_state: int) -> void:
-	_show_only(new_state)
+	if _main_shell:
+		_main_shell.apply_state(new_state)
+	else:
+		_show_only_legacy(new_state)
 
 
-func _show_only(state: int) -> void:
-	if _base_ui: _base_ui.visible = (state == GameManager.GameState.BASE)
-	if _squad_ui: _squad_ui.visible = (state == GameManager.GameState.PREPARE)
-	if _run_ui: _run_ui.visible = (state == GameManager.GameState.RUNNING)
-	if _result_ui: _result_ui.visible = (state == GameManager.GameState.RESULT)
+func _show_only_legacy(state: int) -> void:
+	if _base_ui:
+		_base_ui.visible = (state == GameManager.GameState.BASE)
+	if _squad_ui:
+		_squad_ui.visible = (state == GameManager.GameState.PREPARE)
+	if _run_ui:
+		_run_ui.visible = (state == GameManager.GameState.RUNNING)
+	if _result_ui:
+		_result_ui.visible = (state == GameManager.GameState.RESULT)
+		if _result_ui.visible:
+			_result_ui.move_to_front()
 
 
 func _process(delta: float) -> void:
@@ -76,18 +95,24 @@ func _process(delta: float) -> void:
 		_tick_world_run(delta, run)
 	if _in_combat:
 		_tick_combat(delta, run, world_run_ticked)
+	_sync_run_march_lane(run, world_run_ticked)
 
 
 func _tick_world_run(delta: float, run: WorldRun) -> void:
 	var result = run.tick(delta)
 	
 	if _run_ui:
-		_run_ui.update_display(result)
+		var lane_snap: Dictionary = _run_march_lane.get_snapshot() if _run_march_lane else {}
+		_run_ui.update_display(result, lane_snap)
+	if _main_shell and _main_shell.has_method("refresh_running_panels"):
+		_main_shell.refresh_running_panels()
 	
 	var events: Array = result.get("events", [])
 	for ev in events:
 		match ev.type:
 			"enemy_spawn":
+				if _in_combat and _encounter_session != null and not _encounter_session.allows_pending_append():
+					continue
 				_pending_enemies.append(ev.data)
 				var min_enemies := 1
 				if not run.is_retreating and not GameManager.auto_run_enabled:
@@ -125,12 +150,28 @@ func _start_combat(run: WorldRun) -> void:
 		return
 	if _in_combat:
 		return
+	var session := EncounterSession.begin(
+		EncounterSession.infer_kind(_pending_enemies, run),
+		_pending_enemies
+	)
+	_start_encounter(run, session)
+
+
+func _start_encounter(run: WorldRun, session: EncounterSession) -> void:
+	if session.enemies.is_empty():
+		return
+	if _in_combat:
+		return
 	if run.squad == null:
 		_pending_enemies.clear()
 		return
 	if run.squad.get_battlefield_members().is_empty():
 		_pending_enemies.clear()
 		return
+	
+	_encounter_session = session
+	_pending_enemies = session.enemies.duplicate()
+	session.on_combat_begin(run)
 	
 	_combat = CombatController.new()
 	
@@ -140,33 +181,34 @@ func _start_combat(run: WorldRun) -> void:
 	
 	_combat.combat_ended.connect(_on_combat_ended)
 	_combat.entity_dead.connect(_on_combat_entity_dead)
-	_combat.init_combat(run.squad, _pending_enemies, run)
+	_combat.init_combat(run.squad, session.enemies, run)
+	_combat.set_movement_policy(session.movement_policy_for(run))
 	if _combat_view:
 		_combat_view.sync_from_active_combat()
 	
 	_in_combat = true
 	_combat_resolved_enemies.clear()
+	if _run_march_lane:
+		_run_march_lane.on_combat_start(run, session.is_boss_lane() or session.is_chase_boss())
 
 
 func _start_chase_boss_combat(run: WorldRun) -> void:
 	if _in_combat:
 		return
 	_pending_enemies.clear()
-	_pending_enemies.append(run.build_chase_boss_encounter())
-	_chase_combat_active = true
-	run.chase_combat_in_progress = true
+	var boss_data: Dictionary = run.build_chase_boss_encounter()
+	if boss_data.is_empty():
+		return
+	_pending_enemies.append(boss_data)
 	if _run_ui:
 		_run_ui.show_run_hint("首领追上你了！接战！", Color.ORANGE_RED)
-	_start_combat(run)
+	_start_encounter(run, EncounterSession.begin(EncounterKind.CHASE_BOSS, _pending_enemies))
 
 
 func _tick_combat(delta: float, run: WorldRun, world_run_already_ticked: bool = false) -> void:
 	if _combat == null:
 		_in_combat = false
 		return
-	if run.is_retreating:
-		_combat.set_march_retreat_combat(true)
-	
 	var combat_delta: float = delta * BattleDebug.get_time_scale()
 	if not world_run_already_ticked:
 		if run.is_retreating and run.boss_chase_active:
@@ -178,7 +220,7 @@ func _tick_combat(delta: float, run: WorldRun, world_run_already_ticked: bool = 
 				return
 	
 	var result = _combat.tick(combat_delta)
-	if _chase_combat_active:
+	if _encounter_session != null and _encounter_session.is_chase_boss():
 		run.tick_chase_stagger_charge(combat_delta)
 		BossChaseService.tick_deep_counter_cooldown(run, combat_delta)
 	
@@ -188,61 +230,89 @@ func _tick_combat(delta: float, run: WorldRun, world_run_already_ticked: bool = 
 	
 	if result.status == "victory":
 		_in_combat = false
-		if _extract_guard_active:
-			_extract_guard_active = false
-			run.extract_guard_cleared = true
-			load(_EXTRACT_ITEM_SERVICE_PATH).apply_clear_bonus(run)
-			_pending_enemies.clear()
-			if _run_ui:
-				_run_ui.show_run_hint("击退宝库守卫！直接结算…", Color.GREEN)
-			_finish_combat()
-			_end_run(run, false)
-			return
-		if _chase_combat_active:
-			for e_data in _pending_enemies:
-				run.register_chase_boss_kill(e_data)
-			_chase_combat_active = false
-			_pending_enemies.clear()
-			if _run_ui:
-				_run_ui.show_run_hint("击杀追击首领！本趟通关结算…", Color.GREEN)
-			_finish_combat()
-			_end_run(run, false)
-			return
+		var victory_outcome: Dictionary = {}
+		if _encounter_session != null:
+			victory_outcome = _encounter_session.resolve_victory(run)
 		else:
-			for e_data in _pending_enemies:
-				run.register_enemy_defeat(e_data)
-		_combat_resolved_enemies = _pending_enemies.duplicate()
-		_pending_enemies.clear()
-		_finish_combat()
+			victory_outcome = {"action": "finish", "register_defeats": true, "store_resolved": true}
+		_apply_victory_outcome(run, victory_outcome)
 		
 	elif result.status == "defeat":
 		_in_combat = false
-		if _extract_guard_active:
-			_extract_guard_active = false
-			run.pending_extract_guard = null
+		var defeat_outcome: Dictionary = {}
+		if _encounter_session != null:
+			defeat_outcome = _encounter_session.resolve_defeat(run)
+		else:
+			defeat_outcome = {
+				"action": "emergency_retreat",
+				"hint": "战斗失利，紧急撤离！",
+				"retreat_reason": "emergency",
+			}
+		_apply_defeat_outcome(run, defeat_outcome)
+	
+	elif not _in_combat:
+		# tick 内已通过 entity_dead → _end_run 结束战斗，收尾
+		_pending_enemies.clear()
+		_finish_combat()
+
+
+func _apply_victory_outcome(run: WorldRun, outcome: Dictionary) -> void:
+	var action: String = str(outcome.get("action", "finish"))
+	match action:
+		"end_run":
+			if outcome.get("clear_extract_guard", false):
+				run.extract_guard_cleared = true
+				load(_EXTRACT_ITEM_SERVICE_PATH).apply_clear_bonus(run)
+			if outcome.get("register_chase_kill", false):
+				for e_data in _pending_enemies:
+					run.register_chase_boss_kill(e_data)
 			_pending_enemies.clear()
-			if _combat:
-				_combat.sync_allies_hp_to_mercs()
-				_combat = null
-			if run.squad and run.squad.has_anyone_alive():
-				_trigger_emergency_retreat_from_combat(
-					run, "宝库守卫战失利！撤向撤离点…", "combat_fail"
-				)
-			else:
-				_mark_squad_wiped(run)
-				_end_run(run, false)
-			return
-		if _chase_combat_active:
-			_chase_combat_active = false
+			_clear_encounter_session(run)
+			if _run_ui and outcome.has("hint"):
+				_run_ui.show_run_hint(str(outcome.hint), outcome.get("hint_color", Color.GREEN))
+			_finish_combat()
+			_end_run(run, false)
+		"chase_repel":
+			run.on_chase_boss_repelled(float(outcome.get("push_mult", 1.0)))
 			_pending_enemies.clear()
-			if _combat:
-				_combat.sync_allies_hp_to_mercs()
-				_combat = null
-			run.chase_combat_in_progress = false
+			_clear_encounter_session(run)
+			if _run_ui and outcome.has("hint"):
+				_run_ui.show_run_hint(str(outcome.hint), outcome.get("hint_color", Color.SKY_BLUE))
+			_finish_combat()
+			if _combat_view:
+				_clear_combat_view_after_run(run)
+		_:
+			if outcome.get("register_defeats", false):
+				for e_data in _pending_enemies:
+					run.register_enemy_defeat(e_data)
+			if outcome.get("store_resolved", false):
+				_combat_resolved_enemies = _pending_enemies.duplicate()
+			_pending_enemies.clear()
+			_clear_encounter_session(run)
+			_finish_combat()
+
+
+func _apply_defeat_outcome(run: WorldRun, outcome: Dictionary) -> void:
+	var action: String = str(outcome.get("action", "emergency_retreat"))
+	_pending_enemies.clear()
+	if _combat:
+		_combat.sync_allies_hp_to_mercs()
+		_combat = null
+	match action:
+		"chase_defeat":
+			_clear_encounter_session(run)
 			if run.squad and run.squad.has_anyone_alive():
+				if _should_execute_chase_catch_on_downed(run):
+					if _run_ui:
+						_run_ui.show_run_hint("追击首领追上濒死编队，全军覆没…", Color.ORANGE_RED)
+					_mark_squad_wiped(run)
+					if _combat_view:
+						_clear_combat_view_after_run(run)
+					_end_run(run, false)
+					return
 				run.on_chase_boss_catch_penalty()
-				if _run_ui:
-					_run_ui.show_run_hint("接战失利！稳定度大跌，首领仍在靠近", Color.ORANGE_RED)
+				if _run_ui and outcome.has("hint"):
+					_run_ui.show_run_hint(str(outcome.hint), outcome.get("hint_color", Color.ORANGE_RED))
 				_process_run_retreats(run)
 				if _combat_view:
 					_clear_combat_view_after_run(run)
@@ -253,29 +323,31 @@ func _tick_combat(delta: float, run: WorldRun, world_run_already_ticked: bool = 
 				if _combat_view:
 					_clear_combat_view_after_run(run)
 				_end_run(run, false)
-		else:
-			var fail_reason := _combat_fail_retreat_reason_from(_pending_enemies)
-			_pending_enemies.clear()
-			if _combat:
-				_combat.sync_allies_hp_to_mercs()
-				_combat = null
-			run.chase_combat_in_progress = false
+		"emergency_retreat":
+			if outcome.get("clear_pending_guard", false):
+				run.pending_extract_guard = null
+			_clear_encounter_session(run)
 			if run.squad and run.squad.has_anyone_alive():
-				var hint := "战斗失利，紧急撤离！"
-				if fail_reason == "combat_fail":
-					hint = "区域首领战失利！撤向撤离点…"
-				elif run.squad.has_any_member_near_death():
-					hint = "队员濒死，紧急撤离！（返程移速减半）"
-				_trigger_emergency_retreat_from_combat(run, hint, fail_reason)
+				_trigger_emergency_retreat_from_combat(
+					run,
+					str(outcome.get("hint", "战斗失利，紧急撤离！")),
+					str(outcome.get("retreat_reason", "emergency"))
+				)
 			else:
 				_mark_squad_wiped(run)
 				_finish_combat()
 				_end_run(run, false)
-	
-	elif not _in_combat:
-		# tick 内已通过 entity_dead → _end_run 结束战斗，收尾
-		_pending_enemies.clear()
-		_finish_combat()
+		_:
+			_clear_encounter_session(run)
+			_mark_squad_wiped(run)
+			_finish_combat()
+			_end_run(run, false)
+
+
+func _clear_encounter_session(run: WorldRun) -> void:
+	if _encounter_session != null:
+		_encounter_session.on_combat_end(run)
+	_encounter_session = null
 
 
 func _on_combat_ended(victory: bool) -> void:
@@ -295,7 +367,9 @@ func _on_combat_entity_dead(entity: CombatEntity) -> void:
 		if _combat and _combat.count_allies_on_field() == 0:
 			if run:
 				if run.squad and run.squad.has_anyone_alive():
-					var fail_reason := _combat_fail_retreat_reason_from(_pending_enemies)
+					var fail_reason := "emergency"
+					if _encounter_session != null:
+						fail_reason = _encounter_session.combat_fail_retreat_reason()
 					var hint := "队伍溃散，紧急撤离！"
 					if fail_reason == "combat_fail":
 						hint = "区域首领战失利！撤向撤离点…"
@@ -316,8 +390,7 @@ func _trigger_emergency_retreat_from_combat(
 		_combat.sync_allies_hp_to_mercs()
 		_combat.force_end()
 		_combat = null
-	run.chase_combat_in_progress = false
-	_chase_combat_active = false
+	_clear_encounter_session(run)
 	if not run.is_retreating:
 		run.begin_retreat(retreat_reason)
 	elif run.retreat_shield_current <= 0:
@@ -334,12 +407,14 @@ func _finish_combat() -> void:
 		_combat.sync_allies_hp_to_mercs()
 		_combat = null
 	var run := GameManager.current_run
+	_clear_encounter_session(run)
+	if _run_march_lane and run:
+		_run_march_lane.on_combat_end(run)
 	if run:
-		run.chase_combat_in_progress = false
 		if run.stability:
 			run.stability.refresh_pressure_multipliers()
 		_process_run_retreats(run)
-		if run.pending_extract_guard != null and not _extract_guard_active and not run.is_retreating:
+		if run.pending_extract_guard != null and not _in_combat and not run.is_retreating:
 			_start_extract_guard_combat(run)
 	if _combat_view:
 		_clear_combat_view_after_run(run)
@@ -352,15 +427,19 @@ func _start_extract_guard_combat(run: WorldRun) -> void:
 		return
 	_pending_enemies.clear()
 	_pending_enemies.append(run.build_extract_guard_encounter())
-	_extract_guard_active = true
 	var item_name: String = run.pending_extract_guard.item_name
 	if _run_ui:
 		_run_ui.show_run_hint("封存物引动守卫！迎战：%s" % item_name, Color.ORANGE)
-	_start_combat(run)
+	_start_encounter(run, EncounterSession.begin(EncounterKind.EXTRACT_GUARD, _pending_enemies))
 
 
 func _clear_combat_view_after_run(run: WorldRun) -> void:
-	if run != null and run.is_retreating:
+	# 本趟仍在 RUNNING：保留战斗面板可见，仅清单位（下一场重建）
+	if (
+		run != null
+		and run.is_active
+		and GameManager.state == GameManager.GameState.RUNNING
+	):
 		_combat_view.prepare_between_encounters()
 	else:
 		_combat_view.cleanup()
@@ -379,10 +458,8 @@ func _abort_active_combat() -> void:
 		_pending_enemies.clear()
 		return
 	_in_combat = false
-	_chase_combat_active = false
 	var run := GameManager.current_run
-	if run:
-		run.chase_combat_in_progress = false
+	_clear_encounter_session(run)
 	_pending_enemies.clear()
 	if _combat:
 		_combat.sync_allies_hp_to_mercs()
@@ -420,10 +497,25 @@ func _process_run_retreats(run: WorldRun) -> void:
 		_run_ui.show_run_hint("%s 个人稳定度过低，已撤离队伍" % ", ".join(morale_names), Color.GOLD)
 
 
+func _sync_run_march_lane(run: WorldRun, world_run_ticked: bool) -> void:
+	if _run_march_lane == null or run == null:
+		return
+	_run_march_lane.on_world_tick(run, world_run_ticked)
+	var snap: Dictionary = _run_march_lane.get_snapshot()
+	if _run_ui and _run_ui.has_method("apply_lane_snapshot"):
+		_run_ui.apply_lane_snapshot(snap)
+	if _main_shell and _main_shell.has_method("apply_lane_snapshot"):
+		_main_shell.apply_lane_snapshot(snap)
+
+
 func _on_run_started() -> void:
 	var run = GameManager.current_run
 	if run == null:
 		return
+	if _run_march_lane:
+		_run_march_lane.on_run_started(run)
+	if _combat_view:
+		_combat_view.prepare_between_encounters()
 	if not run.run_event.is_connected(_on_world_run_event):
 		run.run_event.connect(_on_world_run_event)
 	if _run_ui and _run_ui.has_method("reset_run_hints"):
@@ -559,22 +651,27 @@ func _count_combat_allies_alive() -> int:
 
 
 func _mark_squad_wiped(run: WorldRun) -> void:
-	if run == null or run.squad == null:
+	if run == null:
 		return
-	for m in run.squad.members:
-		m.mark_permanent_death()
+	run.squad_wiped = true
+	for mid in run.squad_member_ids:
+		var m: Mercenary = GameManager.find_mercenary_by_id(mid)
+		if m != null:
+			m.enter_mia_state()
 
 
-func _combat_fail_retreat_reason_from(enemies: Array) -> String:
-	for e_data in enemies:
-		if e_data.get("is_boss", false) and not e_data.get("is_chase_encounter", false):
-			return "combat_fail"
-	return "emergency"
+func _should_execute_chase_catch_on_downed(run: WorldRun) -> bool:
+	if run == null or not bool(run.map_data.get("chase_catch_executes_downed", false)):
+		return false
+	if run.squad == null:
+		return false
+	# 全队已无法再战但仍算存活 → 追击处决灭团（MIA）
+	return run.squad.get_combat_ready_count() == 0 and run.squad.has_anyone_alive()
 
 
 func _on_chase_stagger_released() -> void:
 	var run = GameManager.current_run
-	if run == null or not _chase_combat_active or _combat == null:
+	if run == null or _encounter_session == null or not _encounter_session.is_chase_boss() or _combat == null:
 		return
 	if run.chase_stagger_charge < 0.88:
 		if _run_ui:
@@ -587,7 +684,7 @@ func _on_chase_deep_counter_pressed() -> void:
 	var run = GameManager.current_run
 	if run == null or GameManager.state != GameManager.GameState.RUNNING:
 		return
-	if not _chase_combat_active or _combat == null:
+	if _encounter_session == null or not _encounter_session.is_chase_boss() or _combat == null:
 		if _run_ui:
 			_run_ui.show_run_hint("深度反击仅在追击接战僵持时可用", Color.ORANGE)
 		return
@@ -611,12 +708,9 @@ func _on_chase_deep_counter_pressed() -> void:
 
 
 func _resolve_chase_deep_counter_repel(run: WorldRun, strike: Dictionary) -> void:
-	var enemy_data: Dictionary = {}
-	if not _pending_enemies.is_empty():
-		enemy_data = _pending_enemies[0]
+	var enemy_data: Dictionary = _encounter_session.primary_enemy() if _encounter_session else {}
 	_in_combat = false
-	_chase_combat_active = false
-	run.chase_combat_in_progress = false
+	_clear_encounter_session(run)
 	run.chase_stagger_charge = 0.0
 	run.chase_stagger_holding = false
 	if _combat:
@@ -640,12 +734,9 @@ func _resolve_chase_deep_counter_repel(run: WorldRun, strike: Dictionary) -> voi
 
 
 func _resolve_chase_stagger_repel(run: WorldRun) -> void:
-	var enemy_data: Dictionary = {}
-	if not _pending_enemies.is_empty():
-		enemy_data = _pending_enemies[0]
+	var enemy_data: Dictionary = _encounter_session.primary_enemy() if _encounter_session else {}
 	_in_combat = false
-	_chase_combat_active = false
-	run.chase_combat_in_progress = false
+	_clear_encounter_session(run)
 	run.chase_stagger_charge = 0.0
 	run.chase_stagger_holding = false
 	if _combat:
@@ -729,10 +820,12 @@ func _end_run(run: WorldRun, forced: bool) -> void:
 	# 防重入：state 已变更说明已结束
 	if GameManager.state != GameManager.GameState.RUNNING:
 		return
-	_chase_combat_active = false
 	_in_combat = false
 	_pending_enemies.clear()
+	_clear_encounter_session(run)
 	_finish_combat()
+	if _run_march_lane:
+		_run_march_lane.on_run_ended()
 	GameManager.end_run(forced)
 
 

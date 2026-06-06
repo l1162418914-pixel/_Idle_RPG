@@ -16,6 +16,8 @@ static func is_intense_chase(run: WorldRun) -> bool:
 static func get_spawn_profile(run: WorldRun) -> Dictionary:
 	if run == null:
 		return _profile_defaults(true)
+	if bool(run.map_data.get("disable_mob_spawns", false)):
+		return {"tier": "none", "label": "仅首领", "interval_mult": 9999.0, "pack": 0}
 	if is_intense_chase(run):
 		var p: float = run.chase_pressure if run.boss_chase_active else 0.35
 		var interval: float = float(run.map_data.get("chase_spawn_interval_mult", 0.5))
@@ -60,7 +62,9 @@ static func should_activate_guard_chase(run: WorldRun, reason: String) -> bool:
 
 
 static func opening_ambush_count(run: WorldRun) -> int:
-	var base: int = maxi(1, int(run.map_data.get("retreat_start_ambush", 1)))
+	if bool(run.map_data.get("disable_mob_spawns", false)):
+		return 0
+	var base: int = maxi(0, int(run.map_data.get("retreat_start_ambush", 1)))
 	if is_intense_chase(run):
 		return base + maxi(0, int(run.map_data.get("chase_start_ambush_extra", 1)))
 	return base

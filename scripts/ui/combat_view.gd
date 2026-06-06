@@ -3,13 +3,15 @@ class_name CombatView
 ## CombatView — 战斗可视化层。通过 CombatController 信号驱动，
 ## 不修改任何战斗逻辑。支持 1~6 佣兵 vs 1~6 敌人。
 
-const RANGED_ATTACK_RANGE := 60.0
+const RANGED_ATTACK_RANGE := CombatEntity.RANGED_ATTACK_THRESHOLD
 const MAX_LOG_LINES := 80
-const POSITION_VISUAL_MAX := 200.0
+const BATTLEFIELD_LANE_MIN_WIDTH := BattlefieldSlots.LANE_MIN_WIDTH
+const UNIT_VISUAL_WIDTH := BattlefieldSlots.UNIT_VISUAL_WIDTH
+const UNIT_BASELINE_Y := 36.0
 
 var _combat: CombatController = null
 var _unit_views: Dictionary = {}  # entity_id → UnitView
-var _unit_wrappers: Dictionary = {}  # entity_id → HBoxContainer (spacer + view)
+var _battlefield_lane: Control = null
 var _log_lines: Array[String] = []
 var _log_queue: Array[String] = []
 var _log_flush_timer: float = 0.0
@@ -47,6 +49,7 @@ func _ready() -> void:
 		btn_resume_log.pressed.connect(_on_resume_log)
 	_refresh_debug_label()
 	_refresh_speed_buttons()
+	_ensure_battlefield_lane()
 
 
 func _process(delta: float) -> void:
@@ -94,6 +97,7 @@ func _connect_signals() -> void:
 	_combat.entity_dead.connect(_on_entity_dead)
 	_combat.combat_ended.connect(_on_combat_ended)
 	_combat.skill_cast.connect(_on_skill_cast)
+	_combat.skill_projectile_launched.connect(_on_skill_projectile_launched)
 
 
 func _disconnect_all() -> void:
@@ -111,6 +115,8 @@ func _disconnect_all() -> void:
 		_combat.combat_ended.disconnect(_on_combat_ended)
 	if _combat.skill_cast.is_connected(_on_skill_cast):
 		_combat.skill_cast.disconnect(_on_skill_cast)
+	if _combat.skill_projectile_launched.is_connected(_on_skill_projectile_launched):
+		_combat.skill_projectile_launched.disconnect(_on_skill_projectile_launched)
 
 
 # ── 调试工具栏 ──────────────────────────────────────────
@@ -182,7 +188,32 @@ func _on_skill_cast(_caster_id: String, _skill_id: String, skill_name: String, l
 		_enqueue_log("[color=cyan]【技能·%s】[/color] %s" % [skill_name, log_text])
 	else:
 		_enqueue_log("[color=cyan]【技能·%s】[/color]" % skill_name)
-	_refresh_all_hp_bars()
+
+
+func _on_skill_projectile_launched(
+	caster_id: String,
+	target_id: String,
+	_skill_id: String,
+	skill_name: String,
+	travel_time: float,
+	style: String
+) -> void:
+	var caster_view: UnitView = _unit_views.get(caster_id, null)
+	var target_view: UnitView = _unit_views.get(target_id, null)
+	var proj_layer: Control = _ensure_battlefield_lane()
+	if proj_layer == null:
+		proj_layer = battlefield_hbox
+	if caster_view == null:
+		return
+	var color: Color
+	var bolt_size := Vector2(10, 4)
+	match style:
+		"magic":
+			color = Color(1.0, 0.45, 0.15)
+			bolt_size = Vector2(12, 12)
+		_:
+			color = Color(0.95, 0.82, 0.2)
+	caster_view.play_projectile_strike(target_view, proj_layer, travel_time, color, bolt_size)
 
 
 func _refresh_all_hp_bars() -> void:
@@ -192,22 +223,25 @@ func _refresh_all_hp_bars() -> void:
 			_unit_views[eid].update_hp(entity.current_hp, entity.max_hp)
 
 
-func _on_attack_started(attacker_id: String, target_id: String) -> void:
+func _on_attack_started(attacker_id: String, target_id: String, travel_time: float = 0.0) -> void:
 	var attacker := _find_entity(attacker_id)
 	var attacker_view: UnitView = _unit_views.get(attacker_id, null)
 	var target_view: UnitView = _unit_views.get(target_id, null)
-	var ranged := attacker != null and attacker.attack_range >= RANGED_ATTACK_RANGE
+	var ranged := attacker != null and attacker.is_ranged_unit()
+	var proj_layer: Control = _ensure_battlefield_lane()
+	if proj_layer == null:
+		proj_layer = battlefield_hbox
 
 	if attacker_view:
 		if ranged:
-			attacker_view.play_ranged_strike(target_view, battlefield_hbox)
+			attacker_view.play_ranged_strike(target_view, proj_layer, travel_time)
 		else:
 			attacker_view.play_attack_flash()
 
 	var a_name := _short_name(attacker_id)
 	var t_name := _short_name(target_id)
 	if ranged:
-		_enqueue_log("[color=yellow][远程][/color] %s → %s" % [a_name, t_name])
+		_enqueue_log("[color=yellow][远程][/color] %s 发射 → %s" % [a_name, t_name])
 	else:
 		_enqueue_log("%s → %s" % [a_name, t_name])
 
@@ -240,7 +274,6 @@ func _on_entity_dead(entity: CombatEntity) -> void:
 	if view:
 		view.play_death()
 		_unit_views.erase(entity.entity_id)
-		_unit_wrappers.erase(entity.entity_id)
 	_enqueue_log("[color=darkred]%s 阵亡![/color]" % _entity_display(entity))
 
 
@@ -256,55 +289,58 @@ func _on_combat_ended(victory: bool) -> void:
 
 # ── 内部方法 ────────────────────────────────────────────
 
-func _resolve_ally_container() -> HBoxContainer:
+func _ensure_battlefield_lane() -> Control:
+	if _battlefield_lane and is_instance_valid(_battlefield_lane):
+		return _battlefield_lane
+	var hbox := battlefield_hbox
+	if hbox == null:
+		hbox = get_node_or_null("BattlefieldHBox") as HBoxContainer
+	if hbox == null:
+		return null
 	if ally_container:
-		return ally_container
-	return get_node_or_null("BattlefieldHBox/AllyContainer") as HBoxContainer
-
-
-func _resolve_enemy_container() -> HBoxContainer:
+		ally_container.visible = false
 	if enemy_container:
-		return enemy_container
-	return get_node_or_null("BattlefieldHBox/EnemyContainer") as HBoxContainer
+		enemy_container.visible = false
+	_battlefield_lane = Control.new()
+	_battlefield_lane.name = "BattlefieldLane"
+	_battlefield_lane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_battlefield_lane.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_battlefield_lane.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_battlefield_lane.custom_minimum_size = Vector2(BATTLEFIELD_LANE_MIN_WIDTH, 120)
+	hbox.add_child(_battlefield_lane)
+	return _battlefield_lane
+
+
+func _clear_battlefield_lane() -> void:
+	var lane := _ensure_battlefield_lane()
+	if lane == null:
+		return
+	for child in lane.get_children():
+		child.queue_free()
+	_unit_views.clear()
 
 
 func _build_unit_views() -> void:
-	var allies_box := _resolve_ally_container()
-	var enemies_box := _resolve_enemy_container()
-	if allies_box:
-		for child in allies_box.get_children():
-			child.queue_free()
-	if enemies_box:
-		for child in enemies_box.get_children():
-			child.queue_free()
-	_unit_views.clear()
-	_unit_wrappers.clear()
-
+	_clear_battlefield_lane()
 	if _combat == null:
 		return
-
+	var lane := _ensure_battlefield_lane()
+	if lane == null:
+		return
 	for entity in _combat.allies:
-		_add_unit_view(entity, allies_box, true)
+		_add_unit_view(entity, lane)
 	for entity in _combat.enemies:
-		_add_unit_view(entity, enemies_box, false)
+		_add_unit_view(entity, lane)
 
 
-func _add_unit_view(entity: CombatEntity, parent: HBoxContainer, is_ally: bool) -> void:
+func _add_unit_view(entity: CombatEntity, parent: Control) -> void:
 	if parent == null:
 		return
-	var wrapper := HBoxContainer.new()
-	wrapper.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wrapper.alignment = BoxContainer.ALIGNMENT_END if is_ally else BoxContainer.ALIGNMENT_BEGIN
-	var spacer := Control.new()
-	spacer.name = "PosSpacer"
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrapper.add_child(spacer)
 	var view := UnitView.new()
 	view.setup(entity)
-	wrapper.add_child(view)
-	parent.add_child(wrapper)
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(view)
 	_unit_views[entity.entity_id] = view
-	_unit_wrappers[entity.entity_id] = wrapper
 	_sync_one_unit_position(entity)
 
 
@@ -318,19 +354,15 @@ func _sync_unit_positions() -> void:
 
 
 func _sync_one_unit_position(entity: CombatEntity) -> void:
-	var wrapper: HBoxContainer = _unit_wrappers.get(entity.entity_id, null)
-	if wrapper == null:
+	var view: UnitView = _unit_views.get(entity.entity_id, null)
+	if view == null:
 		return
-	var spacer: Control = wrapper.get_node_or_null("PosSpacer") as Control
-	if spacer == null:
+	var lane := _ensure_battlefield_lane()
+	if lane == null:
 		return
-	var width: float = CombatController.BATTLEFIELD_WIDTH
-	var offset: float
-	if entity.team == CombatEntity.Team.ENEMY:
-		offset = clampf((width - entity.position) / width, 0.0, 1.0) * POSITION_VISUAL_MAX * 0.65
-	else:
-		offset = clampf(entity.position / width, 0.0, 1.0) * POSITION_VISUAL_MAX
-	spacer.custom_minimum_size = Vector2(offset, 0)
+	var lane_w: float = maxf(lane.size.x, BATTLEFIELD_LANE_MIN_WIDTH)
+	var x: float = BattlefieldSlots.logic_to_pixel(entity.position, lane_w)
+	view.position = Vector2(x, UNIT_BASELINE_Y)
 
 
 func _find_entity(entity_id: String) -> CombatEntity:
@@ -403,11 +435,7 @@ func clear_log() -> void:
 func prepare_between_encounters() -> void:
 	_disconnect_all()
 	_combat = null
-	for view in _unit_views.values():
-		if is_instance_valid(view):
-			view.queue_free()
-	_unit_views.clear()
-	_unit_wrappers.clear()
+	_clear_battlefield_lane()
 	visible = true
 	show()
 
@@ -415,9 +443,5 @@ func prepare_between_encounters() -> void:
 func cleanup() -> void:
 	_disconnect_all()
 	_combat = null
-	for view in _unit_views.values():
-		if is_instance_valid(view):
-			view.queue_free()
-	_unit_views.clear()
-	_unit_wrappers.clear()
+	_clear_battlefield_lane()
 	visible = false

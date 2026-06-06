@@ -1,6 +1,8 @@
 extends Control
 ## RunUI — 出征中界面，显示距离、稳定度（战斗可视化由 CombatView 负责）
 
+signal hint_posted(text: String, color: Color)
+
 @onready var distance_label: Label = $MarginContainer/MainVBox/InfoHBox/DistanceLabel
 @onready var stability_label: Label = $MarginContainer/MainVBox/InfoHBox/StabilityLabel
 @onready var withdraw_button: Button = $MarginContainer/MainVBox/InfoHBox/WithdrawButton
@@ -17,6 +19,9 @@ var _chase_stagger_button: Button = null
 var _chase_deep_counter_button: Button = null
 var _chase_stagger_bar: ProgressBar = null
 var _stagger_hold: bool = false
+var _lane_status_label: Label = null
+var _lane_snapshot: Dictionary = {}
+var _last_run_data: Dictionary = {}
 
 
 func _ready() -> void:
@@ -25,6 +30,19 @@ func _ready() -> void:
 		withdraw_button.pressed.connect(_on_withdraw_pressed)
 		_setup_auto_controls()
 		_setup_shield_bars()
+		_setup_lane_status()
+
+
+func _setup_lane_status() -> void:
+	var hbox: HBoxContainer = withdraw_button.get_parent() as HBoxContainer if withdraw_button else null
+	if hbox == null:
+		return
+	_lane_status_label = Label.new()
+	_lane_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lane_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lane_status_label.add_theme_font_size_override("font_size", 13)
+	_lane_status_label.modulate = Color(0.75, 0.9, 1.0)
+	hbox.add_child(_lane_status_label)
 
 
 func _setup_auto_controls() -> void:
@@ -155,8 +173,8 @@ func _update_shield_bars(run_data: Dictionary) -> void:
 		_material_shield_bar.tooltip_text = "追击加压：护盾消耗×%.2f" % chase_mult
 
 
-func _on_state_changed(new_state: int) -> void:
-	visible = (new_state == GameManager.GameState.RUNNING)
+func _on_state_changed(_new_state: int) -> void:
+	pass
 
 
 func _on_withdraw_pressed() -> void:
@@ -175,6 +193,10 @@ func reset_run_hints() -> void:
 	if run_hint_label:
 		run_hint_label.text = ""
 		run_hint_label.modulate = Color.WHITE
+	if _lane_status_label:
+		_lane_status_label.text = ""
+	_lane_snapshot = {}
+	_last_run_data = {}
 	_update_auto_indicator()
 
 
@@ -201,63 +223,83 @@ func show_run_hint(text: String, color: Color = Color.WHITE) -> void:
 	if run_hint_label:
 		run_hint_label.text = text
 		run_hint_label.modulate = color
+	hint_posted.emit(text, color)
 
 
-func update_display(run_data: Dictionary) -> void:
-	if not visible:
+func apply_lane_snapshot(lane: Dictionary) -> void:
+	_lane_snapshot = lane
+	if _lane_status_label:
+		_lane_status_label.text = str(lane.get("status_text", ""))
+	if not _last_run_data.is_empty():
+		_paint_distance_line(_last_run_data, lane)
+
+
+func update_display(run_data: Dictionary, lane: Dictionary = {}) -> void:
+	if GameManager.state != GameManager.GameState.RUNNING:
 		return
-	
-	if distance_label:
-		var map_data = DataLoader.map_data(GameManager.selected_map_id)
-		var max_dist: float = float(map_data.get("boss_distance", 600.0)) if not map_data.is_empty() else 600.0
-		var cur_dist: float = float(run_data.get("distance", 0))
-		if run_data.get("is_retreating", false):
-			var tier_lbl: String = str(run_data.get("retreat_spawn_label", ""))
-			var tier_prefix := ""
-			if tier_lbl != "":
-				tier_prefix = "[%s] " % tier_lbl
-			var dest: float = float(run_data.get("retreat_destination", 0))
-			var final_dest: float = float(run_data.get("retreat_final_destination", 0))
-			var progress: float = float(run_data.get("retreat_progress", 0)) * 100.0
-			var dest_label := "大营"
-			if dest > 1.0:
-				dest_label = "撤离点 %.0fm" % dest
-				if final_dest <= 1.0 and dest != cur_dist:
-					dest_label += " → 大营"
-			distance_label.text = "%s返程: %.0f → %s (%.0f%%)" % [tier_prefix, cur_dist, dest_label, progress]
-			var eq_max: int = int(run_data.get("equip_shield_max", 0))
-			var eq_cur: int = int(run_data.get("equip_shield", 0))
-			var mt_max: int = int(run_data.get("material_shield_max", 0))
-			var mt_cur: int = int(run_data.get("material_shield", 0))
-			if eq_max + mt_max > 0:
-				distance_label.text += "\n护盾 装%d/%d 物%d/%d" % [eq_cur, eq_max, mt_cur, mt_max]
-			var ext_line_r: String = str(run_data.get("extract_line_label", ""))
-			if ext_line_r != "":
-				distance_label.text += "\n" + ext_line_r
-			if run_data.get("guard_chase_active", false) and not run_data.get("boss_chase_active", false):
-				distance_label.text += "\n撤离物线·守卫加压"
-			if run_data.get("boss_chase_active", false):
-				var gap: float = float(run_data.get("boss_chase_gap", 9999.0))
-				var press: float = float(run_data.get("chase_pressure", 0.0))
-				distance_label.text += "\nBoss 追击: %.0fm · 压力 %.0f%%" % [gap, press * 100.0]
-				if gap <= 60.0:
-					distance_label.modulate = Color(1.0, 0.35, 0.35)
-				elif gap <= 120.0:
-					distance_label.modulate = Color(1.0, 0.75, 0.35)
-				else:
-					distance_label.modulate = Color(0.85, 0.95, 1.0)
+	_last_run_data = run_data
+	if lane.is_empty():
+		lane = _lane_snapshot
+	_paint_distance_line(run_data, lane)
+	if _lane_status_label and lane.has("status_text"):
+		_lane_status_label.text = str(lane.get("status_text", ""))
+
+
+func _paint_distance_line(run_data: Dictionary, lane: Dictionary) -> void:
+	if distance_label == null:
+		return
+	var map_data = DataLoader.map_data(GameManager.selected_map_id)
+	var max_dist: float = float(map_data.get("boss_distance", 600.0)) if not map_data.is_empty() else 600.0
+	var cur_dist: float = float(run_data.get("distance", 0))
+	if lane.get("freeze_distance", false):
+		cur_dist = float(lane.get("display_distance", cur_dist))
+	if run_data.get("is_retreating", false):
+		var tier_lbl: String = str(run_data.get("retreat_spawn_label", ""))
+		var tier_prefix := ""
+		if tier_lbl != "":
+			tier_prefix = "[%s] " % tier_lbl
+		var dest: float = float(run_data.get("retreat_destination", 0))
+		var final_dest: float = float(run_data.get("retreat_final_destination", 0))
+		var progress: float = float(run_data.get("retreat_progress", 0)) * 100.0
+		var dest_label := "大营"
+		if dest > 1.0:
+			dest_label = "撤离点 %.0fm" % dest
+			if final_dest <= 1.0 and dest != cur_dist:
+				dest_label += " → 大营"
+		distance_label.text = "%s返程: %.0f → %s (%.0f%%)" % [tier_prefix, cur_dist, dest_label, progress]
+		var eq_max: int = int(run_data.get("equip_shield_max", 0))
+		var eq_cur: int = int(run_data.get("equip_shield", 0))
+		var mt_max: int = int(run_data.get("material_shield_max", 0))
+		var mt_cur: int = int(run_data.get("material_shield", 0))
+		if eq_max + mt_max > 0:
+			distance_label.text += "\n护盾 装%d/%d 物%d/%d" % [eq_cur, eq_max, mt_cur, mt_max]
+		var ext_line_r: String = str(run_data.get("extract_line_label", ""))
+		if ext_line_r != "":
+			distance_label.text += "\n" + ext_line_r
+		if run_data.get("guard_chase_active", false) and not run_data.get("boss_chase_active", false):
+			distance_label.text += "\n撤离物线·守卫加压"
+		if run_data.get("boss_chase_active", false):
+			var gap: float = float(run_data.get("boss_chase_gap", 9999.0))
+			var press: float = float(run_data.get("chase_pressure", 0.0))
+			distance_label.text += "\nBoss 追击: %.0fm · 压力 %.0f%%" % [gap, press * 100.0]
+			if gap <= 60.0:
+				distance_label.modulate = Color(1.0, 0.35, 0.35)
+			elif gap <= 120.0:
+				distance_label.modulate = Color(1.0, 0.75, 0.35)
 			else:
-				distance_label.modulate = Color.WHITE
+				distance_label.modulate = Color(0.85, 0.95, 1.0)
 		else:
-			distance_label.text = "前进: %.0f / %.0fm" % [cur_dist, max_dist]
-			var carry: int = int(run_data.get("carry_value", 0))
-			var cth: int = int(run_data.get("carry_value_threshold", 0))
-			if cth > 0:
-				distance_label.text += "\n携带价值: %d / %d" % [carry, cth]
-			var ext_line: String = str(run_data.get("extract_line_label", ""))
-			if ext_line != "":
-				distance_label.text += "\n" + ext_line
 			distance_label.modulate = Color.WHITE
+	else:
+		distance_label.text = "前进: %.0f / %.0fm" % [cur_dist, max_dist]
+		var carry: int = int(run_data.get("carry_value", 0))
+		var cth: int = int(run_data.get("carry_value_threshold", 0))
+		if cth > 0:
+			distance_label.text += "\n携带价值: %d / %d" % [carry, cth]
+		var ext_line: String = str(run_data.get("extract_line_label", ""))
+		if ext_line != "":
+			distance_label.text += "\n" + ext_line
+		distance_label.modulate = Color.WHITE
 	
 	if withdraw_button and GameManager.current_run:
 		withdraw_button.disabled = GameManager.current_run.is_retreating

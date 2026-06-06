@@ -33,7 +33,7 @@ func _main() -> void:
 func _populate_test_state() -> void:
 	GameManager.gold = 500000
 	GameManager.team_stability = 100
-	GameManager.selected_map_id = "retreat_drill"
+	GameManager.selected_map_id = "test_06_near_death_duo"
 	GameManager.auto_run_preferred = false
 	GameManager.last_deploy_half = "A"
 
