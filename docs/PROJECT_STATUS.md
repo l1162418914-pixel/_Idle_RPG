@@ -1,17 +1,17 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → 最近 worklog。  
-> 最后更新：2026-06-06（CTO 对齐 · 探针 **65 PASS** · 开发指针 **T-MARCH-M2**）
+> 最后更新：2026-06-06（MARCH M1～M3 + V1～V3 ✅ · 探针 **77 PASS** · 开发指针 **T-ART-FW-1**）
 
 ### CTO 结论（对齐版）
 
 | 维度 | 状态 |
 |------|------|
-| **环 1 骨架** | ✅ 可交给开发继续叠功能（M1～M3 YES） |
-| **大营 UI B 线** | ✅ 逻辑完成（B1～B4）；F5 肉眼由你/QA **并行收**，不占开发指针 |
-| **跑图表现** | ✅ V1～V5 + MARCH M1/V1；**下一刀 = T-MARCH-M2 里程碑事件** |
-| **美术** | 你方找美术；程序侧等 **T-ART-FW**，**不挡 M2** |
-| **风险** | 本地改动未 push → 开发 **第一天先整理 git**（分批 commit 再 push） |
+| **环 1 骨架** | ✅ M1～M3 YES |
+| **大营 UI B 线** | ✅ 逻辑完成（B1～B4）；F5 肉眼 **探针日并行收** |
+| **跑图 MARCH** | ✅ **M1～M3 + V1～V3** 逻辑 YES（77 PASS）；F5 探针日登记 |
+| **美术** | **下一开发 = T-ART-FW-1～2**（视觉常量 + `VisualSlot`） |
+| **风险** | `origin/main` 待 push 最新 4 commit；**环 1 F5 未全员签字** |
 
 ---
 
@@ -26,25 +26,24 @@
 | **T-REFACTOR** | M1～M3 五层骨架 | worklog · M1 探针 1～5 |
 | **T-RUN-V** | V1～V5 行军/接战/视差/追击剪影 | 65 PASS 含 V5 |
 | **T-UI-B** | B1 / B1.5 / B2 / **B3 / B4** | 65 PASS 含 B3/B4 |
-| **T-MARCH** | **M1 + V1** 自动搜索 + 飘字 | 代码已合入工作区；**待 headless 探针 + F5** |
+| **T-MARCH** | **M1～M3 + V1～V3** 搜索/里程碑/采集/返程池 | **77 PASS**（M2/MV2/MV3/M3）；F5 探针日 |
 | **T-MIA** | 0～2 ✅；3/4 + P2～P5 逻辑齐 | MiaPhase1Probe；**待 F5** |
 
 ### 当前开发指针（唯一）
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **`T-MARCH-M2`** |
-| **名称** | 里程碑 `MarchEventService` + `data/march_events.json` |
-| **门禁** | T-MARCH-M1 ✅ · T-RUN-V2 ✅ |
+| **ID** | **`T-ART-FW-1`** |
+| **名称** | 视觉常量表 + `VisualSlot` 插槽（美术接入前框架） |
+| **门禁** | T-MARCH M1～M3 + V1～V3 ✅ |
 | **不动** | `CombatController` 数值 · `StatResolver` · 存档字段 |
-| **文档** | [design-march-events.md](design-march-events.md) · [design-march-visual.md](design-march-visual.md) §十二 |
+| **文档** | [design-march-visual.md](design-march-visual.md) · 待补 `design-art-framework.md`（若无则 FW-1 自建最小节） |
 
-### 排队（M2 YES 后）
+### 排队（ART-FW 后）
 
-1. **T-MARCH-V2** — `MarchEventMarkers` 接地图 `march_events[]`（骨架已有）  
-2. **T-MARCH-V3** — loot 类事件 → `MarchGatherView` + `GATHER_BEAT`（骨架已有）  
-3. **T-ART-FW-1～2** — 视觉常量 + `VisualSlot`（美术前框架，与 M2 可并行）  
-4. **T-UI-B5+** / 街景美术 — **后期**，不抢 MARCH
+1. **T-ART-FW-2** — 各层 `VisualSlot` 接 RunMarchLane / CombatView / 大营壳  
+2. **T-UI-B5+** / 街景美术 — **后期**  
+3. **T-MARCH-M4**（可选）— RunMarchView 事件点美术化（有美术资源后）
 
 ### 并行 CTO 验收（不占开发指针 · 建议半日「探针日」）
 
@@ -56,9 +55,9 @@
 | **MIA** | test_09 · 回收/压力/救援 F5 |
 | **行军搜索** | `test_01` 每 10m 【搜索】飘字；接战期间不触发 |
 
-### 运维（开发接手首日）
+### 运维
 
-- 工作区含 **大量本地改动**（重构/MIA/UI/MARCH），`origin/main` 可能落后；**先分批 commit**（建议：REFACTOR → MIA → UI → MARCH → docs），再 push。  
+- MARCH 批次已 commit；**`main` 超前 `origin/main` 4 commit**（V2/V3/M3 + gitignore）→ **待 push**。  
 - 日常冒烟：**`test_03` + `test_01`**；正式验收走 **探针日** 清单，不每日全跑 MiaPhase1Probe 全表。
 
 ---
@@ -66,11 +65,11 @@
 ## 当前阶段
 
 **Sprint 重构环 1** — **M1 / M2 / M3 ✅ CTO YES**  
-**Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1/V1 ✅（待探针登记）**  
+**Sprint 可视化** — **T-RUN-V1～V5 ✅**；**T-MARCH M1～M3 + V1～V3 ✅**（77 PASS）  
 **Sprint 大营壳** — **T-UI-B1～B4 逻辑 ✅**；F5 肉眼并行验收  
 
-- **下一开发**：**T-MARCH-M2**（里程碑事件逻辑）。  
-- **美术**：框架先行；**T-ART-FW** 在 M2 后或并行，不阻塞 M2。
+- **下一开发**：**T-ART-FW-1**（美术前视觉框架）。  
+- **并行**：**探针日**（半日 F5 + `run_probe.log`），不占开发指针。
 
 ---
 
@@ -78,18 +77,22 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **`T-MARCH-M2`** |
-| **名称** | 距离里程碑 + 事件表 JSON |
+| **ID** | **`T-ART-FW-1`** |
+| **名称** | 视觉常量 + VisualSlot 骨架 |
 | **状态** | 📋 **下一开发** |
 | **优先级** | P1 |
-| **门禁** | M1 ✅ · design-march-events §五 |
-| **预估影响** | 新建 `march_event_service.gd`；`world_run` / `run_driver` 挂钩；`run_event` |
+| **门禁** | T-MARCH 全线逻辑 ✅ |
+| **预估影响** | 新建 `visual_constants.gd` / `visual_slot.gd`；RunMarchLane 等挂插槽 |
 
-### 并行验收（不占开发指针）
+### 并行验收（不占开发指针 · 探针日）
 
 | ID | 名称 | 状态 |
 |----|------|------|
-| **T-MARCH-M1 / V1** | 自动搜索 + Toast | ✅ 已交付 · 待探针/F5 |
+| **探针日·环1** | `test_03` M1 探针 1～5 + `run_probe.log` | 🟡 headless 77 PASS · F5 待收 |
+| **探针日·视差** | `test_01` / `test_03` V1～V5 肉眼 | 🟡 待 F5 |
+| **探针日·大营** | B1.5 / B2 / B3 / B4 零键盘与网格 | 🟡 待 F5 |
+| **探针日·MARCH** | 搜索/里程碑/80m 采集 / 返程池 | 🟡 待 F5 |
+| **T-MARCH-M1～M3 / V1～V3** | 跑图搜索与事件全线 | ✅ **逻辑 YES**（77 PASS） |
 | **T-UI-B3 / B4** | 编组卡 + 大营背包网格 | ✅ **CTO YES**（63～65 PASS）；F5 待手测 |
 | **T-UI-B1.5 / B2** | Dock + 顶栏稳定 | ✅ **CTO YES**；F5 待手测 |
 | **T-RUN-V1～V5** | 行军视差 | ✅ **CTO YES**；F5 待手测 |
@@ -120,16 +123,20 @@
 
 | ID | 名称 | 状态 | 门禁 |
 |----|------|------|------|
-| **T-MARCH-M1** | `MarchSearchService` + 搜索池 JSON | ✅ **已交付** | T-RUN-V2 |
-| **T-MARCH-V1** | `MarchSearchToast` + 顶栏/log 双通道 | ✅ **已交付** | M1 |
-| **T-MARCH-M2** | 里程碑 `MarchEventService` + 事件表 | 📋 **下一开发** | M1 |
-| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | 🟡 骨架 | M2 |
-| **T-MARCH-V3** | `MarchGatherView` 接 loot 事件 | 🟡 骨架 | M2 |
-| **T-MARCH-M3** | 返程分池 + 稳定加权 | 📋 待排 | M2 |
+| **T-MARCH-M1** | `MarchSearchService` + 搜索池 JSON | ✅ **CTO YES** | T-RUN-V2 |
+| **T-MARCH-V1** | `MarchSearchToast` + 顶栏/log 双通道 | ✅ **CTO YES** | M1 |
+| **T-MARCH-M2** | 里程碑 `MarchEventService` + 事件表 | ✅ **CTO YES** | M2a/M2b |
+| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | ✅ **CTO YES** | MV2a/MV2b |
+| **T-MARCH-V3** | `MarchGatherView` + `GATHER_BEAT` | ✅ **CTO YES** | MV3a～MV3d |
+| **T-MARCH-M3** | 返程分池 + 稳定加权 | ✅ **CTO YES** | M3a～M3d |
 
-**M1 验收（F5）**：`grassland` / `test_01` 行军每 10～12m 【搜索】飘字；接战期间不触发；`CombatView` 无 diff。
+**探针日 F5 清单（MARCH）**：
 
-**M2 交付要点**：`data/march_events.json`；地图 `march_events[]`；`run_event("march_event")`；接战/采集暂停里程碑（与 M1 同规则）。
+1. `test_01`：每 10m 【搜索】飘字；接战不触发。  
+2. `grassland` 80m：【事件】遗弃箱 + 采集短演出 + 物资入箱。  
+3. `grassland` 返程：搜索负面多于进军（M3）。  
+4. `test_03`：环 1 探针 1～5 + `%APPDATA%/…/run_probe.log`。  
+5. `CombatView` / 伤害公式 **无 diff**。
 
 ---
 
@@ -665,7 +672,8 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-UI-B4** | **右窗大营背包网格** | P1 | ✅ **CTO YES** | B4a/b · 65 PASS |
 | **T-MARCH-M1** | 自动搜索服务 | P1 | ✅ **已交付** | 待探针登记 |
 | **T-MARCH-V1** | 搜索飘字 Toast | P1 | ✅ **已交付** | M1 |
-| **T-MARCH-M2** | 里程碑事件逻辑 | P1 | 📋 **下一开发** | M1 YES |
+| **T-MARCH-M2～M3 / V2～V3** | 里程碑 + 采集 + 返程池 | P1 | ✅ **CTO YES** | 77 PASS |
+| **T-ART-FW-1** | 视觉常量 + VisualSlot | P1 | 📋 **下一开发** | MARCH YES |
 | T-06 | Buff / 觉醒头标 | P0 | ⏸ 让位 B 线 | T-05 YES |
 | T-07~T-10 | 研究所/转生/多槽/云存档 | P1~ | 🔒 冻结 | — |
 | **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | ✅ **CTO YES** | `e7f40b6` |

@@ -203,7 +203,7 @@ screen_x(entity) = lane_origin + entity.position - scroll_x
 
 ## 十二、事件与采集层（T-MARCH-*）
 
-> **状态**：M1/V1 已落地（自动搜索 + 飘字）；V2/V3 骨架已挂接，待 M2 里程碑事件接线。
+> **状态**：M1～M3 + V1～V3 已落地（77 PASS）；F5 走探针日清单。
 
 ### 扩展层表
 
@@ -244,10 +244,10 @@ ParallaxBackdrop → MarchEventMarkers → RunMarchView → MarchGatherView
 |----|------|------|
 | **T-MARCH-M1** | `MarchSearchService` + `march_search_pools.json` + 地图 `march_search` | ✅ |
 | **T-MARCH-V1** | `MarchSearchToast` + 顶栏/log 双通道 | ✅ |
-| **T-MARCH-M2** | 里程碑 `MarchEventService` + `march_events.json` | 待做 |
-| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | 骨架 |
-| **T-MARCH-V3** | `MarchGatherView` 接 loot 类事件 | 骨架 |
-| **T-MARCH-M3** | 返程分池 + 稳定加权 | 待做 |
+| **T-MARCH-M2** | 里程碑 `MarchEventService` + `march_events.json` | ✅ |
+| **T-MARCH-V2** | `MarchEventMarkers` 接地图数据 | ✅ |
+| **T-MARCH-V3** | `MarchGatherView` 接 loot 类事件 | ✅ |
+| **T-MARCH-M3** | 返程分池 + 稳定加权 | ✅ |
 
 配置见 [design-march-events.md](design-march-events.md)。
 
