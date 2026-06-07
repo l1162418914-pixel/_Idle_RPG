@@ -26,6 +26,9 @@ const ALLY_SLOT_ORIGIN: float = 80.0
 const ENEMY_SLOT_ORIGIN: float = 520.0
 const UNIT_VISUAL_WIDTH: float = 60.0
 const SPRITE_HEIGHT: float = 48.0
+## 色块脚底基准线（CombatView 战场 lane 内 Y）
+const UNIT_BASELINE_Y: float = 36.0
+const FOOTLINE_HEIGHT: float = 2.0
 ## 接战层最小 lane 宽（低于此线性映射会压叠色块）
 const LANE_MIN_WIDTH: float = 480.0
 ## T-RUN-V3：敌群接战初距（逻辑坐标，相对锚点右偏）
@@ -55,6 +58,10 @@ static func ally_position_at_slot(slot_index: int, anchor_shift: float) -> float
 
 static func enemy_position_at_slot(slot_index: int, anchor_shift: float) -> float:
 	return enemy_slot_x(slot_index) + anchor_shift + ENEMY_ENTRY_OFFSET_RIGHT
+
+
+static func unit_sprite_inset_x() -> float:
+	return maxf(0.0, (UNIT_VISUAL_WIDTH - SPRITE_HEIGHT) * 0.5)
 
 
 static func logic_to_pixel(logic_x: float, lane_width: float) -> float:

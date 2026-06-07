@@ -1,6 +1,7 @@
 class_name CombatMovementPolicy
 extends RefCounted
 ## 接战移动策略 — 从 CombatController 抽出的站位/行进差异
+## T-02：友方远程前探/射程由 CombatController._advance_ranged_ally_toward_range 处理
 
 
 func tick_ally(

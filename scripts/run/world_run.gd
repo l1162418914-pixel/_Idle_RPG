@@ -976,6 +976,7 @@ func _advance_movement(delta: float) -> void:
 		max_distance_reached = maxf(max_distance_reached, retreat_origin_distance)
 	else:
 		var adv: float = MOVE_SPEED_ADVANCE * float(map_data.get("advance_speed_mult", 1.0))
+		adv *= _expedition_priority_advance_mult()
 		distance_traveled += adv * delta
 	max_distance_reached = maxf(max_distance_reached, distance_traveled)
 	_tick_supply_point_passage()
@@ -1043,6 +1044,14 @@ func _on_forced_withdraw() -> void:
 func sync_stability_to_manager() -> void:
 	if stability != null and GameManager:
 		GameManager.set_team_stability(stability.team_stability)
+
+
+func _resolve_result_player_alive() -> bool:
+	if squad != null and squad.player != null:
+		return squad.is_player_alive()
+	if GameManager.player != null:
+		return GameManager.player.is_alive
+	return false
 
 
 func _count_squad_mia_members() -> int:
@@ -1133,7 +1142,7 @@ func end_run(forced: bool = false) -> Dictionary:
 		"equip_shield_max": equip_shield_max,
 		"material_shield_max": material_shield_max,
 		"squad_alive": squad.get_alive_count() > 0,
-		"player_alive": squad.is_player_alive() if squad else false,
+		"player_alive": _resolve_result_player_alive(),
 		"player_forced_return": player_forced_return,
 		"mercs_continue_after_player_return": (
 			player_forced_return and PlayerForcedReturnService.mercs_continue_on_field(self)
@@ -1155,3 +1164,15 @@ func end_run(forced: bool = false) -> Dictionary:
 	_apply_loot_stats_to_dict(result, manual)
 	run_completed.emit(result)
 	return result
+
+
+func _expedition_priority_advance_mult() -> float:
+	if GameManager == null:
+		return 1.0
+	match GameManager.expedition_priority:
+		GameManager.EXPEDITION_PRIORITY_PUSH:
+			return 1.22
+		GameManager.EXPEDITION_PRIORITY_LOOT:
+			return 0.82
+		_:
+			return 1.0

@@ -10,6 +10,12 @@ tools/godot_*.txt
 tools/m2_*.txt
 tools/benchmark_*.txt
 tools/m2_probe_out*.txt
+tools/t*_probe*.txt
+tools/t*_import.txt
+tools/b3_probe.txt
+tools/continue_probe.txt
+tools/form1_probe*.txt
+tools/probe_latest.txt
 
 # Local scrap / downloader (not part of game)
 tools/mrdld_downloader/

@@ -22,6 +22,8 @@ var _prepare_full_text: String = ""
 var _prepare_detail_expanded: bool = false
 var _mutual_hint_label: Label = null
 var _skip_mutual_check: CheckButton = null
+var _deploy_half_row: HBoxContainer = null
+var _deploy_half_label: Label = null
 
 
 func _ready() -> void:
@@ -77,17 +79,36 @@ func attach_to_shell(left_slot: Control, center_slot: Control, right_slot: Contr
 	shell_center_root.name = "PrepareCenterSquad"
 	shell_center_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell_center_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_deploy_half_row = HBoxContainer.new()
+	_deploy_half_row.add_theme_constant_override("separation", 8)
+	_deploy_half_label = Label.new()
+	_deploy_half_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_deploy_half_label.add_theme_font_size_override("font_size", 11)
+	_deploy_half_row.add_child(_deploy_half_label)
+	for half_id in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+		var hb := Button.new()
+		hb.name = "DeployHalf%s" % half_id
+		hb.text = "半组 %s" % half_id
+		hb.custom_minimum_size = Vector2(64, 30)
+		hb.pressed.connect(_on_prepare_half_pressed.bind(half_id))
+		_deploy_half_row.add_child(hb)
+	shell_center_root.add_child(_deploy_half_row)
 	var sep := main_vbox.get_node_or_null("HSeparator") as Control
 	if sep:
 		sep.reparent(shell_center_root)
 	_prepare_center_scroll = ScrollContainer.new()
 	_prepare_center_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_prepare_center_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_prepare_center_scroll.custom_minimum_size = Vector2(0, 200)
 	var center_wrap := VBoxContainer.new()
 	center_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var roster_hbox := main_vbox.get_node_or_null("RosterHBox") as Control
 	if roster_hbox:
 		roster_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		roster_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		roster_hbox.reparent(center_wrap)
+		_configure_prepare_roster_layout(roster_hbox)
 	var btn_hbox := main_vbox.get_node_or_null("ButtonHBox") as Control
 	if btn_hbox:
 		btn_hbox.reparent(center_wrap)
@@ -112,6 +133,52 @@ func attach_to_shell(left_slot: Control, center_slot: Control, right_slot: Contr
 	shell_right_root.add_child(_safe_preview_label)
 	right_slot.add_child(shell_right_root)
 	visible = false
+
+
+func _configure_prepare_roster_layout(roster_hbox: Control) -> void:
+	var left_panel := roster_hbox.get_node_or_null("LeftPanel") as Control
+	var right_panel := roster_hbox.get_node_or_null("RightPanel") as Control
+	if left_panel:
+		left_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		left_panel.size_flags_stretch_ratio = 1.0
+	if right_panel:
+		right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right_panel.size_flags_stretch_ratio = 1.0
+	for panel in [left_panel, right_panel]:
+		if panel == null:
+			continue
+		var scroll := panel.get_child(panel.get_child_count() - 1) as ScrollContainer
+		if scroll:
+			scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			scroll.custom_minimum_size = Vector2(100, 160)
+		var list := scroll.get_child(0) if scroll and scroll.get_child_count() > 0 else null
+		if list is Control:
+			(list as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _refresh_deploy_half_controls(half: String) -> void:
+	if _deploy_half_label:
+		var can: bool = half != "" and SquadFormationService.half_can_deploy(GameManager, half)
+		_deploy_half_label.text = (
+			"下趟出征半组: %s（%s）· 点选左侧加入/移出出战位"
+			% [half if half != "" else "—", "可出战" if can else "休整/无法出征"]
+		)
+	if _deploy_half_row == null:
+		return
+	for child in _deploy_half_row.get_children():
+		if not (child is Button):
+			continue
+		var btn := child as Button
+		if not str(btn.name).begins_with("DeployHalf"):
+			continue
+		var hid: String = str(btn.name).substr(10)
+		btn.disabled = hid == half
+		btn.text = "★ %s" % hid if hid == half else "半组 %s" % hid
+
+
+func _on_prepare_half_pressed(half: String) -> void:
+	GameManager.formation_set_preferred_half(half)
+	_refresh()
 
 
 func _refresh() -> void:
@@ -197,6 +264,7 @@ func _refresh() -> void:
 		else:
 			map_label.modulate = Color.WHITE
 	
+	_refresh_deploy_half_controls(half)
 	_refresh_safe_preview(md)
 	_refresh_available()
 	_refresh_selected()
@@ -351,31 +419,60 @@ func _make_merc_button(merc: Mercenary, is_player: bool) -> Button:
 		btn.modulate = Color.GOLD
 		btn.disabled = true
 	else:
-		btn.text = "%s %s Lv.%d HP:%d/%d 个人稳:%d ATK:%d" % [
+		var slot: Dictionary = SquadFormationService.find_merc_slot(GameManager, merc.merc_id)
+		var slot_tag := ""
+		if not slot.is_empty():
+			slot_tag = " [%s·%s%d]" % [
+				slot.get("half", "?"),
+				"战" if slot.get("kind", "") == "active" else "替",
+				int(slot.get("index", 0)) + 1,
+			]
+		btn.text = "%s %s Lv.%d HP:%d/%d 个人稳:%d ATK:%d%s" % [
 			prefix, merc.merc_name, merc.level, merc.current_hp, StatResolver.get_max_hp(merc),
-			merc.personal_stability, StatResolver.get_patk(merc)
+			merc.personal_stability, StatResolver.get_patk(merc), slot_tag
 		]
-		btn.disabled = true
+		var lock_roster: bool = TestScenarioService.should_lock_roster(
+			DataLoader.map_data(GameManager.selected_map_id)
+		)
+		btn.disabled = lock_roster
+		if not lock_roster:
+			btn.pressed.connect(_on_merc_selected.bind(merc.merc_id))
 		if merc.merc_id in _selected_ids:
-			btn.modulate = Color.GREEN
+			btn.modulate = Color(0.55, 0.95, 0.65)
+		elif not slot.is_empty():
+			btn.modulate = Color(0.75, 0.85, 1.0)
 		else:
-			btn.modulate = Color(0.7, 0.75, 0.8)
+			btn.modulate = Color(0.85, 0.88, 0.92)
 	
 	return btn
 
 
-func _on_merc_selected(merc_id: String, btn: Button) -> void:
+func _on_merc_selected(merc_id: String) -> void:
 	var md: Dictionary = DataLoader.map_data(GameManager.selected_map_id)
 	if TestScenarioService.should_lock_roster(md):
 		return
-	if merc_id in _selected_ids:
-		_selected_ids.erase(merc_id)
-		btn.modulate = Color.WHITE
+	var half: String = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
+	var slot: Dictionary = SquadFormationService.find_merc_slot(GameManager, merc_id)
+	if not slot.is_empty() and str(slot.get("half", "")) == half:
+		GameManager.formation_clear_slot(
+			str(slot.get("half", "")),
+			str(slot.get("kind", "")),
+			int(slot.get("index", 0))
+		)
 	else:
-		_selected_ids.append(merc_id)
-		btn.modulate = Color.GREEN
-	_refresh_selected()
-	_update_start_button()
+		var active: Array[String] = SquadFormationService.get_active_ids(GameManager.squad_formation, half)
+		active = _pad_active_ids(active)
+		var placed: bool = false
+		for i in range(SquadFormationService.MAX_ACTIVE):
+			if active[i] == "":
+				var code: int = GameManager.formation_assign(merc_id, half, "active", i)
+				if code == 0:
+					placed = true
+				break
+		if not placed and map_label:
+			map_label.text = "半组 %s 出战位已满，请回大营 F2 调整" % half
+			map_label.modulate = Color.ORANGE_RED
+	_refresh()
 
 
 func _refresh_selected() -> void:
@@ -386,13 +483,60 @@ func _refresh_selected() -> void:
 	
 	GameManager.selected_squad.clear()
 	
+	var half: String = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
+	if half != "":
+		var half_head := Label.new()
+		half_head.text = "—— 半组 %s 出战 ——" % half
+		half_head.add_theme_font_size_override("font_size", 11)
+		half_head.modulate = Color(0.75, 0.9, 1.0)
+		selected_list.add_child(half_head)
 	for mid in _selected_ids:
 		var merc = _find_merc(mid)
 		if merc and merc.can_join_squad():
 			GameManager.selected_squad.append(merc)
+			var row := HBoxContainer.new()
+			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var label = Label.new()
-			label.text = "%s Lv.%d ATK:%d" % [merc.merc_name, merc.level, StatResolver.get_patk(merc)]
-			selected_list.add_child(label)
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			label.text = "%s Lv.%d ATK:%d HP:%d/%d" % [
+				merc.merc_name,
+				merc.level,
+				StatResolver.get_patk(merc),
+				merc.current_hp,
+				StatResolver.get_max_hp(merc),
+			]
+			row.add_child(label)
+			if not TestScenarioService.should_lock_roster(DataLoader.map_data(GameManager.selected_map_id)):
+				var rm := Button.new()
+				rm.text = "移出"
+				rm.custom_minimum_size = Vector2(48, 24)
+				rm.pressed.connect(_on_remove_from_deploy.bind(mid))
+				row.add_child(rm)
+			selected_list.add_child(row)
+	if _selected_ids.is_empty():
+		var empty := Label.new()
+		empty.text = "（无出战佣兵 — 请点左侧名册或回大营 F2 编组）"
+		empty.modulate = Color.DIM_GRAY
+		selected_list.add_child(empty)
+
+
+func _on_remove_from_deploy(merc_id: String) -> void:
+	var slot: Dictionary = SquadFormationService.find_merc_slot(GameManager, merc_id)
+	if slot.is_empty():
+		return
+	GameManager.formation_clear_slot(
+		str(slot.get("half", "")),
+		str(slot.get("kind", "")),
+		int(slot.get("index", 0))
+	)
+	_refresh()
+
+
+func _pad_active_ids(ids: Array[String]) -> Array[String]:
+	var out: Array[String] = []
+	for i in range(SquadFormationService.MAX_ACTIVE):
+		out.append(ids[i] if i < ids.size() else "")
+	return out
 
 
 func _find_merc(merc_id: String) -> Mercenary:

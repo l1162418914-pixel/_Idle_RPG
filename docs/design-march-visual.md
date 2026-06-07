@@ -92,7 +92,8 @@ stateDiagram-v2
 ### 现网对照（`main.gd` L92）
 
 ```gdscript
-var world_run_ticked: bool = run.is_retreating or not _in_combat
+var world_run_ticked: bool = (run.is_retreating or not _in_combat) and not gather_active
+var march_allowed: bool = world_run_ticked and not _in_combat
 ```
 
 | 场景 | 现网 | 定案 | 动作 |
@@ -236,7 +237,7 @@ ParallaxBackdrop → MarchEventMarkers → RunMarchView → MarchGatherView
 | 进军接战 | **暂停** | 冻结 | `CombatView` |
 | 返程接战 | 继续减 | 左滚 | `CombatView` |
 
-`RunDriver`：`world_run_ticked = (返程 or 未接战) and not gather_active`；搜索仅在 `world_run_ticked` 时由 `MarchSearchService` 检定。
+`RunDriver`：`world_run_ticked = (返程 or 未接战) and not gather_active`（返程接战仍 tick 里程/视差）；`march_allowed = world_run_ticked and not _in_combat`；搜索/里程碑仅在 `march_allowed` 时检定。
 
 ### TASK 路线
 

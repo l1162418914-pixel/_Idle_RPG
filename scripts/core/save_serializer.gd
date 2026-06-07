@@ -31,6 +31,11 @@ static func to_save_dict(gm: GameManager) -> Dictionary:
 		"unlocked_maps": gm.unlocked_maps.duplicate(),
 		"defeated_map_bosses": gm.defeated_map_bosses.duplicate(),
 		"auto_run_preferred": gm.auto_run_preferred,
+		"auto_retreat_value_enabled": gm.auto_retreat_value_enabled,
+		"auto_retreat_safe_only": gm.auto_retreat_safe_only,
+		"expedition_priority": gm.expedition_priority,
+		"loot_auto_evict_low_value": gm.loot_auto_evict_low_value,
+		"loot_discard_overflow": gm.loot_discard_overflow,
 		"team_stability": gm.team_stability,
 		"squad_stability": gm.team_stability,
 		"buildings": gm.buildings.duplicate(),
@@ -57,6 +62,19 @@ static func from_save_dict(gm: GameManager, data: Dictionary) -> void:
 	gm.unlocked_maps.assign(data.get("unlocked_maps", ["grassland"]))
 	gm.defeated_map_bosses.assign(data.get("defeated_map_bosses", []))
 	gm.auto_run_preferred = data.get("auto_run_preferred", false)
+	gm.auto_retreat_value_enabled = data.get("auto_retreat_value_enabled", true)
+	gm.auto_retreat_safe_only = data.get("auto_retreat_safe_only", false)
+	var pri: String = str(data.get("expedition_priority", GameManager.EXPEDITION_PRIORITY_MARCH))
+	if pri in [
+		GameManager.EXPEDITION_PRIORITY_PUSH,
+		GameManager.EXPEDITION_PRIORITY_MARCH,
+		GameManager.EXPEDITION_PRIORITY_LOOT,
+	]:
+		gm.expedition_priority = pri
+	else:
+		gm.expedition_priority = GameManager.EXPEDITION_PRIORITY_MARCH
+	gm.loot_auto_evict_low_value = data.get("loot_auto_evict_low_value", true)
+	gm.loot_discard_overflow = data.get("loot_discard_overflow", false)
 	gm.auto_run_enabled = false
 	var loaded_team: int = data.get("team_stability", data.get("squad_stability", StabilitySystem.MAX_STABILITY))
 	gm.team_stability = clampi(loaded_team, 0, StabilitySystem.MAX_STABILITY)

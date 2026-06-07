@@ -95,6 +95,25 @@ def merc_dict(
     }
 
 
+def iron_guard_fixture(slot: str, item_id: str) -> dict:
+    """F5 T-01：背包内铁卫 weapon/armor/helmet 各一件，便于穿脱验 N/M。"""
+    stats = {"patk": 6} if slot == "weapon" else {"pdef": 6}
+    slot_cn = {"weapon": "武器", "armor": "护甲", "helmet": "头盔"}.get(slot, slot)
+    return {
+        "item_id": item_id,
+        "item_name": "测试·铁卫·" + slot_cn,
+        "slot": slot,
+        "quality": 2,
+        "quality_name": "精良",
+        "prefix_name": "",
+        "set_id": "iron_guard",
+        "grid_w": 1,
+        "grid_h": 1,
+        "shield_cd_runs_left": 0,
+        "stats": stats,
+    }
+
+
 def build_save() -> dict:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     elites = [
@@ -209,7 +228,11 @@ def build_save() -> dict:
             },
         },
         "roster": {"elite": elites, "normal": normals},
-        "inventory": [],
+        "inventory": [
+            iron_guard_fixture("weapon", "fixture_ig_weapon"),
+            iron_guard_fixture("armor", "fixture_ig_armor"),
+            iron_guard_fixture("helmet", "fixture_ig_helmet"),
+        ],
         "buildings": {
             "barracks": {"building_id": "barracks", "level": 5},
             "forge": {"building_id": "forge", "level": 5},

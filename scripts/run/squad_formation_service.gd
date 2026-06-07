@@ -62,15 +62,21 @@ static func rebalance_from_roster(gm: GameManager) -> void:
 			_add_to_bench(gm.squad_formation, HALF_A, mid)
 
 
-static func pick_deploy_half(gm: GameManager) -> String:
+## 解析下趟实际出征半组（只读，不改玩家设的 active_half 优先）
+static func resolve_deploy_half(gm: GameManager) -> String:
 	ensure_formation(gm)
+	var pref: String = str(gm.squad_formation.get("active_half", HALF_A))
+	if pref in [HALF_A, HALF_B] and half_can_deploy(gm, pref):
+		return pref
 	if half_can_deploy(gm, HALF_A):
-		gm.squad_formation["active_half"] = HALF_A
 		return HALF_A
 	if half_can_deploy(gm, HALF_B):
-		gm.squad_formation["active_half"] = HALF_B
 		return HALF_B
 	return ""
+
+
+static func pick_deploy_half(gm: GameManager) -> String:
+	return resolve_deploy_half(gm)
 
 
 static func half_can_deploy(gm: GameManager, half: String) -> bool:
@@ -106,14 +112,25 @@ static func rebuild_auto_squad(gm: GameManager) -> void:
 		_restore_snapshot_to_half(gm, half, gm.last_run_squad_snapshot)
 	auto_fill_half(gm, half)
 	gm.selected_squad = resolve_active_squad(gm, half)
-	gm.squad_formation["active_half"] = half
+
+
+static func swap_halves(gm: GameManager) -> void:
+	if gm == null:
+		return
+	ensure_formation(gm)
+	var a_part: Dictionary = gm.squad_formation.get(HALF_A, {"active": [], "bench": []})
+	var b_part: Dictionary = gm.squad_formation.get(HALF_B, {"active": [], "bench": []})
+	gm.squad_formation[HALF_A] = b_part
+	gm.squad_formation[HALF_B] = a_part
+	for half in [HALF_A, HALF_B]:
+		_refresh_half_slots(gm, half)
 
 
 static func save_run_snapshot(gm: GameManager, result: Dictionary) -> void:
 	gm.last_run_squad_snapshot.clear()
 	for mid in result.get("squad_member_ids", []):
 		gm.last_run_squad_snapshot.append(str(mid))
-	gm.last_deploy_half = str(gm.squad_formation.get("active_half", HALF_A))
+	# last_deploy_half 由 start_run 成功时写入实际出征半组，不得用 active_half（编组优先）覆盖
 
 
 static func resolve_active_squad(gm: GameManager, half: String) -> Array[Mercenary]:
@@ -333,7 +350,7 @@ static func _deployable_merc_slot(gm: GameManager, merc_id: String) -> int:
 	if _is_player_id(gm, merc_id):
 		return 0
 	var m := gm.find_mercenary_by_id(merc_id)
-	if m != null and not (m is Player) and m.can_join_squad():
+	if m != null and not (m is Player) and _merc_deploy_ready(m):
 		return 1
 	return 0
 
@@ -377,18 +394,7 @@ static func _refresh_half_slots(gm: GameManager, half: String) -> void:
 			new_bench.remove_at(scan)
 		else:
 			scan += 1
-	for mid in _merc_roster_ids(gm):
-		if mid in active or mid in new_bench:
-			continue
-		if mid in _half_all_ids(gm.squad_formation, HALF_B if half == HALF_A else HALF_A):
-			continue
-		var m := gm.find_mercenary_by_id(mid)
-		if not _merc_in_formation_pool(m) or not _merc_deploy_ready(m):
-			continue
-		if active.size() < MAX_ACTIVE:
-			active.append(mid)
-		elif new_bench.size() < MAX_BENCH:
-			new_bench.append(mid)
+	# 不自动从名册补位：玩家手动移出后应保持「未编入」，仅 auto_fill_half / rebalance 补员
 	gm.squad_formation[half] = {"active": active, "bench": new_bench}
 
 
@@ -476,7 +482,11 @@ static func assign_merc_to_slot(
 	if _is_player_id(gm, merc_id):
 		return -3
 	var merc := gm.find_mercenary_by_id(merc_id)
-	if merc != null and not merc.can_join_squad():
+	if merc == null:
+		return -1
+	if not merc.is_alive or merc.is_mia:
+		return -5
+	if slot_kind == "active" and not merc.can_join_squad():
 		return -5
 	if slot_kind not in ["active", "bench"]:
 		return -1
@@ -543,6 +553,22 @@ static func set_preferred_half(gm: GameManager, half: String) -> void:
 	ensure_formation(gm)
 	if half in [HALF_A, HALF_B]:
 		gm.squad_formation["active_half"] = half
+
+
+static func find_merc_slot(gm: GameManager, merc_id: String) -> Dictionary:
+	if gm == null or merc_id == "":
+		return {}
+	ensure_formation(gm)
+	for half in [HALF_A, HALF_B]:
+		var active: Array[String] = get_active_ids(gm.squad_formation, half)
+		for i in range(active.size()):
+			if active[i] == merc_id:
+				return {"half": half, "kind": "active", "index": i}
+		var bench: Array[String] = get_bench_ids(gm.squad_formation, half)
+		for i in range(bench.size()):
+			if bench[i] == merc_id:
+				return {"half": half, "kind": "bench", "index": i}
+	return {}
 
 
 static func get_recovery_status(gm: GameManager) -> Dictionary:

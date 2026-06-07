@@ -26,12 +26,14 @@ static func add_equipment_drop(run, equip: Equipment) -> Dictionary:
 		init_run_grids(run)
 	if run.safe_loot.place_auto(equip):
 		return {"ok": true, "where": "safe"}
-	if _try_evict_safe_and_place(run, equip):
+	if _loot_auto_evict_enabled() and _try_evict_safe_and_place(run, equip):
 		return {"ok": true, "where": "safe", "evicted": true}
 	if run.exposed_loot.place_auto(equip):
 		return {"ok": true, "where": "exposed"}
-	if _try_evict_exposed_and_place(run, equip):
+	if _loot_auto_evict_enabled() and _try_evict_exposed_and_place(run, equip):
 		return {"ok": true, "where": "exposed", "evicted": true}
+	if _loot_discard_overflow_enabled():
+		return {"ok": true, "where": "discarded"}
 	return {"ok": false, "where": "none"}
 
 
@@ -56,8 +58,10 @@ static func add_material_drop(run, mat: RunMaterial) -> Dictionary:
 		return {"ok": true, "where": "safe"}
 	if run.exposed_loot.place_material_auto(mat):
 		return {"ok": true, "where": "exposed"}
-	if _try_evict_exposed_equipment_for_material(run, mat):
+	if _loot_auto_evict_enabled() and _try_evict_exposed_equipment_for_material(run, mat):
 		return {"ok": true, "where": "exposed", "evicted": true}
+	if _loot_discard_overflow_enabled():
+		return {"ok": true, "where": "discarded"}
 	return {"ok": false, "where": "none"}
 
 
@@ -137,6 +141,14 @@ static func _try_evict_exposed_and_place(run, equip: Equipment) -> bool:
 		run.exposed_loot.place_auto(worst)
 		return false
 	return true
+
+
+static func _loot_auto_evict_enabled() -> bool:
+	return GameManager == null or GameManager.loot_auto_evict_low_value
+
+
+static func _loot_discard_overflow_enabled() -> bool:
+	return GameManager != null and GameManager.loot_discard_overflow
 
 
 static func _try_evict_exposed_equipment_for_material(run, mat: RunMaterial) -> bool:

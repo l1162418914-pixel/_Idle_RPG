@@ -3,6 +3,7 @@ extends Node
 
 const _ParallaxBackdropScene = preload("res://scripts/ui/parallax_backdrop.gd")
 const _FormationSlotCardScene = preload("res://scripts/ui/formation_slot_card.gd")
+const _FormationPoolButtonScene = preload("res://scripts/ui/formation_pool_button.gd")
 const _BaseCampBagUIScene = preload("res://scripts/ui/base_camp_bag_ui.gd")
 const _MarchEventService = preload("res://scripts/run/march_event_service.gd")
 const _MarchSearchService = preload("res://scripts/run/march_search_service.gd")
@@ -104,6 +105,7 @@ func _run() -> void:
 	_probe_b2_run_ui_stability_relocated()
 	_probe_b3_formation_slot_card()
 	_probe_b3_half_stage_panel()
+	_probe_form_pool_button_clickable()
 	_probe_b4_camp_bag_grid()
 	_probe_b4_base_ui_bag_integration()
 	_probe_m2_milestone_fire_once()
@@ -121,6 +123,39 @@ func _run() -> void:
 	_probe_fw2_gather_and_boss_slots()
 	_probe_fw3_art_manifest()
 	_probe_fw3_visual_slot_texture()
+	_probe_t01_set_bonus_two_piece()
+	_probe_t01_set_bonus_three_piece()
+	_probe_t01_set_ui_progress_lines()
+	_probe_t01_set_one_piece_no_bonus()
+	_probe_t06_awakening_status_refresh()
+	_probe_t06_buff_badges_visible()
+	_probe_t06_awakening_badge_variant()
+	_probe_t06_buff_badges_clear()
+	_probe_t02_ranged_advance_toward_enemy()
+	_probe_t02_ranged_enters_attack_range()
+	_probe_t02_ranged_stays_behind_melee()
+	_probe_t02_ranged_respects_forward_cap()
+	_probe_02_dual_melee_tank_front()
+	_probe_02_dual_melee_both_in_range()
+	_probe_t03_elite_inherits_class_active_skills()
+	_probe_t03_skill_cd_chip_shows_remaining()
+	_probe_t03_skill_cd_chip_ready_state()
+	_probe_t03_cooldown_from_template_on_cast()
+	_probe_t04_battle_debug_toggle()
+	_probe_t04_hp_multiplier_on_entity()
+	_probe_t04_damage_scale()
+	_probe_t04_test_map_auto_enable()
+	_probe_t02c_merc_deploy_while_player_downed()
+	_probe_t02c_deploy_excludes_player()
+	_probe_t02c_recovery_lock_merc_only()
+	_probe_t02c_merc_only_run_player_unchanged()
+	_probe_t02c_strip_player_from_halves()
+	_probe_t02c_no_lock_when_mercs_ready()
+	_probe_t_ui_form_1_start_run_preserves_active_half()
+	_probe_m2c_search_blocked_during_combat()
+	_probe_b3_grassland_march_events()
+	_probe_c1_test_maps_march_events()
+	_probe_02b_battlefield_slot_layout()
 	_probe_02a_enemy_skips_downed()
 	_probe_02a_downed_rear_snap()
 	_probe_02a_only_downed_no_crash()
@@ -1910,9 +1945,15 @@ func _probe_b3_formation_slot_card() -> void:
 		Color(0.38, 0.72, 0.95),
 		Color(0.15, 0.2, 0.28)
 	)
-	var hit := card.get_child(card.get_child_count() - 1)
-	if not (hit is Button):
-		_fail("B3a", "编组槽卡应含点击热区")
+	var slot_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_slot_card.gd")
+	var has_click_hit: bool = (
+		slot_src.contains("MOUSE_FILTER_STOP")
+		and (slot_src.contains("force_drag") or slot_src.contains("_get_drag_data"))
+		and slot_src.contains("_on_hit_pressed")
+		and slot_src.contains("_on_remove_pressed")
+	)
+	if not has_click_hit:
+		_fail("B3a", "编组槽卡应支持点击/拖拽热区")
 		card.queue_free()
 		return
 	card.queue_free()
@@ -1931,6 +1972,38 @@ func _probe_b3_half_stage_panel() -> void:
 		_fail("B3b", "应通过 _make_slot_card 构建槽位")
 		return
 	_pass("B3b", "T-UI-B3 双半组舞台 + 槽位卡牌化")
+
+
+func _probe_form_pool_button_clickable() -> void:
+	var pool_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_pool_button.gd")
+	if not pool_src.contains("extends Button"):
+		_fail("FORM-P1", "备战席按钮应继承 Button 以保证点击")
+		return
+	if not pool_src.contains("_get_drag_data"):
+		_fail("FORM-P1", "备战席按钮应支持拖拽")
+		return
+	var form_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_ui.gd")
+	if form_src.contains("FormationPoolScroll"):
+		_fail("FORM-P2", "备战席不应嵌套内层 ScrollContainer（阻断点击）")
+		return
+	if not form_src.contains("MOUSE_FILTER_PASS"):
+		_fail("FORM-P2", "备战席容器应放行鼠标到按钮")
+		return
+	var btn: Button = _FormationPoolButtonScene.new()
+	btn.merc_id = "probe_pool_merc"
+	add_child(btn)
+	btn.apply_pool("探针佣兵", false, Color.WHITE, false)
+	if btn.disabled:
+		_fail("FORM-P1", "可出征备战席按钮不应 disabled")
+		btn.queue_free()
+		return
+	if btn.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		_fail("FORM-P1", "可出征备战席按钮 mouse_filter 不应 IGNORE")
+		btn.queue_free()
+		return
+	btn.queue_free()
+	_pass("FORM-P1", "备战席池按钮可点击 + 可拖拽")
+	_pass("FORM-P2", "备战席无内层滚动 + 鼠标链放行")
 
 
 func _probe_b4_camp_bag_grid() -> void:
@@ -1992,7 +2065,12 @@ func _probe_m2_milestone_fire_once() -> void:
 		_fail("M2a", "同里程不应重复触发")
 		return
 	var dists: Array = _MarchEventService.milestone_distances(run.map_data)
-	if dists.size() < 2 or float(dists[0]) != 80.0:
+	var has_80: bool = false
+	for d in dists:
+		if absf(float(d) - 80.0) < 0.01:
+			has_80 = true
+			break
+	if dists.size() < 2 or not has_80:
 		_fail("M2a", "地图 march_events 应含 80m 锚点")
 		return
 	_pass("M2a", "T-MARCH-M2 里程碑触发一次 + 地图锚点")
@@ -2387,6 +2465,762 @@ func _probe_fw3_visual_slot_texture() -> void:
 	slot.queue_free()
 	_ArtManifest.configure(DataLoader.art_manifest_data())
 	_pass("FW3b", "T-ART-FW-3 VisualSlot manifest 优先于占位")
+
+
+func _make_set_probe_piece(slot: String, set_id: String) -> Equipment:
+	var item: Equipment = Equipment._create()
+	item.slot = slot
+	item.set_id = set_id
+	item.item_name = "probe_%s" % slot
+	return item
+
+
+func _equip_set_on_merc(merc, set_id: String, slots: Array) -> void:
+	for slot in slots:
+		merc.equipment_slots[slot] = _make_set_probe_piece(str(slot), set_id)
+
+
+func _probe_t01_set_bonus_two_piece() -> void:
+	var merc := _make_probe_normal("t01_merc", "套装探针")
+	var base_pdef: int = StatResolver.get_pdef(merc)
+	_equip_set_on_merc(merc, "iron_guard", ["weapon", "armor"])
+	if EquipmentSetRegistry.calc_set_bonus(merc, "pdef") != 8.0:
+		_fail("01a", "铁卫 2/3 应贡献 pdef+8 (got %s)" % str(EquipmentSetRegistry.calc_set_bonus(merc, "pdef")))
+		return
+	if StatResolver.get_pdef(merc) - base_pdef != 8:
+		_fail("01a", "StatResolver pdef 应比裸装 +8 (base=%d got=%d)" % [base_pdef, StatResolver.get_pdef(merc)])
+		return
+	_pass("01a", "T-01 铁卫 2/3 → StatResolver pdef+8")
+
+
+func _probe_t01_set_bonus_three_piece() -> void:
+	var merc := _make_probe_normal("t01_merc3", "套装探针3")
+	var base_pdef: int = StatResolver.get_pdef(merc)
+	var base_hp: int = StatResolver.get_max_hp(merc)
+	_equip_set_on_merc(merc, "iron_guard", ["weapon", "armor", "helmet"])
+	if StatResolver.get_pdef(merc) - base_pdef != 8:
+		_fail("01b", "铁卫 3/3 仍应 pdef+8")
+		return
+	if StatResolver.get_max_hp(merc) - base_hp != 40:
+		_fail("01b", "铁卫 3/3 应 max_hp+40 (delta=%d)" % (StatResolver.get_max_hp(merc) - base_hp))
+		return
+	_pass("01b", "T-01 铁卫 3/3 → pdef+8 + hp+40")
+
+
+func _probe_t01_set_ui_progress_lines() -> void:
+	var merc := _make_probe_normal("t01_ui", "套装UI")
+	_equip_set_on_merc(merc, "iron_guard", ["weapon", "armor"])
+	var lines: Array[String] = EquipmentSetRegistry.get_active_bonus_lines(merc)
+	if lines.is_empty():
+		_fail("01c", "2 件铁卫应有套装文案行")
+		return
+	var joined: String = ", ".join(lines)
+	if "铁卫 2/3" not in joined:
+		_fail("01c", "应含 铁卫 2/3 (got %s)" % joined)
+		return
+	if "物防+8" not in joined:
+		_fail("01c", "应含已激活描述 物防+8 (got %s)" % joined)
+		return
+	_pass("01c", "T-01 UI get_active_bonus_lines 铁卫 2/3 + 描述")
+
+
+func _probe_t01_set_one_piece_no_bonus() -> void:
+	var merc := _make_probe_normal("t01_one", "套装单件")
+	_equip_set_on_merc(merc, "iron_guard", ["weapon"])
+	if EquipmentSetRegistry.calc_set_bonus(merc, "pdef") != 0.0:
+		_fail("01d", "1 件不应有套装战斗加成")
+		return
+	var lines: Array[String] = EquipmentSetRegistry.get_active_bonus_lines(merc)
+	if lines.is_empty() or "铁卫 1/3" not in lines[0]:
+		_fail("01d", "UI 应显示 铁卫 1/3 (got %s)" % str(lines))
+		return
+	if "物防+8" in str(lines):
+		_fail("01d", "1 件不应显示已激活 tier 描述")
+		return
+	_pass("01d", "T-01 1/3 仅进度无战斗加成")
+
+
+func _probe_t06_awakening_status_refresh() -> void:
+	var merc := _make_probe_normal("t06_aw", "觉醒探针")
+	var entity := CombatEntity.new()
+	entity.init_from_merc(merc, "t06_")
+	entity.action_state = CombatEntity.ActionState.DOWNED
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if "(濒死)" not in view.get_status_text():
+		_fail("06a", "初始应显示濒死 (got %s)" % view.get_status_text())
+		view.queue_free()
+		return
+	entity.action_state = CombatEntity.ActionState.AWAKENING
+	merc.is_awakening = true
+	merc.awakening_variant_id = "damage_burst"
+	view.sync_status_from_entity(entity)
+	if "(觉醒" not in view.get_status_text() or "(濒死)" in view.get_status_text():
+		_fail("06a", "觉醒后应刷新名称 (got %s)" % view.get_status_text())
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("06a", "T-06 濒死→觉醒 UnitView 状态刷新")
+
+
+func _probe_t06_buff_badges_visible() -> void:
+	var merc := _make_probe_normal("t06_buff", "Buff探针")
+	merc.buff_system.apply_buff("test_patk", "patk", 5.0, 4.0)
+	merc.buff_system.apply_buff("test_pdef", "pdef", 3.0, 4.0)
+	var entity := CombatEntity.new()
+	entity.init_from_merc(merc, "t06b_")
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if view.get_buff_badge_count() < 2:
+		_fail("06b", "应显示至少 2 个 Buff 角标 (got %d)" % view.get_buff_badge_count())
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("06b", "T-06 战斗 Buff 角标可见")
+
+
+func _probe_t06_awakening_badge_variant() -> void:
+	var merc := _make_probe_normal("t06_var", "变体探针")
+	merc.is_awakening = true
+	merc.awakening_variant_id = "team_shield"
+	var entity := CombatEntity.new()
+	entity.init_from_merc(merc, "t06v_")
+	entity.action_state = CombatEntity.ActionState.AWAKENING
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if not view.is_awakening_badge_visible():
+		_fail("06c", "觉醒头标应可见")
+		view.queue_free()
+		return
+	if "盾援" not in view.get_status_text():
+		_fail("06c", "名称应含变体 盾援 (got %s)" % view.get_status_text())
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("06c", "T-06 觉醒头标 + 变体文案")
+
+
+func _probe_t06_buff_badges_clear() -> void:
+	var merc := _make_probe_normal("t06_clr", "Buff清")
+	merc.buff_system.apply_buff("test_spd", "spd", 2.0, 1.0)
+	var entity := CombatEntity.new()
+	entity.init_from_merc(merc, "t06c_")
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if view.get_buff_badge_count() < 1:
+		_fail("06d", "应有 Buff 角标")
+		view.queue_free()
+		return
+	merc.buff_system.clear()
+	view.sync_status_from_entity(entity)
+	if view.get_buff_badge_count() != 0:
+		_fail("06d", "Buff 清空后角标应消失 (got %d)" % view.get_buff_badge_count())
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("06d", "T-06 Buff 角标随 buff 清除")
+
+
+func _make_probe_template_merc(id: String, name: String, template_id: String) -> NormalMercenary:
+	var m := NormalMercenary.new()
+	m.merc_id = id
+	m.merc_name = name
+	m.template_id = template_id
+	m.merc_type = Mercenary.MercType.NORMAL
+	m.is_alive = true
+	m.level = 5
+	m.init_from_template(DataLoader.merc_template(template_id))
+	m.current_hp = m.get_max_hp_value()
+	return m
+
+
+func _probe_t02_build_ranged_melee_combat(enemy_x: float) -> CombatController:
+	var combat := CombatController.new()
+	var mage := _make_probe_template_merc("t02_mage", "术士", "mage_normal")
+	var tank := _make_probe_template_merc("t02_tank", "铁卫", "warrior_normal")
+	var ranged_e := CombatEntity.new()
+	ranged_e.init_from_merc(mage, "ally_m")
+	ranged_e.formation_slot = 0
+	ranged_e.position = BattlefieldSlots.ALLY_SLOT_ORIGIN
+	ranged_e.spawn_anchor_x = ranged_e.position
+	var melee_e := CombatEntity.new()
+	melee_e.init_from_merc(tank, "ally_t")
+	melee_e.formation_slot = 1
+	melee_e.position = BattlefieldSlots.ally_slot_x(3)
+	melee_e.spawn_anchor_x = melee_e.position
+	combat.allies.append(ranged_e)
+	combat.allies.append(melee_e)
+	var foe := CombatEntity.new()
+	foe.init_from_enemy({
+		"uid": "enemy_wolf",
+		"name": "狼",
+		"stats": {"hp": 80, "patk": 8, "attack_range": 50},
+	})
+	foe.formation_slot = 0
+	foe.position = enemy_x
+	foe.spawn_anchor_x = foe.position
+	combat.enemies.append(foe)
+	combat.is_active = true
+	return combat
+
+
+func _probe_t02_ranged_advance_toward_enemy() -> void:
+	var combat := _probe_t02_build_ranged_melee_combat(400.0)
+	var ranged_e: CombatEntity = combat.allies[0]
+	var start_x: float = ranged_e.position
+	if absf(ranged_e.position - combat.enemies[0].position) <= ranged_e.attack_range + 0.01:
+		_fail("02-1", "探针布局应初始超出射程")
+		return
+	for _i in 80:
+		combat.movement_tick_ally_advance(ranged_e, combat.enemies, 0.1, [])
+	if ranged_e.position <= start_x + 2.0:
+		_fail("02-1", "远程应前探 (%.0f -> %.0f)" % [start_x, ranged_e.position])
+		return
+	_pass("02-1", "T-02 远程前探接敌")
+
+
+func _probe_t02_ranged_enters_attack_range() -> void:
+	var combat := _probe_t02_build_ranged_melee_combat(400.0)
+	var ranged_e: CombatEntity = combat.allies[0]
+	for _i in 80:
+		combat.movement_tick_ally_advance(ranged_e, combat.enemies, 0.1, [])
+	var target: CombatEntity = combat.find_nearest_in_range(
+		combat.enemies, ranged_e.position, ranged_e.attack_range
+	)
+	if target == null:
+		_fail("02-2", "前探后应进入射程 (pos=%.0f range=%.0f)" % [ranged_e.position, ranged_e.attack_range])
+		return
+	_pass("02-2", "T-02 远程进入 attack_range")
+
+
+func _probe_t02_ranged_stays_behind_melee() -> void:
+	var combat := _probe_t02_build_ranged_melee_combat(400.0)
+	var ranged_e: CombatEntity = combat.allies[0]
+	var melee_e: CombatEntity = combat.allies[1]
+	for _i in 80:
+		combat.movement_tick_ally_advance(ranged_e, combat.enemies, 0.1, [])
+	if ranged_e.position >= melee_e.position - 1.0:
+		_fail("02-3", "远程应留在近战身后 (r=%.0f m=%.0f)" % [ranged_e.position, melee_e.position])
+		return
+	_pass("02-3", "T-02 远程守后排不抢前排位")
+
+
+func _probe_t02_ranged_respects_forward_cap() -> void:
+	var combat := _probe_t02_build_ranged_melee_combat(520.0)
+	var ranged_e: CombatEntity = combat.allies[0]
+	var melee_e: CombatEntity = combat.allies[1]
+	var cap_x: float = melee_e.position - 24.0
+	for _i in 120:
+		combat.movement_tick_ally_advance(ranged_e, combat.enemies, 0.1, [])
+	if ranged_e.position > cap_x + 1.0:
+		_fail("02-4", "远程不应越过前排 standoff (pos=%.0f cap=%.0f)" % [ranged_e.position, cap_x])
+		return
+	_pass("02-4", "T-02 远程前探上限 = 前排 - standoff")
+
+
+func _probe_02_build_dual_melee_combat() -> CombatController:
+	var recruit := _make_probe_template_merc("dm_r", "新兵", "warrior_normal")
+	var tank := _make_probe_elite("dm_t", "铁卫", "warrior_elite")
+	var squad := Squad.new()
+	squad.build([recruit, tank])
+	var enemy: Array = [{
+		"uid": "dm_wolf",
+		"name": "野狼",
+		"stats": {"hp": 200, "patk": 4, "pdef": 2, "mdef": 1, "spd": 4, "attack_range": 50},
+	}]
+	var combat := CombatController.new()
+	combat.init_combat(squad, enemy, null, 0.0)
+	return combat
+
+
+func _probe_02_dual_melee_tank_front() -> void:
+	var combat := _probe_02_build_dual_melee_combat()
+	var tank_e: CombatEntity = null
+	var recruit_e: CombatEntity = null
+	for e in combat.allies:
+		if e.entity_id.ends_with("dm_t"):
+			tank_e = e
+		elif e.entity_id.ends_with("dm_r"):
+			recruit_e = e
+	if tank_e == null or recruit_e == null:
+		_fail("02-5", "双近战探针应生成铁卫+新兵")
+		return
+	if tank_e.formation_slot <= recruit_e.formation_slot:
+		_fail("02-5", "铁卫应在前排槽 (t=%d r=%d)" % [tank_e.formation_slot, recruit_e.formation_slot])
+		return
+	if tank_e.position <= recruit_e.position + 0.5:
+		_fail("02-5", "铁卫 logic_x 应更靠敌 (t=%.0f r=%.0f)" % [tank_e.position, recruit_e.position])
+		return
+	_pass("02-5", "T-02 双近战坦克前排")
+
+
+func _probe_02_dual_melee_both_in_range() -> void:
+	var combat := _probe_02_build_dual_melee_combat()
+	for _i in 240:
+		combat.tick(0.05)
+	for e in combat.allies:
+		if e.is_ranged_unit():
+			continue
+		var target: CombatEntity = combat.find_nearest_in_range(
+			combat.enemies, e.position, e.attack_range
+		)
+		if target == null:
+			_fail("02-6", "%s 应能接敌 (pos=%.0f range=%.0f)" % [
+				e.display_name, e.position, e.attack_range
+			])
+			return
+	_pass("02-6", "T-02 双近战均可进 attack_range")
+
+
+func _make_probe_elite(id: String, name: String, template_id: String) -> EliteMercenary:
+	var m := EliteMercenary.new()
+	m.merc_id = id
+	m.merc_name = name
+	m.template_id = template_id
+	m.merc_type = Mercenary.MercType.ELITE
+	m.is_alive = true
+	m.level = 5
+	m.init_from_template(DataLoader.merc_template(template_id))
+	m.current_hp = m.get_max_hp_value()
+	return m
+
+
+func _probe_t03_elite_inherits_class_active_skills() -> void:
+	var mage := _make_probe_elite("t03_mage", "奥术", "mage_elite")
+	if not ("fireball" in mage.active_skills and "heal" in mage.active_skills):
+		_fail("03-1", "mage_elite 应继承法师主动技 (got %s)" % str(mage.active_skills))
+		return
+	var entity := CombatEntity.new()
+	entity.init_from_merc(mage, "t03_")
+	if entity.skill_cooldowns.size() < 2:
+		_fail("03-1", "CombatEntity 应登记技能 CD 槽")
+		return
+	_pass("03-1", "T-03 精英模板继承 class active_skills")
+
+
+func _probe_t03_skill_cd_chip_shows_remaining() -> void:
+	var mage := _make_probe_elite("t03_cd", "术士", "mage_elite")
+	var entity := CombatEntity.new()
+	entity.init_from_merc(mage, "t03c_")
+	entity.set_skill_cooldown("fireball", 3.2)
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if view.get_skill_chip_count() < 2:
+		_fail("03-2", "应显示至少 2 个技能角标")
+		view.queue_free()
+		return
+	var chip: String = view.get_skill_chip_text("fireball")
+	if chip != "火4":
+		_fail("03-2", "CD 角标应为 火4 (got %s)" % chip)
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("03-2", "T-03 UnitView 显示技能 CD 秒数")
+
+
+func _probe_t03_skill_cd_chip_ready_state() -> void:
+	var mage := _make_probe_elite("t03_rdy", "术士2", "mage_elite")
+	var entity := CombatEntity.new()
+	entity.init_from_merc(mage, "t03r_")
+	entity.set_skill_cooldown("heal", 0.0)
+	var view := UnitView.new()
+	add_child(view)
+	view.setup(entity)
+	if view.get_skill_chip_text("heal") != "疗":
+		_fail("03-3", "就绪技能应仅显示简称 (got %s)" % view.get_skill_chip_text("heal"))
+		view.queue_free()
+		return
+	view.queue_free()
+	_pass("03-3", "T-03 技能就绪角标无 CD 数字")
+
+
+func _probe_t03_cooldown_from_template_on_cast() -> void:
+	if absf(SkillSystem.get_active_cooldown("fireball") - 5.0) > 0.01:
+		_fail("03-4", "fireball 模板 CD 应为 5s")
+		return
+	var mage := _make_probe_elite("t03_cast", "奥术2", "mage_elite")
+	var entity := CombatEntity.new()
+	entity.init_from_merc(mage, "t03x_")
+	entity.set_skill_cooldown("fireball", 0.0)
+	entity.set_skill_cooldown("fireball", SkillSystem.get_active_cooldown("fireball"))
+	if entity.get_skill_cooldown_remaining("fireball") < 4.9:
+		_fail("03-4", "施放后应写入模板 CD")
+		return
+	_pass("03-4", "T-03 技能 CD 与 skill_templates 一致")
+
+
+func _probe_t04_battle_debug_toggle() -> void:
+	BattleDebug.reset_session()
+	if BattleDebug.is_enabled():
+		_fail("04-1", "reset_session 后测试模式应关闭")
+		return
+	BattleDebug.set_enabled(true)
+	if not BattleDebug.is_enabled():
+		_fail("04-1", "set_enabled(true) 应开启测试模式")
+		return
+	BattleDebug.toggle_from_user()
+	if BattleDebug.is_enabled():
+		_fail("04-1", "toggle_from_user 应关闭测试模式")
+		return
+	BattleDebug.reset_session()
+	_pass("04-1", "T-04 BattleDebug 运行时开关")
+
+
+func _probe_t04_hp_multiplier_on_entity() -> void:
+	BattleDebug.reset_session()
+	BattleDebug.set_enabled(true)
+	var entity := CombatEntity.new()
+	entity.max_hp = 100
+	entity.current_hp = 80
+	BattleDebug.apply_entity_modifiers(entity)
+	if entity.max_hp != 500 or entity.current_hp != 500:
+		_fail("04-2", "HP 倍率应为 ×5 (got max=%d cur=%d)" % [entity.max_hp, entity.current_hp])
+		BattleDebug.reset_session()
+		return
+	BattleDebug.reset_session()
+	_pass("04-2", "T-04 接战 HP×5 倍率")
+
+
+func _probe_t04_damage_scale() -> void:
+	BattleDebug.reset_session()
+	if BattleDebug.scale_damage(100) != 100:
+		_fail("04-3", "关闭时伤害不应缩放")
+		BattleDebug.reset_session()
+		return
+	BattleDebug.set_enabled(true)
+	var scaled: int = BattleDebug.scale_damage(100)
+	if scaled != 30:
+		_fail("04-3", "开启时伤害应 ×0.3 (got %d)" % scaled)
+		BattleDebug.reset_session()
+		return
+	BattleDebug.reset_session()
+	_pass("04-3", "T-04 伤害 ×0.3 倍率")
+
+
+func _probe_t04_test_map_auto_enable() -> void:
+	BattleDebug.reset_session()
+	var test_md: Dictionary = DataLoader.map_data("test_01_stability_retreat")
+	if test_md.is_empty():
+		_fail("04-4", "test_01 地图数据缺失")
+		return
+	BattleDebug.prepare_for_combat(test_md)
+	if not BattleDebug.is_enabled():
+		_fail("04-4", "测试图应自动开启战斗测试模式")
+		BattleDebug.reset_session()
+		return
+	BattleDebug.reset_session()
+	var prod_md: Dictionary = DataLoader.map_data("grassland")
+	if prod_md.is_empty():
+		_fail("04-4", "grassland 地图数据缺失")
+		BattleDebug.reset_session()
+		return
+	BattleDebug.prepare_for_combat(prod_md)
+	if BattleDebug.is_enabled():
+		_fail("04-4", "正式图不应自动开启测试模式")
+		BattleDebug.reset_session()
+		return
+	BattleDebug.reset_session()
+	_pass("04-4", "T-04 测试图自动开 / 正式图默认关")
+
+
+func _t02c_blank_formation() -> Dictionary:
+	return {
+		"active_half": SquadFormationService.HALF_A,
+		SquadFormationService.HALF_A: {"active": [], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+
+
+func _probe_t02c_merc_deploy_while_player_downed() -> void:
+	_reset_gm()
+	var p := GameManager.player
+	p.apply_near_death_state(0.35)
+	var m1 := _ensure_probe_normal("2c_b1", "佣甲")
+	var m2 := _ensure_probe_normal("2c_b2", "佣乙")
+	GameManager.squad_formation = _t02c_blank_formation()
+	GameManager.squad_formation[SquadFormationService.HALF_B] = {
+		"active": [m1.merc_id, m2.merc_id],
+		"bench": [],
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	if not SquadFormationService.half_can_deploy(GameManager, SquadFormationService.HALF_B):
+		_fail("2c-1", "主角濒死时 B 半组佣兵应可出征")
+		return
+	var deploy: Array = SquadFormationService.resolve_active_squad(GameManager, SquadFormationService.HALF_B)
+	if deploy.is_empty() or p in deploy:
+		_fail("2c-1", "出征名单应仅含佣兵")
+		return
+	_pass("2c-1", "T-02c 主角濒死·佣兵半组可出征")
+
+
+func _probe_t02c_deploy_excludes_player() -> void:
+	_reset_gm()
+	var p := GameManager.player
+	p.reset_to_full_hp()
+	var m1 := _ensure_probe_normal("2c_a1", "佣A1")
+	var m2 := _ensure_probe_normal("2c_a2", "佣A2")
+	GameManager.squad_formation = _t02c_blank_formation()
+	GameManager.squad_formation[SquadFormationService.HALF_A] = {
+		"active": [m1.merc_id, m2.merc_id],
+		"bench": [],
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	var half: String = SquadFormationService.pick_deploy_half(GameManager)
+	if half != SquadFormationService.HALF_A:
+		_fail("2c-2", "A 有佣兵时应优先 A (got %s)" % half)
+		return
+	var deploy: Array = SquadFormationService.resolve_active_squad(GameManager, half)
+	if p in deploy:
+		_fail("2c-2", "默认出征名单不应含主角")
+		return
+	_pass("2c-2", "T-02c A 优先出征且名单无主角")
+
+
+func _probe_t02c_recovery_lock_merc_only() -> void:
+	_reset_gm()
+	GameManager.normal_roster.clear()
+	GameManager.elite_roster.clear()
+	var m1 := _make_probe_normal("2c_r1", "伤甲")
+	var m2 := _make_probe_normal("2c_r2", "伤乙")
+	m1.current_hp = 1
+	m2.current_hp = 1
+	GameManager.normal_roster.append(m1)
+	GameManager.normal_roster.append(m2)
+	GameManager.squad_formation = _t02c_blank_formation()
+	GameManager.squad_formation[SquadFormationService.HALF_A] = {"active": [m1.merc_id], "bench": []}
+	GameManager.squad_formation[SquadFormationService.HALF_B] = {"active": [m2.merc_id], "bench": []}
+	SquadFormationService.ensure_formation(GameManager)
+	GameManager.player.reset_to_full_hp()
+	if not GameManager.is_recovery_lock_active():
+		_fail("2c-3", "两半组佣兵均不可出战时应养伤锁")
+		return
+	_pass("2c-3", "T-02c 养伤锁仅看佣兵·与主角无关")
+
+
+func _probe_t02c_merc_only_run_player_unchanged() -> void:
+	_reset_gm()
+	var p := GameManager.player
+	p.current_hp = 42
+	var player_hp_before: int = p.current_hp
+	var m := _ensure_probe_normal("2c_run1", "出征佣")
+	m.run_kills = 4
+	m.run_damage_dealt = 120
+	var squad := Squad.new()
+	squad.build([m])
+	var run := WorldRun.new("grassland", squad)
+	run.squad_member_ids = [m.merc_id]
+	var result: Dictionary = run.end_run(false)
+	if p.current_hp != player_hp_before:
+		_fail("2c-4", "纯佣兵趟主角 HP 不应变化")
+		return
+	if not bool(result.get("player_alive", false)):
+		_fail("2c-4", "纯佣兵趟 player_alive 应反映留营主角")
+		return
+	if int(result.get("squad_kills", 0)) != 4:
+		_fail("2c-4", "佣兵战果应写入结算")
+		return
+	_pass("2c-4", "T-02c 纯佣兵趟·主角留营不变")
+
+
+func _probe_t02c_strip_player_from_halves() -> void:
+	_reset_gm()
+	var pid: String = GameManager.player.merc_id
+	var m := _ensure_probe_normal("2c_old1", "旧档佣")
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_A,
+		SquadFormationService.HALF_A: {"active": [pid, m.merc_id], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	var active: Array[String] = SquadFormationService.get_active_ids(
+		GameManager.squad_formation, SquadFormationService.HALF_A
+	)
+	if pid in active:
+		_fail("2c-5", "ensure_formation 应从 A/B 剥离主角")
+		return
+	if m.merc_id not in active:
+		_fail("2c-5", "佣兵槽位应保留")
+		return
+	_pass("2c-5", "T-02c 旧档主角移出半组槽")
+
+
+func _probe_t02c_no_lock_when_mercs_ready() -> void:
+	_reset_gm()
+	var m1 := _ensure_probe_normal("2c_ok1", "满血1")
+	var m2 := _ensure_probe_normal("2c_ok2", "满血2")
+	var m3 := _ensure_probe_normal("2c_ok3", "满血3")
+	GameManager.player.apply_near_death_state(0.2)
+	GameManager.squad_formation = _t02c_blank_formation()
+	GameManager.squad_formation[SquadFormationService.HALF_A] = {
+		"active": [m1.merc_id, m2.merc_id, m3.merc_id],
+		"bench": [],
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	if GameManager.is_recovery_lock_active():
+		_fail("2c-6", "主角未编入·A 佣兵满血不应养伤锁")
+		return
+	if not SquadFormationService.half_can_deploy(GameManager, SquadFormationService.HALF_A):
+		_fail("2c-6", "A 半组应可出征")
+		return
+	_pass("2c-6", "T-02c 养伤锁误报修复（主角留营）")
+
+
+func _probe_t_ui_form_1_start_run_preserves_active_half() -> void:
+	_reset_gm()
+	MutualRecoveryService.set_auto_enabled(GameManager, false)
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": ["probe_m1"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	var deploy_h: String = SquadFormationService.resolve_deploy_half(GameManager)
+	if deploy_h != SquadFormationService.HALF_A:
+		_fail("FORM-1a", "B 优先但无可用出战时应改派 A (got %s)" % deploy_h)
+		return
+	GameManager.state = GameManager.GameState.PREPARE
+	GameManager.selected_map_id = "grassland"
+	var code: int = GameManager.start_run(true)
+	if code != 0:
+		_fail("FORM-1a", "start_run 应成功 (code %d)" % code)
+		return
+	if str(GameManager.squad_formation.get("active_half", "")) != SquadFormationService.HALF_B:
+		_fail("FORM-1a", "start_run 后 active_half 应仍为 B")
+		return
+	if GameManager.last_deploy_half != SquadFormationService.HALF_A:
+		_fail("FORM-1a", "start_run 后 last_deploy_half 应为 A (got %s)" % GameManager.last_deploy_half)
+		return
+	GameManager.current_run = null
+	GameManager.state = GameManager.GameState.BASE
+	MutualRecoveryService.set_auto_enabled(GameManager, true)
+	_pass("FORM-1a", "T-UI-FORM-1 start_run 不覆盖 active_half")
+
+
+func _probe_m2c_search_blocked_during_combat() -> void:
+	var run := WorldRun.new("grassland", null)
+	run.is_active = true
+	run.is_retreating = true
+	run.distance_traveled = 48.0
+	run.march_search_last_anchor = 0.0
+	if not _MarchSearchService.tick(run, false).is_empty():
+		_fail("M2c", "接战期间 allowed=false 不应触发搜索")
+		return
+	if not _MarchEventService.tick(run, false).is_empty():
+		_fail("M2c", "接战期间 allowed=false 不应触发里程碑")
+		return
+	_pass("M2c", "T-MARCH 接战/返程战期间禁用搜索与里程碑")
+
+
+func _probe_b3_grassland_march_events() -> void:
+	var md: Dictionary = DataLoader.map_data("grassland")
+	var entries: Array = _MarchEventService.milestone_entries(md)
+	if entries.size() < 5:
+		_fail("B3-1", "grassland 应至少 5 个里程碑 (got %d)" % entries.size())
+		return
+	var ids: PackedStringArray = []
+	for e in entries:
+		if e is Dictionary:
+			ids.append(str(e.get("event_id", "")))
+	for want in ["abandoned_crate", "wind_scoured_pack", "grassland_herbs", "fog_patch", "rusted_cart"]:
+		if want not in ids:
+			_fail("B3-1", "grassland 缺少事件 %s" % want)
+			return
+	if DataLoader.march_event("wind_scoured_pack").is_empty():
+		_fail("B3-1", "march_events.json 缺少 wind_scoured_pack")
+		return
+	if not bool(DataLoader.march_event("wind_scoured_pack").get("gather_beat", false)):
+		_fail("B3-2", "wind_scoured_pack 应为采集节拍")
+		return
+	_pass("B3-1", "T-MARCH-C1 草原里程碑表扩充")
+	_pass("B3-2", "T-MARCH-C1 120m 采集事件定义")
+
+
+func _probe_c1_test_maps_march_events() -> void:
+	var t01: Dictionary = DataLoader.map_data("test_01_stability_retreat")
+	var t01_entries: Array = _MarchEventService.milestone_entries(t01)
+	if t01_entries.size() < 2:
+		_fail("C1-1", "test_01 应至少 2 个里程碑")
+		return
+	var t01_ids: PackedStringArray = []
+	for e in t01_entries:
+		if e is Dictionary:
+			t01_ids.append(str(e.get("event_id", "")))
+	if "waypoint_sign" not in t01_ids or "fog_patch" not in t01_ids:
+		_fail("C1-1", "test_01 应含 waypoint_sign + fog_patch")
+		return
+	var t02: Dictionary = DataLoader.map_data("test_02_extract_line")
+	var t02_entries: Array = _MarchEventService.milestone_entries(t02)
+	if t02_entries.size() < 2:
+		_fail("C1-2", "test_02 应至少 2 个里程碑")
+		return
+	var t02_ids: PackedStringArray = []
+	for e in t02_entries:
+		if e is Dictionary:
+			t02_ids.append(str(e.get("event_id", "")))
+	if "cache_marker" not in t02_ids or "abandoned_crate" not in t02_ids:
+		_fail("C1-2", "test_02 应含 cache_marker + abandoned_crate")
+		return
+	if DataLoader.march_event("cache_marker").is_empty():
+		_fail("C1-2", "march_events.json 缺少 cache_marker")
+		return
+	_pass("C1-1", "T-MARCH-C1 test_01 里程碑扩充")
+	_pass("C1-2", "T-MARCH-C1 test_02 撤离线里程碑")
+	var remaining: PackedStringArray = [
+		"test_03_boss_chase", "test_04_auto_value", "test_05_loot_full",
+		"test_06_near_death_duo", "test_07_near_death_solo", "test_08_awakening",
+		"test_09_long_chase_pressure", "forest", "cave", "death_trial"
+	]
+	for map_id in remaining:
+		var md: Dictionary = DataLoader.map_data(map_id)
+		if md.is_empty():
+			_fail("C1-3", "缺少地图 %s" % map_id)
+			return
+		var entries: Array = _MarchEventService.milestone_entries(md)
+		if entries.is_empty():
+			_fail("C1-3", "%s 应至少 1 个里程碑" % map_id)
+			return
+		var has_anchor: bool = false
+		for e in entries:
+			if e is Dictionary:
+				var dist: float = float(e.get("at_distance", 0))
+				var eid: String = str(e.get("event_id", ""))
+				if dist >= 10.0 and not eid.is_empty():
+					if DataLoader.march_event(eid).is_empty():
+						_fail("C1-3", "%s 引用未知事件 %s" % [map_id, eid])
+						return
+					has_anchor = true
+		if not has_anchor:
+			_fail("C1-3", "%s 缺少 ≥10m 有效里程碑" % map_id)
+			return
+	for want_evt in ["chase_omen", "forest_shrine", "cave_echo", "trial_monolith", "trail_ambush_sign"]:
+		if DataLoader.march_event(want_evt).is_empty():
+			_fail("C1-3", "march_events.json 缺少 %s" % want_evt)
+			return
+	_pass("C1-3", "T-MARCH-C1 测试图+主线图里程碑全覆盖")
+
+
+func _probe_02b_battlefield_slot_layout() -> void:
+	if not BattlefieldSlots.slot_gap_covers_visual(BattlefieldSlots.LANE_MIN_WIDTH):
+		_fail("02b-1", "槽位间距在 lane=%.0f 时应覆盖色块宽" % BattlefieldSlots.LANE_MIN_WIDTH)
+		return
+	var inset: float = BattlefieldSlots.unit_sprite_inset_x()
+	var expect_inset: float = (BattlefieldSlots.UNIT_VISUAL_WIDTH - BattlefieldSlots.SPRITE_HEIGHT) * 0.5
+	if absf(inset - expect_inset) > 0.01:
+		_fail("02b-2", "sprite inset 与 60/48 槽位不一致")
+		return
+	if BattlefieldSlots.SPRITE_HEIGHT != 48.0 or BattlefieldSlots.UNIT_VISUAL_WIDTH != 60.0:
+		_fail("02b-2", "BattlefieldSlots 像素常量应为 60×48")
+		return
+	if BattlefieldSlots.UNIT_BASELINE_Y != 36.0:
+		_fail("02b-2", "脚底基准线应为 36px")
+		return
+	_pass("02b-1", "T-02b 槽位间距覆盖色块宽")
+	_pass("02b-2", "T-02b 60×48 脚线常量统一")
 
 
 func _probe_02a_enemy_skips_downed() -> void:

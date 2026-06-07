@@ -1,6 +1,6 @@
 class_name FormationSlotCard
 extends PanelContainer
-## T-UI-B3 · 编组槽位卡牌（出战/替补）
+## T-UI-B3 · 编组槽位卡牌（出战/替补）— 点击/拖拽/投放
 
 const CARD_MIN_H := 40
 
@@ -14,7 +14,10 @@ var _role_lbl: Label = null
 var _name_lbl: Label = null
 var _hp_bar: ProgressBar = null
 var _badge_lbl: Label = null
-var _hit_btn: Button = null
+var _press_pos: Vector2 = Vector2.ZERO
+var _drag_started: bool = false
+
+const DRAG_THRESHOLD := 10.0
 
 
 func _ready() -> void:
@@ -36,13 +39,13 @@ func apply_slot(
 	panel_bg: Color
 ) -> void:
 	for c in get_children():
-		c.queue_free()
+		remove_child(c)
+		c.free()
 	_accent = null
 	_role_lbl = null
 	_name_lbl = null
 	_hp_bar = null
 	_badge_lbl = null
-	_hit_btn = null
 
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -65,12 +68,14 @@ func apply_slot(
 
 	var title_row := HBoxContainer.new()
 	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(title_row)
 
 	_role_lbl = Label.new()
 	_role_lbl.text = "%s%d" % ["战" if kind == "active" else "替", index + 1]
 	_role_lbl.add_theme_font_size_override("font_size", 10)
 	_role_lbl.modulate = Color(0.6, 0.72, 0.85)
+	_role_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(_role_lbl)
 
 	_name_lbl = Label.new()
@@ -78,12 +83,25 @@ func apply_slot(
 	_name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_lbl.add_theme_font_size_override("font_size", 12)
 	_name_lbl.clip_text = true
+	_name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(_name_lbl)
 
 	_badge_lbl = Label.new()
 	_badge_lbl.text = badge_text
 	_badge_lbl.add_theme_font_size_override("font_size", 10)
+	_badge_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(_badge_lbl)
+
+	if merc_id != "":
+		var rm := Button.new()
+		rm.name = "SlotRemoveBtn"
+		rm.text = "×"
+		rm.tooltip_text = "移出至未编入"
+		rm.custom_minimum_size = Vector2(28, 22)
+		rm.add_theme_font_size_override("font_size", 12)
+		rm.mouse_filter = Control.MOUSE_FILTER_STOP
+		rm.pressed.connect(func(): call_deferred("_on_remove_pressed"))
+		title_row.add_child(rm)
 
 	_hp_bar = ProgressBar.new()
 	_hp_bar.name = "SlotHpBar"
@@ -118,12 +136,51 @@ func apply_slot(
 		panel.border_color = Color(0.4, 0.9, 0.65)
 	add_theme_stylebox_override("panel", panel)
 
-	_hit_btn = Button.new()
-	_hit_btn.flat = true
-	_hit_btn.mouse_filter = Control.MOUSE_FILTER_STOP
-	_hit_btn.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_hit_btn)
-	_hit_btn.pressed.connect(_on_hit_pressed)
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			call_deferred("_on_remove_pressed")
+			accept_event()
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_press_pos = event.position
+				_drag_started = false
+			elif not _drag_started and not _local_point_over_child_button(event.position):
+				call_deferred("_on_hit_pressed")
+			accept_event()
+	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		if _drag_started or _local_point_over_child_button(_press_pos):
+			return
+		if _press_pos.distance_to(event.position) < DRAG_THRESHOLD:
+			return
+		var data: Variant = _build_drag_payload()
+		if data == null:
+			return
+		_drag_started = true
+		var m := GameManager.find_mercenary_by_id(str(data.get("merc_id", "")))
+		var preview := Label.new()
+		preview.text = m.merc_name if m else str(data.get("merc_id", ""))
+		preview.modulate = Color(0.7, 1.0, 0.85)
+		force_drag(data, preview)
+		accept_event()
+
+
+func _local_point_over_child_button(local_pos: Vector2) -> bool:
+	var global_mp: Vector2 = get_global_transform() * local_pos
+	for btn in _descendant_buttons(self):
+		if btn is Control and (btn as Control).get_global_rect().has_point(global_mp):
+			return true
+	return false
+
+
+func _descendant_buttons(node: Node) -> Array:
+	var out: Array = []
+	if node is BaseButton:
+		out.append(node)
+	for child in node.get_children():
+		out.append_array(_descendant_buttons(child))
+	return out
 
 
 func _on_hit_pressed() -> void:
@@ -131,17 +188,18 @@ func _on_hit_pressed() -> void:
 		formation_ui._on_slot_pressed(slot_half, slot_kind, slot_index)
 
 
-func _get_drag_data(_at_position: Vector2) -> Variant:
+func _on_remove_pressed() -> void:
+	if formation_ui == null or not formation_ui.has_method("_clear_slot"):
+		return
+	formation_ui._clear_slot(slot_half, slot_kind, slot_index)
+
+
+func _build_drag_payload() -> Variant:
 	if formation_ui == null or not formation_ui.has_method("_get_slot_merc_id"):
 		return null
 	var merc_id: String = formation_ui._get_slot_merc_id(slot_half, slot_kind, slot_index)
 	if merc_id == "":
 		return null
-	var m := GameManager.find_mercenary_by_id(merc_id)
-	var preview := Label.new()
-	preview.text = m.merc_name if m else merc_id
-	preview.modulate = Color(0.7, 1.0, 0.85)
-	set_drag_preview(preview)
 	return {
 		"merc_id": merc_id,
 		"half": slot_half,
@@ -157,10 +215,3 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	if formation_ui != null and formation_ui.has_method("_handle_slot_drop"):
 		formation_ui._handle_slot_drop(slot_half, slot_kind, slot_index, data)
-
-
-func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		if formation_ui != null and formation_ui.has_method("_clear_slot"):
-			formation_ui._clear_slot(slot_half, slot_kind, slot_index)
-		accept_event()

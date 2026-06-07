@@ -1,7 +1,7 @@
 # 项目状态（PROJECT_STATUS）
 
-> **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → 最近 worklog。  
-> 最后更新：2026-06-06（**T-02a F5 YES** · headless **88 PASS** · 下一项 **T-01**）
+> **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → [EXTERNAL_AI_BRIEF.md](EXTERNAL_AI_BRIEF.md)（外部评审用）→ 最近 worklog。  
+> 最后更新：2026-06-06（**A 线 F5 进行中** · headless **122 PASS** · 测试档已注入槽位 1）
 
 ### CTO 结论（对齐版）
 
@@ -12,6 +12,133 @@
 | **跑图 MARCH** | ✅ M1～M3 + V1～V3；**F5 test_01 搜索+接战冻结 YES** |
 | **美术** | ✅ **FW-1～3**（manifest 可挂真图；战斗区仍占位色块属预期） |
 | **探针日** | ✅ **冒烟收盘**（见下表）；**延期**：test_03 F5、grassland 80m、MIA、T-02a |
+
+---
+
+## 开发工作安排（Dev Sprint · 2026-06-06 起）
+
+> **复制本节前四节即可发给开发。** 细则探针见本文 §当前任务、§T-06、§T-MARCH、[design-combat-stack.md](design-combat-stack.md)。
+
+### Sprint 目标（约 2 周）
+
+1. **收口 F5**：战斗包 + 环 1 + MIA 肉眼验收，CTO 可签字。  
+2. **不新开玩法代码**：逻辑已 YES 的项只补测/修 bug，不扩 scope。  
+3. **内容填充**：跑图事件表、manifest 真图（可与程序并行）。  
+4. **日常**：`test_03` + `test_01` 冒烟；合码前 `MiaPhase1Probe` **122 PASS**。
+
+### 三线分工
+
+| 线 | 谁 | 做什么 | 产出 |
+|----|-----|--------|------|
+| **A · 验收** | 你 / QA | F5 探针日 + 延期包 | worklog 勾选 + CTO YES |
+| **B · 程序** | Dev Agent | 探针缺口、headless 补探针、文档债、**不修已 YES 逻辑** | 小 PR / 单 TASK |
+| **C · 内容** | 你 + 美术 | `march_events.json`、地图里程碑、`art/` 挂 manifest | 无需改 Combat 公式 |
+| **D · 编队** | Dev Agent | **T-UI-FORM-1～4**（双半组语义） | 见 §T-UI-FORM |
+
+### 当前程序指针（编队专题）
+
+| 顺序 | ID | 状态 |
+|------|-----|------|
+| 1 | **T-UI-FORM-1** | 📋 下一开发 |
+| 2 | T-UI-FORM-2 | 待排（门禁 FORM-1） |
+| 3 | T-UI-FORM-3 | 待排 |
+| 4 | T-UI-FORM-4 | 待排 |
+| — | T-UI-FORM-F5 | 你/QA 并行验收备战 UI |
+
+产品定案：[design-expedition-meta.md](design-expedition-meta.md) §双半组语义。
+
+### 第 1 周（优先）
+
+| 天 | A 线（F5） | B 线（程序，A 空档可做） |
+|----|------------|---------------------------|
+| **D1** | 批次 **AB**：T-02c 纯佣兵出征 + T-01 套装 N/M | ⏸ `git` push 待用户 · headless ✅ |
+| **D2** | 批次 **AB**：T-04 测试开关 + T-03 技能角标 | ✅ **B-1 M2c** |
+| **D3** | 批次 **C**：`test_03` 环 1 五探针 + `run_probe.log` | ✅ **B-2** UI 审计 |
+| **D4** | `grassland` 推到 80m 里程碑/采集 | ✅ **B-3** 草原事件 |
+| **D5** | `test_09` MIA 冒烟（不全线也可） | ✅ **B-5** worklog 登记（见 `worklogs/2026-06-06.md`） |
+
+### 第 2 周（F5 收口后）
+
+| 优先级 | ID | 名称 | 门禁 |
+|--------|-----|------|------|
+| P0 | **T-MIA-F5** | MIA 全线 F5（test_09 + 回收/压力） | T-MIA 逻辑齐 |
+| P1 | **T-MARCH-C1** | 跑图事件内容池扩充 | ✅ C1-1～C1-3 · grassland + test_01～09 + forest/cave/death_trial |
+| P1 | **T-ART-C1** | manifest 挂真图（行军/接战各 1 套） | FW-3 YES |
+| P2 | **T-02b** | CombatView 槽位/脚线统一 | ✅ 02b-1～02b-2 · F5 延期 |
+| — | **design-meta-base** | 局外成长占位填初稿 | CTO 讨论，非代码 |
+
+### 单 TASK 卡片（当前唯一程序指针 = 验收；B 线从下列选）
+
+#### 【A-1】F5 · 战斗/大营包（P0 · 你或 QA）
+
+| 项 | 内容 |
+|----|------|
+| **范围** | T-01 · T-02c · T-03 · T-04 |
+| **步骤** | 见 [design-combat-stack.md](design-combat-stack.md) §八 + 本文 §当前任务 |
+| **通过** | 四项 F5 勾选；不回归 T-06（已 YES） |
+| **禁止** | 改 `combat_controller` 伤害/选目标 |
+
+#### 【A-2】F5 · 环 1 + MARCH（P0 · 延期包）
+
+| 项 | 内容 |
+|----|------|
+| **test_03** | 追击接战无小怪插队；顶栏距离冻结；胜后无链战 |
+| **grassland 80m** | 里程碑标记 + 采集短停（可选 loot 事件） |
+| **test_01** | 接战期间无【搜索】飘字（已冒烟可速验） |
+| **日志** | 跑完 test_03 读 `%APPDATA%\Godot\app_userdata\TBH Idle RPG\run_probe.log` |
+
+#### 【A-3】F5 · MIA（P1）
+
+| 项 | 内容 |
+|----|------|
+| **图** | `test_09` 为主；辅以 test_07/灭团场景 |
+| **文档** | [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) §验收 |
+| **禁止** | 为通过 F5 改 MIA 数值铁律 |
+
+#### 【B-1】headless · M2c 搜索冻结（P1 · Dev · ✅ 2026-06-06）
+
+| 项 | 内容 |
+|----|------|
+| **交付** | `run_driver.gd`：`march_allowed = world_run_ticked && !接战`；探针 **M2c** PASS |
+| **不动** | `WorldRun` 刷怪公式 · V4 返程接战视差仍 tick |
+
+#### 【B-2】文档 · UI 审计同步（P2 · Dev · ✅ 2026-06-06）
+
+| 项 | 内容 |
+|----|------|
+| **交付** | `UI_SUBSYSTEM_AUDIT.md` §〇 状态表 + §三/§六/§八/§九 同步 T-01/T-03/T-06/T-04/T-02c |
+| **不动** | 玩法代码 |
+
+#### 【B-3】内容 · 草原里程碑（P1 · Dev · ✅ 2026-06-06）
+
+| 项 | 内容 |
+|----|------|
+| **交付** | `march_events.json` +3 条；grassland `80/120/165/200m`；探针 B3-1/B3-2 |
+| **验收** | F5 grassland 80m 遗弃箱 + 120m 采集（A 线 D4） |
+
+### 开发铁律（违反即拒 PR）
+
+1. **单会话一次一 TASK** — 见 [TASK_PROTOCOL.md](TASK_PROTOCOL.md)。  
+2. **属性只走 StatResolver**；RUNNING 不存档。  
+3. **CombatController 不加** `boss_chase` / `is_chase_encounter`。  
+4. **CombatView 不改** 伤害、CD、胜负。  
+5. **环 1 test_03 五探针未 F5 YES 前**，不排新战斗机制（T-02 已 YES，勿再大改远程）。
+
+### 每日节奏
+
+```
+开工 → test_03 或 test_01 冒烟（5 min）
+     → 做当日 TASK 卡片一项
+     → 若改 scripts → MiaPhase1Probe 全表
+     → worklog 记一条（完成内容 / 探针 / 是否进入下一项）
+```
+
+### 合码检查清单
+
+- [x] `MiaPhase1Probe` **117 PASS**（0 FAIL）  
+- [ ] 未改 `SAVE_FORMAT` 字段（除非 T-MIA CTO 授权）  
+- [ ] `PROJECT_STATUS` 当前指针已更新  
+- [ ] F5 项在 worklog 有 `[ ]` → `[x]` 或明确延期原因  
 
 ---
 
@@ -29,20 +156,28 @@
 | **T-MARCH** | **M1～M3 + V1～V3** 搜索/里程碑/采集/返程池 | **77 PASS**（M2/MV2/MV3/M3）；F5 探针日 |
 | **T-MIA** | 0～2 ✅；3/4 + P2～P5 逻辑齐 | MiaPhase1Probe；**待 F5** |
 
-### 当前开发指针（唯一）
+### 接战分层（T-REFACTOR 已收口）
 
-| 项 | 值 |
-|----|-----|
-| **ID** | **`T-01`** |
-| **名称** | 套装 → StatResolver + UI N/M |
-| **门禁** | **T-02a YES** ✅（F5 test_06 · 2026-06-06） |
-| **不动** | 濒死站位逻辑（T-02a 已封）· 远程大改留 T-02 |
+`EncounterSession` → `CombatMovementPolicy` → `CombatController` → `CombatView` / `UnitView`  
+属性仍经 **StatResolver**（§一）；接战结局不进 Controller 分支（§三）。
 
-### 排队
+### 当前开发指针（战斗专题 · 顺序固定）
 
-1. **T-06** Buff / 觉醒头标（T-02a YES 后）  
-2. **T-02** 远程后排调参  
-3. F5 补测：`test_03` · `grassland` 80m · MIA `test_09`
+| # | ID | 动作 | 范围 | 禁止 |
+|---|-----|------|------|------|
+| **1** | **T-01 / T-03 / T-04** | **F5 补测批次** | 套装 · 技能角标 · 战斗测试模式 | 逻辑均已 YES |
+
+**T-02c**：2c-1～2c-6 headless ✅ · **F5 YES**（D1 战略核心留营 · 半组 A 可出战）
+
+**T-04**：04a～04d headless ✅ · **待 F5/CTO**（测试图自动 ON；工具栏「测试 OFF/ON」切换）
+
+**T-03**：03a～03d headless ✅ · **待 F5/CTO**（法师/游侠技能角标：青=就绪 · 橙=CD 秒）
+
+**T-06**：06a～06d headless ✅ · **F5 `test_08` CTO YES** ✅（用户确认）
+
+### 并行（不占指针）
+
+- F5 补测：`test_03` · `grassland` 80m · MIA `test_09` · T-01 套装穿脱
 
 ### 并行 CTO 验收（不占开发指针 · 建议半日「探针日」）
 
@@ -57,7 +192,7 @@
 ### 运维
 
 - 日常冒烟：**`test_03` + `test_01`**；不必每日全跑 MiaPhase1Probe。  
-- headless 回归：`MiaPhase1Probe.tscn` → **85 PASS**（含 FW3）。
+- headless 回归：`MiaPhase1Probe.tscn` → **119 PASS**（含 C1 · B3 · M2c · 02a）。
 
 ---
 
@@ -68,7 +203,7 @@
 **Sprint 大营壳** — **T-UI-B1～B4 ✅**（逻辑 + F5 冒烟）  
 **探针日** — ✅ **冒烟收盘**（2026-06-06 · 用户 F5 test_01）
 
-- **当前**：**T-01** 套装（T-02a ✅ 已解暂停）。
+- **当前**：**F5 探针日补测**（T-02c / T-03 / T-04 / T-01 逻辑均已 YES）。战斗地图见 [design-combat-stack.md](design-combat-stack.md)。
 
 ---
 
@@ -76,11 +211,51 @@
 
 | 项 | 值 |
 |----|-----|
-| **ID** | **`T-01`** |
-| **名称** | 套装 → StatResolver + UI N/M |
-| **状态** | 🟡 **下一开发** |
-| **优先级** | P0 |
-| **门禁** | **T-02a YES** ✅ |
+| **ID** | **探针日 / F5** |
+| **名称** | T-01 套装 · T-03 技能角标 · T-04 测试模式 · T-02c 纯佣兵出征 |
+| **状态** | 🟡 **待 F5/CTO** |
+| **优先级** | P0 验收 |
+| **门禁** | headless **117 PASS** ✅ · B 线 W1 收工 |
+
+### T-02c headless 验收（2c-1～2c-6）
+
+| 探针 | 结论 | 备注 |
+|------|------|------|
+| 2c-1 主角濒死·B 可出征 | ✅ PASS | 名单无主角 |
+| 2c-2 A 优先·无主角 | ✅ PASS | `resolve_active_squad` |
+| 2c-3 养伤锁仅佣兵 | ✅ PASS | 与主角状态无关 |
+| 2c-4 纯佣兵趟结算 | ✅ PASS | 主角 HP 不变 |
+| 2c-5 旧档剥离主角槽 | ✅ PASS | `ensure_formation` |
+| 2c-6 养伤锁误报修复 | ✅ PASS | 主角留营·佣兵满血可出征 |
+| F5 肉眼 | ⏸ 延期 | 大营编队 + 准备页文案 |
+
+### T-04 headless 验收（04a～04d）
+
+| 探针 | 结论 | 备注 |
+|------|------|------|
+| 04-1 运行时开关 | ✅ PASS | set/toggle/reset |
+| 04-2 HP×5 | ✅ PASS | `apply_entity_modifiers` |
+| 04-3 伤害×0.3 | ✅ PASS | `scale_damage` |
+| 04-4 测试图自动开 | ✅ PASS | test_01 ON · grassland OFF |
+| F5 肉眼 | ⏸ 延期 | 工具栏标签 + 切换钮 |
+
+### T-03 headless 验收（03a～03d）
+
+| 探针 | 结论 | 备注 |
+|------|------|------|
+| 03-1 精英继承 class active_skills | ✅ PASS | `mage_elite` → fireball/heal |
+| 03-2 UnitView CD 角标秒数 | ✅ PASS | 例 `火4` |
+| 03-3 就绪角标无数字 | ✅ PASS | 例 `疗` |
+| 03-4 CD 与 skill_templates | ✅ PASS | fireball = 5s |
+| F5 肉眼 | ⏸ 延期 | 与 T-01 套装等一并补测 |
+
+### T-06 F5 验收（用户 · test_08）
+
+| 探针 | 结论 |
+|------|------|
+| 觉醒名/头标刷新 | ✅ YES |
+| Buff 角标 | ✅ YES |
+| 06a～06d headless | ✅ PASS |
 
 ### T-02a F5 验收（2026-06-06 · 用户 test_06）
 
@@ -130,6 +305,51 @@
 | **T-RUN-V5** | Boss 追击剪影 + 切换抛光 | ✅ **CTO YES** | V5a/V5b 探针 · 用户收 |
 
 设计全文：[design-march-visual.md](design-march-visual.md) §一～§十二。
+
+---
+
+## T-UI-FORM · 双半组与备战 UI（2026-06-06 定案）
+
+> 产品：[design-expedition-meta.md](design-expedition-meta.md) §双半组语义  
+> 问题汇总：备战 UI 技术 bug + A/B 三套语义脱节（见对话归档）
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-FORM-F5** | 备战 UI 实机验收（§九清单） | 🟡 你/QA | 近期 UI 热修后 |
+| **T-UI-FORM-1** | `start_run` 不写 `active_half` | 📋 **下一开发** | 定案文档 |
+| **T-UI-FORM-2** | 手动 -7 / 自动改派 toast | 📋 待排 | FORM-1 |
+| **T-UI-FORM-3** | `rebalance` 先填编组优先半组 | 📋 待排 | FORM-1 |
+| **T-UI-FORM-4** | 文案 + `can_join_squad` 对齐 | 📋 待排 | FORM-2/3 |
+| T-UI-FORM-5 | 备战席增量刷新 / 拖拽 | ⏸ 可选 | FORM-F5 通过后 |
+
+### FORM-1 交付
+
+- `game_manager.start_run`：成功后只写 `last_deploy_half`，**删除** `squad_formation["active_half"] = half`
+- 清查同类写入（`apply_default_deploy` 等）
+- headless：设 `active_half=B`、实际走 A 后，**active_half 仍为 B**
+
+### FORM-2 交付
+
+- 手动 `start_run`：编组优先半组 `half_can_deploy` 为 false → 返回 **-7** + `get_run_start_error_message`
+- 自动连续出征路径：fallback 时 toast 一次
+- **不动** `WorldRun` / 战斗
+
+### FORM-3 交付
+
+- `rebalance_from_roster`：未编入佣兵先填 `active_half` 再填另一半
+- headless 探针：B 优先 + 新 merc → 进 B 槽位
+
+### FORM-4 交付
+
+- 「补满优先半组」旁提示：不跨半组搬人，请用 A↔B 互换
+- 备战席 vs 出战 `can_join_squad` 文案统一
+- 顶栏「编组优先 / 下趟出征」用语与文档一致
+
+### 禁止
+
+- 静默从 A 槽位搬到 B
+- 改 `squad_formation` 存档结构
+- F1/F2 合并（留 FORM-5 以后）
 
 ---
 
@@ -663,14 +883,15 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | ID | 任务 | 优先级 | 状态 | 门禁 |
 |----|------|--------|------|------|
 | T-00 | QA 基线验收 | Sprint 0 | 🟠 进行中 | 并行 |
-| **T-01** | **套装 → StatResolver + UI N/M** | **P0** | 🟡 **下一开发** | **T-02a YES** ✅ |
+| **T-01** | **套装 → StatResolver + UI N/M** | **P0** | ✅ **F5 YES** | 01a～01d · D1 铁卫 3/3 穿脱 |
+| **T-06** | **Buff / 觉醒头标** | **P0** | ✅ **CTO YES** | 06a～06d · F5 test_08 |
+| **T-02** | **远程后排调参/站位** | **P0** | ✅ **CTO YES** | 02-1～02-4 · F5 |
+| **T-03** | **技能 CD + active_skills** | **P0** | ✅ **逻辑 YES** | 03a～03d · F5 延期 |
 | **T-02e** | **测试图自带编队 + 平衡** | **P1** | 🟡 **待 CTO 验收**（M3 后解禁） | test_01~08 已生成 |
 | **T-02a** | **濒死撤退站位 + 目标优先级** | **P0** | ✅ **CTO YES** | F5 test_06 · 2026-06-06 |
-| T-02 | 远程后排调参/站位 | P0 | ⏸ | T-02a YES |
-| T-02c | 主角独立 + 纯佣兵可出征 | **P0** | 📋 **已登记** | T-02a YES 后 |
-| T-02b | CombatView 位置映射统一 | P2 | ⏸ | T-02 后 |
-| T-03 | 技能 CD + active_skills | P0 | ⏸ | T-02 YES |
-| T-04 | 战斗测试模式 | P0 | ⏸ | — |
+| **T-02b** | **CombatView 位置映射统一** | **P2** | ✅ **逻辑 YES** | 02b-1～02b-2 · F5 延期 |
+| **T-04** | **战斗测试模式** | **P0** | ✅ **逻辑 YES** | 04a～04d · F5 延期 |
+| **T-02c** | **主角独立 + 纯佣兵出征** | **P0** | ✅ **F5 YES** | 2c-1～2c-6 · D1 战略核心留营 |
 | **T-11a** | **PC 主壳 + 底栏 Run 条** | P0 | ✅ **CTO YES** | 2026-06-05 截图+代码 |
 | **T-11b** | **三窗内容迁移 + Dock/F5 后勤** | P0 | ✅ **CTO YES** | 依赖 T-11a |
 | **T-05** | **出征网格 UI** | P0 | ✅ **CTO YES** | 2026-06-05 test_04 RESULT 截图 |
@@ -687,13 +908,17 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-UI-B2** | **顶栏稳定度/养伤锁上移** | P1 | ✅ **CTO YES** | B2a/b · 用户收 |
 | **T-UI-B3** | **中窗编组视觉** | P1 | ✅ **CTO YES** | B3a/b · 63 PASS |
 | **T-UI-B4** | **右窗大营背包网格** | P1 | ✅ **CTO YES** | B4a/b · 65 PASS |
+| **T-UI-FORM-1** | **start_run 不覆盖 active_half** | **P0** | 📋 **下一开发** | design-expedition-meta |
+| **T-UI-FORM-2** | 手动 -7 / 自动改派 toast | P0 | 📋 待排 | FORM-1 |
+| **T-UI-FORM-3** | rebalance 先填编组优先 | P1 | 📋 待排 | FORM-1 |
+| **T-UI-FORM-4** | 编队文案对齐 | P1 | 📋 待排 | FORM-2/3 |
 | **T-MARCH-M1** | 自动搜索服务 | P1 | ✅ **已交付** | 待探针登记 |
 | **T-MARCH-V1** | 搜索飘字 Toast | P1 | ✅ **已交付** | M1 |
 | **T-MARCH-M2～M3 / V2～V3** | 里程碑 + 采集 + 返程池 | P1 | ✅ **CTO YES** | 77 PASS |
 | **T-ART-FW-1** | 视觉常量 + VisualSlot | P1 | ✅ **CTO YES** | FW1a/b |
 | **T-ART-FW-2** | 跑图五层挂 VisualSlot | P1 | ✅ **CTO YES** | FW2a～d · 83 PASS |
 | **T-ART-FW-3** | art_manifest 真图 | P2 | ✅ **CTO YES** | FW3a/b · 85 PASS |
-| T-06 | Buff / 觉醒头标 | P0 | ⏸ 让位 B 线 | T-05 YES |
+| T-06 | Buff / 觉醒头标 | P0 | ✅ **CTO YES** | 06a～06d · F5 test_08 |
 | T-07~T-10 | 研究所/转生/多槽/云存档 | P1~ | 🔒 冻结 | — |
 | **T-MIA-0D** | **失败掉人 P0 文档日** | **P1** | ✅ **CTO YES** | `e7f40b6` |
 | **T-MIA-0** | 存档序列化桩+RunMode | P1 | ✅ **CTO YES** | 0-2c 探针 |
@@ -803,9 +1028,43 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 
 ---
 
-## T-01 验收探针（暂停，待恢复）
+## T-01 验收探针
 
-（内容不变，见 git 历史或 TASK 文档。）
+| ID | 断言 | headless |
+|----|------|----------|
+| **01a** | 铁卫 `weapon+armor`（2/3）→ `StatResolver.get_pdef` **+8** | ✅ |
+| **01b** | 铁卫 3 件 → `pdef+8` 且 `max_hp+40` | ✅ |
+| **01c** | `get_active_bonus_lines` 含 **`铁卫 2/3`** + **`物防+8`** | ✅ |
+| **01d** | 1 件：`calc_set_bonus==0`；UI **`铁卫 1/3`** 无 tier 描述 | ✅ |
+| **F5** | `EquipmentUI` 穿脱铁卫 → 文案 N/M 与 DEF/HP 同步 | 手测延期 |
+
+---
+
+## T-06 验收探针
+
+| ID | 断言 | headless |
+|----|------|----------|
+| **06a** | 濒死 → 觉醒：`UnitView` 名称从 `(濒死)` 刷新为 `(觉醒·爆发)` | ✅ |
+| **06b** | `buff_system` 有 Buff 时显示角标（攻/防等） | ✅ |
+| **06c** | 觉醒头标可见 + 变体文案（如 **盾援**） | ✅ |
+| **06d** | Buff 清空后角标消失 | ✅ |
+| **F5** | `test_08` 觉醒触发后单位头标/名称更新；技能 Buff 战中可见角标 | ✅ YES |
+
+**不动**：`combat_controller.gd` 伤害/选目标 · T-02a 濒死站位。
+
+---
+
+## T-02 验收探针
+
+| ID | 断言 | headless |
+|----|------|----------|
+| **02-1** | 射程外友方远程 **前探**（不再 IDLE 站桩） | ✅ |
+| **02-2** | 前探后 `find_nearest_in_range` 命中 | ✅ |
+| **02-3** | 远程 `position` 始终 **< 最前近战** | ✅ |
+| **02-4** | 前探不超过 `前排 - RANGED_MELEE_STANDOFF` | ✅ |
+| **F5** | `test_01` 术士/游侠 `[远]` 日志 + 投射物；后排不抢前排位 | ✅ YES |
+
+**规则（T-02）**：`_advance_ranged_ally_toward_range` — 理想位 `target.x - range`，上限 `min(前排近战) - standoff`；未改伤害公式 / T-02a 濒死。
 
 ---
 

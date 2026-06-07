@@ -92,6 +92,16 @@ func set_skill_cooldown(skill_id: String, seconds: float) -> void:
 	skill_cooldowns[skill_id] = seconds
 
 
+func get_skill_cooldown_remaining(skill_id: String) -> float:
+	return float(skill_cooldowns.get(skill_id, 0.0))
+
+
+func get_active_skill_ids() -> Array:
+	if source_merc == null:
+		return []
+	return source_merc.active_skills.duplicate()
+
+
 func is_ranged_unit() -> bool:
 	return attack_range >= RANGED_ATTACK_THRESHOLD
 

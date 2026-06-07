@@ -54,18 +54,19 @@ func process(delta: float) -> void:
 	
 	var gather_active: bool = _run_march_lane != null and _run_march_lane.is_gather_active()
 	var world_run_ticked: bool = (run.is_retreating or not _in_combat) and not gather_active
+	var march_allowed: bool = world_run_ticked and not _in_combat
 	if world_run_ticked:
-		_tick_world_run(delta, run)
+		_tick_world_run(delta, run, march_allowed)
 	if _in_combat:
 		_tick_combat(delta, run, world_run_ticked)
 	_tick_pending_substitute()
 	_sync_run_march_lane(run, world_run_ticked)
 
 
-func _tick_world_run(delta: float, run: WorldRun) -> void:
+func _tick_world_run(delta: float, run: WorldRun, march_allowed: bool = true) -> void:
 	var result = run.tick(delta)
-	_emit_march_search_hits(run, true)
-	_emit_march_event_hits(run, true)
+	_emit_march_search_hits(run, march_allowed)
+	_emit_march_event_hits(run, march_allowed)
 	if run.is_retreating and run.squad != null and not run.squad.has_anyone_alive():
 		_mark_squad_wiped(run)
 		_end_run(run, false)
@@ -195,6 +196,7 @@ func _start_encounter(run: WorldRun, session: EncounterSession) -> void:
 		anchor_dist = _run_march_lane.party_anchor_x
 	if _combat_view and run.is_retreating:
 		_combat_view.begin_retreat_combat_scroll(anchor_dist)
+	BattleDebug.prepare_for_combat(run.map_data)
 	_combat.init_combat(run.squad, session.enemies, run, anchor_dist)
 	_combat.set_movement_policy(session.movement_policy_for(run))
 	if _combat_view:

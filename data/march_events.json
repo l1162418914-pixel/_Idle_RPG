@@ -23,6 +23,81 @@
         { "type": "gold", "gold_min": 3, "gold_max": 8 },
         { "type": "log_only" }
       ]
+    },
+    "grassland_herbs": {
+      "log": "草甸药草，辨识后略感精神一振。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": 3 },
+        { "type": "log_only" }
+      ]
+    },
+    "wind_scoured_pack": {
+      "log": "逆风处的破烂辎重，扒开看看。",
+      "auto": true,
+      "gather_beat": true,
+      "effects": [
+        { "type": "loot_material", "rolls": 1 },
+        { "type": "stability", "team": -1 }
+      ]
+    },
+    "rusted_cart": {
+      "log": "锈蚀的旧车斗，夹层里还有零钱。",
+      "auto": true,
+      "effects": [
+        { "type": "gold", "gold_min": 6, "gold_max": 14 },
+        { "type": "log_only" }
+      ]
+    },
+    "cache_marker": {
+      "log": "半埋的补给标记，刨出一点零碎。",
+      "auto": true,
+      "effects": [
+        { "type": "gold", "gold_min": 4, "gold_max": 10 },
+        { "type": "stability", "team": 1 },
+        { "type": "log_only" }
+      ]
+    },
+    "trail_ambush_sign": {
+      "log": "折断的箭矢与爪印，队伍警觉上扬。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": -2 },
+        { "type": "log_only" }
+      ]
+    },
+    "chase_omen": {
+      "log": "远处传来沉重蹄声，追击压迫渐增。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": -3 },
+        { "type": "log_only" }
+      ]
+    },
+    "forest_shrine": {
+      "log": "苔藓石碑前短暂歇脚，心神稍定。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": 2 },
+        { "type": "gold", "gold_min": 2, "gold_max": 6 },
+        { "type": "log_only" }
+      ]
+    },
+    "cave_echo": {
+      "log": "洞壁回响扰人心神。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": -4 },
+        { "type": "log_only" }
+      ]
+    },
+    "trial_monolith": {
+      "log": "死亡试炼碑纹发烫，队伍压力陡升。",
+      "auto": true,
+      "effects": [
+        { "type": "stability", "team": -5 },
+        { "type": "log_only" }
+      ]
     }
   }
 }

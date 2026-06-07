@@ -118,6 +118,7 @@ func attach_to_shell(
 	shell_center_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_form_scroll = ScrollContainer.new()
 	_form_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_form_scroll.clip_contents = true
 	var form_host := VBoxContainer.new()
 	form_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_form_scroll.add_child(form_host)
@@ -210,8 +211,13 @@ func scroll_maps_list_to_top() -> void:
 func scroll_formation_into_view(pulse_sec: float = 0.0) -> void:
 	if _form_scroll:
 		_form_scroll.scroll_vertical = 0
-	if pulse_sec > 0.0 and _formation_ui and _formation_ui.has_method("pulse_formation_focus"):
-		_formation_ui.pulse_formation_focus(pulse_sec)
+	if _formation_ui and _formation_ui.has_method("scroll_pool_into_view"):
+		_formation_ui.scroll_pool_into_view()
+	if pulse_sec > 0.0 and _formation_ui:
+		if _formation_ui.has_method("pulse_formation_focus"):
+			_formation_ui.pulse_formation_focus(pulse_sec * 0.6)
+		if _formation_ui.has_method("pulse_pool_focus"):
+			_formation_ui.pulse_pool_focus(pulse_sec)
 
 
 func highlight_selected_map_card(duration: float = 2.0) -> void:

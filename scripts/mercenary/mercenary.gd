@@ -85,6 +85,10 @@ func init_from_template(template: Dictionary) -> void:
 		passive_skills = template.passive_skills.duplicate()
 	if template.has("active_skills"):
 		active_skills = template.active_skills.duplicate()
+	elif merc_class != "":
+		var class_tpl: Dictionary = DataLoader.player_class(merc_class)
+		if class_tpl.has("active_skills"):
+			active_skills = class_tpl.get("active_skills", []).duplicate()
 	
 	personal_stability = _StabilitySystem.MAX_STABILITY
 	reset_to_full_hp()

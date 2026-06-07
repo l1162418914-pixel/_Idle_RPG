@@ -25,8 +25,10 @@ const PROJECTILE_SPEED: float = 320.0
 const PROJECTILE_MIN_TRAVEL: float = 0.08
 const PROJECTILE_MAX_TRAVEL: float = 0.55
 const SKILL_MULTI_HIT_STAGGER: float = 0.12
-## 远程相对 spawn 锚点最多前探（近战无此限）
-const RANGED_MAX_ADVANCE: float = 18.0
+## T-02：远程前探时与最前近战的站位间隔（逻辑坐标）
+const RANGED_MELEE_STANDOFF: float = 24.0
+## 敌方远程相对 spawn 锚点最多前探
+const ENEMY_RANGED_MAX_ADVANCE: float = 18.0
 ## 追击处决：全员失能后留给首领造成伤害再结算战败的宽限（秒）
 const CHASE_DOWNED_EXECUTE_GRACE: float = 2.5
 
@@ -73,9 +75,7 @@ func init_combat(
 	# 友方实体（含濒死 — 需可视化；濒死单位不攻击、不移动）
 	# CQ 编队：远程后排（低 x）、近战前排（高 x）
 	var battlefield: Array[Mercenary] = squad.get_battlefield_members()
-	battlefield.sort_custom(func(a: Mercenary, b: Mercenary) -> bool:
-		return StatResolver.get_attack_range(a) > StatResolver.get_attack_range(b)
-	)
+	battlefield.sort_custom(_compare_battlefield_deploy_order)
 	for i in range(battlefield.size()):
 		var m: Mercenary = battlefield[i]
 		# 返程/追击接战：保留濒死状态，避免倒地单位被当成可撤离战斗员
@@ -236,8 +236,8 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 			var gap: float = abs(entity.position - move_target.position)
 			if gap > entity.attack_range + 0.01:
 				if entity.is_ranged_unit() and is_ally:
-					entity.action_state = CombatEntity.ActionState.IDLE
-					_hold_ranged_position(entity, delta)
+					entity.action_state = CombatEntity.ActionState.MOVING
+					_advance_ranged_ally_toward_range(entity, move_target, delta)
 				else:
 					entity.action_state = CombatEntity.ActionState.MOVING
 					_move_toward_attack_range(entity, move_target, delta)
@@ -447,24 +447,55 @@ func _find_enemy_chase_move_target(ally_list: Array, from_pos: float) -> CombatE
 	return _find_nearest_alive(ally_list, from_pos, _any_ally_fighter_on_field())
 
 
-## 近战接敌理想 X：前排贴射程，后排按 formation_slot 逐级后撤，避免共抢同一点。
+## 近战接敌理想 X：前排贴射程；后排仅做细错位，且必须仍在 attack_range 内（1D 线战斗）。
 func _melee_ideal_position(entity: CombatEntity, target: CombatEntity, dir: float) -> float:
 	var contact: float = target.position - dir * entity.attack_range
+	var depth: int = _melee_formation_depth(entity)
+	if depth <= 0:
+		return contact
+	var row_gap: float = _melee_row_gap(entity)
+	var ideal: float = contact - dir * float(depth) * row_gap
+	if absf(target.position - ideal) > entity.attack_range + 0.01:
+		return contact
+	return ideal
+
+
+static func _compare_battlefield_deploy_order(a: Mercenary, b: Mercenary) -> bool:
+	var ra: float = StatResolver.get_attack_range(a)
+	var rb: float = StatResolver.get_attack_range(b)
+	var ranged_a: bool = ra >= CombatEntity.RANGED_ATTACK_THRESHOLD
+	var ranged_b: bool = rb >= CombatEntity.RANGED_ATTACK_THRESHOLD
+	if ranged_a != ranged_b:
+		return ra > rb
+	if ranged_a:
+		return ra > rb
+	var pa: int = StatResolver.get_pdef(a)
+	var pb: int = StatResolver.get_pdef(b)
+	if pa != pb:
+		return pa < pb
+	return ra < rb
+
+
+func _melee_formation_depth(entity: CombatEntity) -> int:
+	var depth: int = 0
 	if entity.team == CombatEntity.Team.ALLY:
-		var depth: int = 0
 		for ally in allies:
 			if ally == entity or not ally.can_fight() or ally.is_ranged_unit():
 				continue
 			if ally.formation_slot > entity.formation_slot:
 				depth += 1
-		return contact - dir * float(depth) * ally_formation_gap
-	var depth_enemy: int = 0
+		return depth
 	for foe in enemies:
 		if foe == entity or not foe.can_fight() or foe.is_ranged_unit():
 			continue
 		if foe.formation_slot < entity.formation_slot:
-			depth_enemy += 1
-	return contact - dir * float(depth_enemy) * enemy_formation_gap
+			depth += 1
+	return depth
+
+
+func _melee_row_gap(entity: CombatEntity) -> float:
+	var gap: float = ally_formation_gap if entity.team == CombatEntity.Team.ALLY else enemy_formation_gap
+	return minf(gap, maxf(8.0, entity.attack_range * 0.35))
 
 
 func _is_advance_lane_engagement() -> bool:
@@ -480,7 +511,7 @@ func _set_entity_position_x(entity: CombatEntity, new_x: float) -> void:
 
 func _move_toward_attack_range(entity: CombatEntity, target: CombatEntity, delta: float) -> void:
 	if entity.is_ranged_unit() and entity.team == CombatEntity.Team.ALLY:
-		_hold_ranged_position(entity, delta)
+		_advance_ranged_ally_toward_range(entity, target, delta)
 		return
 	var dist: float = abs(entity.position - target.position)
 	if dist <= entity.attack_range:
@@ -495,21 +526,67 @@ func _move_toward_attack_range(entity: CombatEntity, target: CombatEntity, delta
 	entity.is_facing_right = dir > 0.0
 
 
-## CQ 远程：守后排锚点，射程外不前压
+## T-02 友方远程：前探至射程内，不越过最前近战；敌方仍守锚点带宽
+func _foremost_fighting_melee_ally_x() -> float:
+	var best: float = INF
+	for ally in allies:
+		if not ally.can_fight() or ally.is_ranged_unit():
+			continue
+		best = minf(best, ally.position)
+	return best
+
+
+func _ranged_forward_cap_x(entity: CombatEntity) -> float:
+	var front_x: float = _foremost_fighting_melee_ally_x()
+	var cap: float
+	if front_x < INF:
+		cap = front_x - RANGED_MELEE_STANDOFF
+	else:
+		cap = (
+			BattlefieldSlots.ally_slot_x(mini(2, BattlefieldSlots.MAX_ALLY_SLOTS - 1))
+			+ _party_anchor_shift
+		)
+	return maxf(entity.spawn_anchor_x, cap)
+
+
+func _ranged_ideal_engagement_x(entity: CombatEntity, target: CombatEntity) -> float:
+	if target == null:
+		return entity.spawn_anchor_x
+	var ideal: float = target.position - entity.attack_range
+	return clampf(ideal, entity.spawn_anchor_x, _ranged_forward_cap_x(entity))
+
+
+func _advance_ranged_ally_toward_range(
+	entity: CombatEntity, target: CombatEntity, delta: float
+) -> void:
+	if target == null:
+		_hold_ranged_position(entity, delta)
+		return
+	var ideal_x: float = _ranged_ideal_engagement_x(entity, target)
+	var step: float = entity.move_speed * delta
+	if entity.position < ideal_x - 0.5:
+		entity.position = minf(entity.position + step, ideal_x)
+	elif entity.position > ideal_x + 0.5:
+		entity.position = maxf(entity.position - step, ideal_x)
+	entity.position = clampf(
+		entity.position, entity.spawn_anchor_x, _ranged_forward_cap_x(entity)
+	)
+	entity.is_facing_right = true
+
+
 func _hold_ranged_position(entity: CombatEntity, delta: float) -> void:
 	var step: float = entity.move_speed * delta
 	if entity.team == CombatEntity.Team.ALLY:
-		var max_x: float = entity.spawn_anchor_x + RANGED_MAX_ADVANCE
-		if entity.position > max_x:
-			entity.position = maxf(entity.spawn_anchor_x, entity.position - step)
+		var cap_x: float = _ranged_forward_cap_x(entity)
+		if entity.position > cap_x + 0.01:
+			entity.position = maxf(cap_x, entity.position - step)
 		entity.is_facing_right = true
+		entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
 	else:
-		var min_x: float = entity.spawn_anchor_x - RANGED_MAX_ADVANCE
+		var min_x: float = entity.spawn_anchor_x - ENEMY_RANGED_MAX_ADVANCE
 		if entity.position < min_x:
 			_set_entity_position_x(entity, minf(entity.spawn_anchor_x, entity.position + step))
 		entity.is_facing_right = false
-	if entity.team == CombatEntity.Team.ALLY:
-		entity.position = clampf(entity.position, 0.0, BATTLEFIELD_WIDTH)
 
 
 func emit_skill_cast(

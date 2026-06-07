@@ -39,6 +39,15 @@ var auto_run_map_id: String = "grassland"
 var auto_retreat_value_enabled: bool = true
 ## 仅统计安全箱内价值（不含外露）
 var auto_retreat_safe_only: bool = false
+## 大营预设：推图 / 均衡跑图 / 搜刮优先
+const EXPEDITION_PRIORITY_PUSH := "push"
+const EXPEDITION_PRIORITY_MARCH := "march"
+const EXPEDITION_PRIORITY_LOOT := "loot"
+var expedition_priority: String = EXPEDITION_PRIORITY_MARCH
+## 拾取时自动用高价值挤占安全箱/外露中的低价值装备
+var loot_auto_evict_low_value: bool = true
+## 格满且无法挤占时丢弃新掉落（否则保留在地面/不掉落）
+var loot_discard_overflow: bool = false
 ## 双半组编制 { active_half, A: {active, bench}, B: {...} }
 var squad_formation: Dictionary = {}
 var last_run_squad_snapshot: Array[String] = []
@@ -212,7 +221,6 @@ func formation_swap_slots(
 
 
 func formation_clear_slot(half: String, slot_kind: String, slot_index: int) -> int:
-	SquadFormationService.ensure_formation(self)
 	var code: int = SquadFormationService.clear_slot(self, half, slot_kind, slot_index)
 	if code == 0:
 		formation_changed.emit()
@@ -221,6 +229,11 @@ func formation_clear_slot(half: String, slot_kind: String, slot_index: int) -> i
 
 func formation_set_preferred_half(half: String) -> void:
 	SquadFormationService.set_preferred_half(self, half)
+	formation_changed.emit()
+
+
+func formation_swap_halves() -> void:
+	SquadFormationService.swap_halves(self)
 	formation_changed.emit()
 
 
@@ -237,7 +250,7 @@ func formation_error_message(code: int) -> String:
 		-4:
 			return "主角不占半组槽位"
 		-5:
-			return "战场遗留，不可编入"
+			return "该佣兵暂不可编入该槽位（遗留/养伤仅可进替补）"
 		_:
 			return "编队调整失败(%d)" % code
 
@@ -451,7 +464,7 @@ func start_run(skip_mutual_recovery: bool = false) -> int:
 		if auto_target != "":
 			return _begin_recovery_run(auto_target, half, true)
 	mutual_recovery_this_run = false
-	squad_formation["active_half"] = half
+	BattleDebug.reset_session()
 	var md: Dictionary = DataLoader.map_data(selected_map_id)
 	TestScenarioService.ensure_roster_for_run(self, selected_map_id)
 	if not TestScenarioService.should_lock_roster(md):
@@ -469,6 +482,7 @@ func start_run(skip_mutual_recovery: bool = false) -> int:
 	if ok != 0:
 		return -2
 	_snapshot_mia_ids_at_departure()
+	last_deploy_half = half
 	state = GameState.RUNNING
 	run_started.emit()
 	state_changed.emit(GameState.RUNNING)
@@ -1387,7 +1401,6 @@ func _tick_base_healing(delta: float) -> void:
 			healed_any = true
 	if healed_any:
 		roster_healed.emit()
-		formation_changed.emit()
 
 
 func _all_roster_mercs() -> Array[Mercenary]:

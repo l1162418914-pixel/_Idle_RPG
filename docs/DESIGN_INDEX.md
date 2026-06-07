@@ -34,6 +34,7 @@
 | 文档 | 主题 |
 |------|------|
 | **[GAME_BIBLE.md](GAME_BIBLE.md)** | **设定集 v0**：单局远征、壳子五源、现网清单 |
+| **[EXTERNAL_AI_BRIEF.md](EXTERNAL_AI_BRIEF.md)** | **外部 AI 评审用项目简报**（整份复制即可） |
 | [design-meta-base.md](design-meta-base.md) | **局外成长 + 大营经营**（初版占位，待填） |
 | [design-retreat.md](design-retreat.md) | 2/7 返程、战利品网格、智能撤离、护盾双池 |
 | [design-stability-lineage.md](design-stability-lineage.md) | **压力机制血统**（提灯向）+ 返程掉物（塔科夫/三角洲向） |
@@ -41,8 +42,9 @@
 | [design-failure-lineage.md](design-failure-lineage.md) | **失败掉人**（猎杀+鸭科夫；MIA/回收/救援队） |
 | [design-failure-lineage-CTO.md](design-failure-lineage-CTO.md) | **失败掉人 · CTO 实现对照**（冲突、分期） |
 | [design-near-death.md](design-near-death.md) | 5/7 濒死、搀扶、伤痕、绝境觉醒 |
-| [design-expedition-meta.md](design-expedition-meta.md) | 1/7 挂机再战、双半组 4+2、养伤锁（交叉引用） |
+| [design-expedition-meta.md](design-expedition-meta.md) | 1/7 挂机再战、双半组语义、养伤锁（**T-UI-FORM** 定案 2026-06-06） |
 | [design-boss-chase.md](design-boss-chase.md) | 7/7 Boss 追击、压力缩放、击杀=通关结算、返程反击按钮 |
+| [design-combat-stack.md](design-combat-stack.md) | **战斗子系统地图**：接战类型、tick 顺序、文件索引 |
 | [design-march-visual.md](design-march-visual.md) | **CQ 式横版条**：同一跑道、接战停滚、返程向左可视化 |
 | [design-march-events.md](design-march-events.md) | **跑图自动搜索 + 里程碑事件**（草案，未排 TASK） |
 | [design-pc-shell.md](design-pc-shell.md) | **PC 主壳 THB 2.0**（T-11a/b 线框、Dock、四态槽位、开发工单） |

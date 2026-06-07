@@ -335,7 +335,7 @@
 | 目的 | 做法 |
 |------|------|
 | 战斗看清楚 | 战斗窗工具栏：**慢速 / 极慢**、暂停日志 |
-| 战斗更耐打（本地临时） | `scripts/combat/battle_debug.gd` 里 `DEBUG_BATTLE_MODE = true` → **勿 commit**；HP×5 伤害×0.3 |
+| 战斗更耐打 | 测试图 **自动** 开启；战斗窗 Debug 工具栏点 **「测试 OFF」→「测试 ON」**；标签显示「测试模式 ON (HP×5 / 伤害×0.3)」 |
 | 同图重测 | 结算页 **再战** 或回大营重选同图 |
 | 语法扫描 | `.\tools\check_gdscript_format.ps1` |
 
