@@ -25,7 +25,7 @@ static func grant_starter_merc(gm: GameManager) -> bool:
 	m.merc_id = "normal_starter_%d" % int(Time.get_unix_time_from_system())
 	m.init_from_template(tpl)
 	gm.normal_roster.append(m)
-	SquadFormationService.ensure_formation(gm)
+	# FORM-3R：赠兵仅进备战席，不自动占 A/B 槽
 	SquadFormationService.rebalance_from_roster(gm)
 	gm.formation_changed.emit()
 	return true
@@ -70,6 +70,7 @@ static func recruit_merc(gm: GameManager, merc_type: String) -> int:
 		m.init_from_template(tpl)
 		gm.normal_roster.append(m)
 
+	# FORM-3R：新招募仅进备战席，进半组须玩家点选/拖入或「补满优先半组」
 	SquadFormationService.rebalance_from_roster(gm)
 	gm.formation_changed.emit()
 	return 0

@@ -97,6 +97,7 @@ func open_panel_for_merc(merc: Mercenary) -> void:
 		return
 	_selected_merc = merc
 	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	_rebuild_merc_tabs()
 	_refresh_all()
 	status_label.text = ""
@@ -106,6 +107,7 @@ func hide_panel() -> void:
 	if not visible:
 		return
 	visible = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	closed.emit()
 
 

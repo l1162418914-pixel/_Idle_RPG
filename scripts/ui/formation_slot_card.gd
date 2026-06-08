@@ -137,6 +137,64 @@ func apply_slot(
 	add_theme_stylebox_override("panel", panel)
 
 
+func update_merc_visual(
+	ready: bool,
+	name_text: String,
+	hp_ratio: float,
+	badge_text: String,
+	accent: Color,
+	panel_bg: Color
+) -> void:
+	if _accent:
+		_accent.color = accent
+	if _name_lbl:
+		_name_lbl.text = name_text
+	if _badge_lbl:
+		_badge_lbl.text = badge_text
+	if _hp_bar:
+		_hp_bar.value = hp_ratio * 100.0
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Color(0.35, 0.78, 0.45) if ready else Color(0.85, 0.55, 0.3)
+		_hp_bar.add_theme_stylebox_override("fill", fill)
+	var panel := get_theme_stylebox("panel")
+	var sb: StyleBoxFlat
+	if panel is StyleBoxFlat:
+		sb = (panel as StyleBoxFlat).duplicate() as StyleBoxFlat
+	else:
+		sb = StyleBoxFlat.new()
+		sb.corner_radius_top_left = 4
+		sb.corner_radius_top_right = 4
+		sb.corner_radius_bottom_left = 4
+		sb.corner_radius_bottom_right = 4
+		sb.content_margin_left = 6
+		sb.content_margin_top = 4
+		sb.content_margin_right = 6
+		sb.content_margin_bottom = 4
+	sb.bg_color = panel_bg
+	add_theme_stylebox_override("panel", sb)
+
+
+func set_selected_highlight(selected: bool) -> void:
+	var panel := get_theme_stylebox("panel")
+	var sb: StyleBoxFlat
+	if panel is StyleBoxFlat:
+		sb = (panel as StyleBoxFlat).duplicate() as StyleBoxFlat
+	else:
+		sb = StyleBoxFlat.new()
+	if selected:
+		sb.border_width_left = 2
+		sb.border_width_top = 2
+		sb.border_width_right = 2
+		sb.border_width_bottom = 2
+		sb.border_color = Color(0.4, 0.9, 0.65)
+	else:
+		sb.border_width_left = 0
+		sb.border_width_top = 0
+		sb.border_width_right = 0
+		sb.border_width_bottom = 0
+	add_theme_stylebox_override("panel", sb)
+
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
@@ -150,20 +208,8 @@ func _gui_input(event: InputEvent) -> void:
 				call_deferred("_on_hit_pressed")
 			accept_event()
 	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		if _drag_started or _local_point_over_child_button(_press_pos):
-			return
-		if _press_pos.distance_to(event.position) < DRAG_THRESHOLD:
-			return
-		var data: Variant = _build_drag_payload()
-		if data == null:
-			return
-		_drag_started = true
-		var m := GameManager.find_mercenary_by_id(str(data.get("merc_id", "")))
-		var preview := Label.new()
-		preview.text = m.merc_name if m else str(data.get("merc_id", ""))
-		preview.modulate = Color(0.7, 1.0, 0.85)
-		force_drag(data, preview)
-		accept_event()
+		if _press_pos.distance_to(event.position) >= DRAG_THRESHOLD:
+			_drag_started = true
 
 
 func _local_point_over_child_button(local_pos: Vector2) -> bool:
@@ -209,9 +255,27 @@ func _build_drag_payload() -> Variant:
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-	return data is Dictionary and str(data.get("merc_id", "")) != ""
+	if not (data is Dictionary) or str(data.get("merc_id", "")) == "":
+		return false
+	if bool(data.get("from_pool", false)) and bool(data.get("bench_only", false)):
+		return slot_kind == "bench"
+	return true
+
+
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	if _local_point_over_child_button(_at_position):
+		return null
+	var data: Variant = _build_drag_payload()
+	if data == null:
+		return null
+	var m := GameManager.find_mercenary_by_id(str(data.get("merc_id", "")))
+	var preview := Label.new()
+	preview.text = m.merc_name if m else str(data.get("merc_id", ""))
+	preview.modulate = Color(0.7, 1.0, 0.85)
+	set_drag_preview(preview)
+	return data
 
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	if formation_ui != null and formation_ui.has_method("_handle_slot_drop"):
-		formation_ui._handle_slot_drop(slot_half, slot_kind, slot_index, data)
+		formation_ui.call_deferred("_handle_slot_drop", slot_half, slot_kind, slot_index, data)

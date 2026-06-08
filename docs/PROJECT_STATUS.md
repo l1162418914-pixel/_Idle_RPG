@@ -1,7 +1,7 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → [EXTERNAL_AI_BRIEF.md](EXTERNAL_AI_BRIEF.md)（外部评审用）→ 最近 worklog。  
-> 最后更新：2026-06-06（**A 线 F5 进行中** · headless **122 PASS** · 测试档已注入槽位 1）
+> 最后更新：2026-06-09（**T-UI-LAYOUT 用户分区定案** · 后勤改下窗 CQ · 编组 ⏸ 待定）
 
 ### CTO 结论（对齐版）
 
@@ -11,6 +11,7 @@
 | **大营 UI B 线** | ✅ 逻辑 + **F5 冒烟 YES**（出征/网格/底栏随 test_01 验证） |
 | **跑图 MARCH** | ✅ M1～M3 + V1～V3；**F5 test_01 搜索+接战冻结 YES** |
 | **美术** | ✅ **FW-1～3**（manifest 可挂真图；战斗区仍占位色块属预期） |
+| **UI 双窗** | 🟡 **T-UI-TWIN-1 开发交付 · 待 CTO F5**（上窗计划 / 下窗动画） |
 | **探针日** | ✅ **冒烟收盘**（见下表）；**延期**：test_03 F5、grassland 80m、MIA、T-02a |
 
 ---
@@ -33,19 +34,40 @@
 | **A · 验收** | 你 / QA | F5 探针日 + 延期包 | worklog 勾选 + CTO YES |
 | **B · 程序** | Dev Agent | 探针缺口、headless 补探针、文档债、**不修已 YES 逻辑** | 小 PR / 单 TASK |
 | **C · 内容** | 你 + 美术 | `march_events.json`、地图里程碑、`art/` 挂 manifest | 无需改 Combat 公式 |
-| **D · 编队** | Dev Agent | **T-UI-FORM-1～4**（双半组语义） | 见 §T-UI-FORM |
+| **D · 编队** | Dev Agent | **FORM 语义 3R/6** + **FORM-LAYOUT 方案 B** | 见 §T-UI-FORM / §T-UI-LAYOUT |
+| **E · 大营观感** | Dev Agent + 美术 | **T-UI-TWIN-1**（双窗壳）→ **STAGE-2**（CQ 像素动画）+ CAMP-4 | 见 §T-UI-TWIN / §T-UI-STAGE |
 
 ### 当前程序指针（编队专题）
 
 | 顺序 | ID | 状态 |
 |------|-----|------|
-| 1 | **T-UI-FORM-1** | 📋 下一开发 |
+| 1 | **T-UI-FORM-3R** | 📋 **下一开发** |
 | 2 | T-UI-FORM-2 | 待排（门禁 FORM-1） |
-| 3 | T-UI-FORM-3 | 待排 |
-| 4 | T-UI-FORM-4 | 待排 |
-| — | T-UI-FORM-F5 | 你/QA 并行验收备战 UI |
+| 3 | T-UI-FORM-6 | 待排（门禁 FORM-3R） |
+| 4 | T-UI-FORM-4 | 待排（门禁 FORM-2） |
+| — | T-UI-FORM-F5 | 🟡 条件通过（备战席热修暂过关） |
+| — | T-UI-FORM-7 | ⏸ 可选（FORM-F5 后） |
 
 产品定案：[design-expedition-meta.md](design-expedition-meta.md) §双半组语义。
+
+### 当前程序指针（大营观感 · E 线）
+
+| 顺序 | ID | 状态 |
+|------|-----|------|
+| 1 | **T-UI-TWIN-1** | 🟡 **开发交付 · 待 CTO F5** |
+| 2 | **T-UI-STAGE-2** | 📋 **下一开发**（营火 idle 真图） |
+| 3 | **T-UI-STAGE-5** | 📋 待排（**下窗 CQ 后勤建筑**） |
+| 4 | T-UI-STAGE-3 | 待排（养伤包扎/躺卧） |
+| 5 | T-UI-STAGE-4 | 待排（抵营/清点动画） |
+| — | T-UI-STAGE-1 | 🟡 **并入 TWIN-1**（`StageShell`+`BottomStage`） |
+| — | T-UI-CAMP-1 | 🟡 部分交付（中窗缩略；可折叠） |
+| — | T-UI-CAMP-4 | 可与 STAGE-2 并行 |
+| — | **T-UI-FORM-LAYOUT-1/2** | D 线 · 方案 B（下窗点人+上窗简表） |
+| — | **T-UI-FORM-3R/6** | D 线语义（门禁 LAYOUT） |
+
+产品定案：用户 2026-06-08 **动画与计划 UI 切成两个 OS 窗口** → [design-pc-shell.md](design-pc-shell.md) §二·双窗。
+
+**复制给开发（E 线当前）**：T-UI-TWIN-1 已合码则转 CTO 验收；下一单 **T-UI-STAGE-2**（`camp/*` manifest + idle 序列帧）。
 
 ### 第 1 周（优先）
 
@@ -63,7 +85,7 @@
 |--------|-----|------|------|
 | P0 | **T-MIA-F5** | MIA 全线 F5（test_09 + 回收/压力） | T-MIA 逻辑齐 |
 | P1 | **T-MARCH-C1** | 跑图事件内容池扩充 | ✅ C1-1～C1-3 · grassland + test_01～09 + forest/cave/death_trial |
-| P1 | **T-ART-C1** | manifest 挂真图（行军/接战各 1 套） | FW-3 YES |
+| P1 | **T-ART-C1** | manifest 挂真图（P0 跑图包） | FW-3 YES · [design-art-checklist.md](design-art-checklist.md) |
 | P2 | **T-02b** | CombatView 槽位/脚线统一 | ✅ 02b-1～02b-2 · F5 延期 |
 | — | **design-meta-base** | 局外成长占位填初稿 | CTO 讨论，非代码 |
 
@@ -308,25 +330,38 @@
 
 ---
 
-## T-UI-FORM · 双半组与备战 UI（2026-06-06 定案）
+## T-UI-FORM · 双半组与备战 UI（2026-06-06 定案 · 2026-06-07 修订）
 
 > 产品：[design-expedition-meta.md](design-expedition-meta.md) §双半组语义  
-> 问题汇总：备战 UI 技术 bug + A/B 三套语义脱节（见对话归档）
+> 问题汇总：备战 UI 技术 bug + A/B 三套语义脱节（见对话归档）  
+> **FORM-3 修订（2026-06-07）**：原「rebalance 先填编组优先半组」废止 → **FORM-3R「招募默认进备战席」**（设 B 优先后招募不应默认进 A 槽）。
 
 | ID | 名称 | 状态 | 门禁 |
 |----|------|------|------|
-| **T-UI-FORM-F5** | 备战 UI 实机验收（§九清单） | 🟡 你/QA | 近期 UI 热修后 |
-| **T-UI-FORM-1** | `start_run` 不写 `active_half` | 📋 **下一开发** | 定案文档 |
+| **T-UI-FORM-1** | `start_run` 不写 `active_half` | 🟡 **开发 YES · 待 CTO** | FORM-1a PASS |
+| **T-UI-FORM-3R** | 招募默认进备战席（未编入） | 📋 **下一开发** | FORM-1 |
 | **T-UI-FORM-2** | 手动 -7 / 自动改派 toast | 📋 待排 | FORM-1 |
-| **T-UI-FORM-3** | `rebalance` 先填编组优先半组 | 📋 待排 | FORM-1 |
-| **T-UI-FORM-4** | 文案 + `can_join_squad` 对齐 | 📋 待排 | FORM-2/3 |
-| T-UI-FORM-5 | 备战席增量刷新 / 拖拽 | ⏸ 可选 | FORM-F5 通过后 |
+| **T-UI-FORM-6** | 跨半组槽位拖拽（A 槽→B 空槽） | 📋 待排 | FORM-3R |
+| **T-UI-FORM-4** | 文案 + F1/F2 语义对齐 | 🟡 **开发 YES · 待 CTO** | FORM-4a |
+| **T-UI-FORM-F5** | 备战席实机验收（§九清单） | 🟡 **条件通过** | 热修暂过关；polish→FORM-7 |
+| **T-UI-FORM-7** | 备战席体验优化（增量刷新等） | ⏸ 可选 | FORM-F5 + FORM-6 |
+| ~~T-UI-FORM-3~~ | ~~rebalance 先填编组优先~~ | ❌ **废止** | → FORM-3R |
+| ~~T-UI-FORM-5~~ | ~~备战席增量刷新 / 拖拽~~ | ❌ **并入** | → FORM-6 + FORM-7 |
 
-### FORM-1 交付
+### FORM-1 交付 ✅（开发自测 2026-06-07）
 
-- `game_manager.start_run`：成功后只写 `last_deploy_half`，**删除** `squad_formation["active_half"] = half`
-- 清查同类写入（`apply_default_deploy` 等）
-- headless：设 `active_half=B`、实际走 A 后，**active_half 仍为 B**
+- `game_manager.start_run`：成功后只写 `last_deploy_half`，**不写** `squad_formation["active_half"]`
+- `_begin_recovery_run`：删除覆盖 `active_half`；成功写 `last_deploy_half`
+- headless **FORM-1a PASS**：`active_half=B`、实际走 A 后，`active_half` 仍为 B，`last_deploy_half=A`
+
+### FORM-3R 交付（下一开发）
+
+- `rebalance_from_roster`：**不再**把未编入佣兵自动写入 A/B 槽（招募、读档、开局赠兵同理）
+- 新佣兵仅出现在 F2 **备战席 / 未编入**；进半组须玩家点选/拖入或「补满优先半组」（`auto_fill_half` 仍只从备战席补 **编组优先** 半组）
+- **逻辑唯一入口**：`squad_formation_service.gd`
+- headless **FORM-3R**：`active_half=B` + 模拟 recruit → 新 `merc_id` 不在 A/B 槽、在备战席池
+
+**影响文件（预估）**：`squad_formation_service.gd`、`merc_recruit_service.gd`、`save_serializer.gd`、`character_create.gd`、`mia_phase1_probe.gd`
 
 ### FORM-2 交付
 
@@ -334,22 +369,210 @@
 - 自动连续出征路径：fallback 时 toast 一次
 - **不动** `WorldRun` / 战斗
 
-### FORM-3 交付
+### FORM-6 交付
 
-- `rebalance_from_roster`：未编入佣兵先填 `active_half` 再填另一半
-- headless 探针：B 优先 + 新 merc → 进 B 槽位
+- F2：长按 **A 组出战槽** 佣兵 → 拖到 **B 组空槽** → A 槽空、B 槽填入（走 `formation_assign`，非静默搬人）
+- 顶栏成功/失败反馈；与「A↔B 互换」并存
+- **影响文件（预估）**：`formation_slot_card.gd`、`formation_ui.gd`；探针 **FORM-6a**（逻辑层跨半组 assign，可选）
 
-### FORM-4 交付
+### FORM-4 交付 ✅（开发自测 2026-06-07）
 
-- 「补满优先半组」旁提示：不跨半组搬人，请用 A↔B 互换
-- 备战席 vs 出战 `can_join_squad` 文案统一
-- 顶栏「编组优先 / 下趟出征」用语与文档一致
+- 「补满优先半组」tooltip + 操作提示：不跨半组搬人，请用 A↔B 互换或拖拽
+- 备战席「可编入（满足出征条件）」≠ 出战条件；名册显示 `个人稳:当前/上限`
+- F1 准备页半组按钮 **★编组** = `active_half`；标签行显示「下趟出征半组」（与编组优先可不同）
+- headless **FORM-4a**：B 编组优先 + 仅 A 可出战时，`get_preferred_half=B`、`resolve_deploy_half=A`
+
+### STAB-CLASS 交付 ✅（开发自测 2026-06-07）
+
+- `mercenary_templates.json`：`player_classes` + 各模板 `personal_stability_max`；`toughness` +10
+- `Mercenary.get_personal_stability_max()`；`roster_health.recover_personal_stability` 按 per-merc 上限
+- headless **STAB-CLASS-a**：战105 / 法80 / 游侠92 / 精战125；崩溃线按 max×30%
+
+### FORM-F5 交付（条件通过 2026-06-07）
+
+- 备战席：黑框无字 / 点击无反馈 / 拖入无效 — **热修暂过关**（`formation_pool_button` + 回血不重建池）
+- §九清单：显示佣兵名、单击编入、拖入半组、× 移出回备战席 — **待 QA 全勾**
+- 遗留 polish → **FORM-7**
+
+### FORM-7 交付（可选）
+
+- 备战席增量刷新（避免全量 destroy 按钮）
+- 备战席↔半组拖放与 `ScrollContainer` 手势冲突打磨
+- 卡片悬停/按下态；池子拖回备战席（若产品要）
 
 ### 禁止
 
-- 静默从 A 槽位搬到 B
+- 静默从 A 槽位搬到 B（除用户拖拽/点选/A↔B 互换）
 - 改 `squad_formation` 存档结构
-- F1/F2 合并（留 FORM-5 以后）
+- F1/F2 合并
+
+---
+
+## T-UI-TWIN · 双窗壳层（CTO 定案 2026-06-08）
+
+> 产品：用户定案 — **计划 UI 与动画场景切成两个 OS 窗口**，非单窗 VSplit。  
+> 上窗只管事；下窗只表演。数据仍走 `GameManager` Autoload，**单进程单存档**。
+
+### 窗口分工
+
+| 窗口 | 节点 | 尺寸（默认） | 内容 |
+|------|------|--------------|------|
+| **PlanningWindow** | `Main` + `MainShell` | 1280×460（min 高 360） | 顶栏 + 左（选图/策略）+ 中（**编组 ⏸**）+ 右（背包/装备）+ Dock |
+| **StageWindow** | `scenes/stage_window.tscn` + `StageShell` | 1280×260 | 营火/idle/养伤动画 + **CQ 后勤建筑** + 行军/接战 + 结算动画 |
+
+### 行为定案
+
+1. 启动：副窗贴在主窗正下方；**拖副窗则上窗跟随**（`main.gd` 以 StageWindow 为位置锚点）。
+2. 关主窗或副窗关闭请求 → `_shutdown_all_windows()` 双窗一起退出。
+3. `GameManager.state_changed` → `MainShell.apply_state` + `StageShell.apply_state` 同步。
+4. `RunDriver` / `main` 从 **StageShell** 取 `combat_view`、`run_march_lane`。
+5. 下窗可点：**CQ 后勤建筑**（STAGE-5）；编组/背包网格 **不得** 迁入下窗（编组落点 ⏸ 待定）。
+
+### 任务状态
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-TWIN-1** | PlanningWindow + StageWindow 拆分 | 🟡 **开发交付 · 待 CTO** | T-11 壳 |
+| ~~T-UI-FRAME-1~~ | 单窗上下区分离 | ❌ **并入** | → TWIN-1 |
+
+### TWIN-1 交付（现网 2026-06-08）
+
+- `main.gd`：`STAGE_WINDOW_SCENE`、`PLANNING_HEIGHT=460`、`STAGE_HEIGHT=260`、双窗布局同步、关窗联动
+- `main_shell.gd`：去掉 `VSplit`/`RunBar`；保留 `UpperArea` + `UpperOverlayHost` + Dock
+- `stage_shell.gd`（新）：迁入原 `RunBar` 子树（`StageBar`）
+- `scenes/stage_window.tscn`（新）
+- `formation_ui.gd`：Dock 编组可 `pulse_stage_focus` 闪副窗
+- headless **TWIN-1a** + **FRAME-1a**（`mia_phase1_probe.gd`）
+
+### 不在范围
+
+- 双进程 / 双实例 / 双存档
+- 副窗内编组槽位、背包网格
+- 改 `GameManager` 四态、战斗公式
+
+### 验收探针（TWIN-1 · CTO F5）
+
+1. 启动见 **两个窗口**；副窗在主窗下方，宽与主窗一致。
+2. 上窗：选图、编组、后勤、装备穿脱正常；**无**底栏战斗条占位。
+3. 下窗：BASE 见 `BottomStage`（营火+剪影 idle）；RUNNING 行军/接战。
+4. 拖动**下窗**，上窗跟随贴顶（拖上窗则下窗不跟）。
+5. 关任一窗，游戏退出，无残留副窗。
+6. headless **TWIN-1a** PASS；`MiaPhase1Probe` **0 FAIL**。
+
+### 下一单（TWIN YES 后）
+
+**T-UI-STAGE-2** — 副窗换 `camp/*` 真图 + idle 序列帧（CQ 成品观感，非色块）。
+
+---
+
+## T-UI-LAYOUT · 双窗功能分区（用户定案 2026-06-09）
+
+> 详见 [design-base-ui.md](design-base-ui.md) §T-UI-LAYOUT。摘要：
+
+| 上窗 Planning（TBH） | 下窗 Stage（CQ） |
+|----------------------|------------------|
+| ✅ 选图、出征策略（左 + Dock） | ✅ 营火 + idle（STAGE-2） |
+| ✅ 背包、穿脱、套装（右 + 浮窗） | ✅ 后勤招募/医疗/建筑（**STAGE-5**） |
+| ✅ 结算摘要（左/右） | ✅ 养伤包扎/躺卧（STAGE-3） |
+| ✅ **编组方案 B：上窗简表** | ✅ 行军/接战剪影视差 |
+| | ✅ **下窗点人选角**（FORM-LAYOUT-2） |
+| | ✅ 抵营/清点动画（STAGE-4） |
+
+**不做**：CQ 街景横滑；上窗 F5 大块后勤弹窗为主入口；编组/背包塞下窗（编组未决前）。
+
+| ID | 名称 | 状态 |
+|----|------|------|
+| **T-UI-STAGE-5** | 下窗 CQ 后勤建筑可点 | 📋 待排（门禁 STAGE-2） |
+| **T-UI-FORM-LAYOUT-1** | 中窗编组 **简表**（半组/备战行） | 📋 待排 | FORM-3R YES |
+| **T-UI-FORM-LAYOUT-2** | **下窗点人** → assign/选中 | 📋 待排 | STAGE-2 + LAYOUT-1 |
+| ~~T-UI-CAMP-1~~ | 中窗 CampStage 主路径 | ❌ 废止 | → FORM-LAYOUT |
+
+---
+
+## T-UI-STAGE · 底栏 CQ 动画舞台（CTO 定案 2026-06-08）
+
+> 产品：挂机游戏 **主视觉在屏幕下方**（战斗/行军/大营休息/养伤休整均有动画），对齐 CQ；上区仍 THB 三窗管理。  
+> **用户反馈 2026-06-08**：现网中窗 `CampStage` 占位 + 底栏仅 `StandbyLabel` 文字 → **未达标**。  
+> 设计：[design-base-ui.md](design-base-ui.md) · [design-pc-shell.md](design-pc-shell.md) §九·二
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-STAGE-1** | `BottomStage` 状态机（在 `StageShell`） | 🟡 **开发交付 · 待 CTO** | T-UI-TWIN-1 |
+| **T-UI-STAGE-2** | 营火/队伍 **真图+序列帧**（副窗） | 📋 **E 线下一开发** | TWIN-1 YES |
+| **T-UI-STAGE-3** | 养伤/休整子态 | 📋 待排 | STAGE-2 |
+| **T-UI-STAGE-4** | PREPARE/RESULT 底栏预览 | 📋 待排 | STAGE-1 |
+
+### STAGE-1 交付（预估）
+
+- `bottom_stage.gd` + `main_shell.gd`：BASE/PREPARE/RESULT 显示 `BottomStage`；RUNNING 切 `RunMarchLane`/`CombatView`（现逻辑）
+- 隐藏 BASE 时纯文字 `_standby_label`（或仅作无障碍副文案）
+- 状态：`BASE_REST` / `BASE_RECOVERY` / `PREPARE_MUSTER` / `RESULT_RETURN` + 复用 RUNNING 层
+- **影响文件**：`stage_shell.gd`、`bottom_stage.gd`、`mia_phase1_probe.gd`（STAGE-1a）
+
+### STAGE-2 交付（预估）
+
+- 营火 `VisualSlot` + 编组优先半组 `party/silhouette_*`；idle 动画（Tween 呼吸 → 后接序列帧）
+- **影响文件**：`bottom_stage.gd`、`visual_constants.gd`、`art_manifest.json`
+
+### 冻结
+
+- 全屏 CQ 街景横滑；RUNNING 全屏盖住上区；改 `CombatController` 数值
+- 用中窗 `CampStage` **代替**底栏动画（中窗仅缩略预览）
+
+### 验收探针（STAGE-1+2 · F5）
+
+1. BASE：底栏见 **营火+队伍剪影**（非仅「营火边陲」一行字）；剪影有 **可见 idle 动效**（STAGE-2）。
+2. 点出征进 RUNNING：底栏切行军/接战（不回归纯文字）。
+3. RESULT：底栏结算剪影态（可先占位）。
+4. 上区三窗/Dock 操作不回归；headless **STAGE-1a** + 122 PASS。
+
+---
+
+## T-UI-CAMP · 中窗缩略 + 建筑图标（CTO 定案 2026-06-07 · 2026-06-08 降级）
+
+> **2026-06-08**：CAMP 从中窗主视觉 **降为缩略预览**；主视觉改 **T-UI-STAGE** 底栏。
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-CAMP-1** | 中窗 `camp_stage.gd` 缩略横排 | 🟡 **部分交付** | — |
+| **T-UI-STAGE-5** | 下窗 CQ 后勤建筑可点 | 📋 待排 | STAGE-2 |
+| ~~T-UI-CAMP-2~~ | 上窗后勤 Tab | ❌ 废止 | → STAGE-5 |
+| **T-UI-CAMP-4** | 美术 manifest `camp/*` | 📋 可并行 | — |
+| ~~T-UI-CAMP-3~~ | ~~底栏营火~~ | ❌ 并入 | → STAGE-2 |
+
+### CAMP-1 交付（预估）
+
+- 中窗 `CampStage`：暖色营地背景占位 + A/B 横排立绘/剪影（数据来自现 `FormationUI` / `SquadFormationService`）
+- 点横排成员 → 现选中/编入/装备链路；**不新写**编制逻辑
+- **影响文件（预估）**：`formation_ui.gd`、`main_shell.gd` 或 `scenes/MainShell.tscn`、新 `camp_stage.gd`（可选）、`mia_phase1_probe.gd`（CAMP-1a 可选）
+
+### CAMP-2 交付（预估）
+
+- 中窗顶沿或舞台内：招募/医疗/仓库图标 → 后勤浮窗 Tab
+- **影响文件（预估）**：`camp_stage.gd`、`base_ui.gd` / 后勤弹窗宿主
+
+### CAMP-3 交付（预估）
+
+- BASE 底栏：营火 + `party/silhouette_*`；与 `RunMarchView` 剪影 manifest 统一
+- **影响文件（预估）**：`main_shell.gd`、`run_march_view.gd` 或底栏待机层
+
+### CAMP-4 交付（预估）
+
+- `data/art_manifest.json` 登记 `camp/bg`、`camp/bonfire`、`camp/building_*`（见 design-art-checklist §P3）
+- 缺图回退色块；可与 CAMP-1 占位并行
+
+### 冻结
+
+- 全屏 CQ 街景 `ScrollContainer`；删 Dock/三窗；`BaseUI` 长滚复活
+- `GameManager` 四态、`squad_formation` 存档、FORM 语义（除非 FORM 专 TASK）
+- RUNNING 战斗数值 / `CombatController` 公式
+
+### 验收探针（CAMP-1 · CTO F5 鼠标）
+
+1. BASE 中窗：营地背景 + A/B 横排可见（有编组显示成员，空槽可见空位）。
+2. 点横排成员 → 槽位选中或装备抽屉（与 CAMP 前一致）。
+3. Dock「编组」→ 滚中窗 + 描边；选图≠出征不回归。
+4. headless **CAMP-1a**（可选）+ `MiaPhase1Probe` **0 FAIL**。
 
 ---
 
@@ -908,10 +1131,24 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-UI-B2** | **顶栏稳定度/养伤锁上移** | P1 | ✅ **CTO YES** | B2a/b · 用户收 |
 | **T-UI-B3** | **中窗编组视觉** | P1 | ✅ **CTO YES** | B3a/b · 63 PASS |
 | **T-UI-B4** | **右窗大营背包网格** | P1 | ✅ **CTO YES** | B4a/b · 65 PASS |
-| **T-UI-FORM-1** | **start_run 不覆盖 active_half** | **P0** | 📋 **下一开发** | design-expedition-meta |
+| **T-UI-FORM-1** | **start_run 不覆盖 active_half** | **P0** | 🟡 **开发 YES · 待 CTO** | FORM-1a |
+| **T-UI-FORM-3R** | **招募默认进备战席** | **P0** | 📋 **下一开发** | FORM-1 |
 | **T-UI-FORM-2** | 手动 -7 / 自动改派 toast | P0 | 📋 待排 | FORM-1 |
-| **T-UI-FORM-3** | rebalance 先填编组优先 | P1 | 📋 待排 | FORM-1 |
-| **T-UI-FORM-4** | 编队文案对齐 | P1 | 📋 待排 | FORM-2/3 |
+| **T-UI-FORM-6** | 跨半组槽位拖拽 A→B | P1 | 📋 待排 | FORM-3R |
+| **T-UI-FORM-4** | 编队文案 + F1 语义 | P1 | 📋 待排 | FORM-2 |
+| **T-UI-FORM-F5** | 备战席实机验收 | P0 QA | 🟡 条件通过 | 热修暂过关 |
+| **T-UI-FORM-7** | 备战席体验优化 | P2 | ⏸ 可选 | FORM-F5 |
+| **T-UI-TWIN-1** | **PlanningWindow + StageWindow 双窗** | **P0** | 🟡 **开发交付 · 待 CTO** | T-11 |
+| **T-UI-STAGE-1** | **StageShell BottomStage 状态机** | **P0** | 🟡 **开发交付 · 待 CTO** | TWIN-1 |
+| **T-UI-STAGE-2** | 副窗 CQ 真图 + idle 序列帧 | **P0** | 📋 **下一开发** | TWIN YES |
+| **T-UI-STAGE-3** | 养伤/休整底栏子态 | P1 | 📋 待排 | STAGE-2 |
+| **T-UI-STAGE-4** | PREPARE/RESULT 底栏 | P1 | 📋 待排 | STAGE-1 |
+| **T-UI-FORM-LAYOUT-1** | 中窗编组简表 | P1 | 📋 待排 | FORM-3R |
+| **T-UI-FORM-LAYOUT-2** | 下窗点人选角 | P1 | 📋 待排 | STAGE-2 |
+| ~~T-UI-CAMP-1~~ | 中窗 CampStage | — | ❌ 废止主路径 | → LAYOUT |
+| **T-UI-STAGE-5** | **下窗 CQ 后勤建筑** | P1 | 📋 待排 | STAGE-2 |
+| ~~T-UI-CAMP-2~~ | ~~上窗后勤 Tab~~ | — | ❌ 废止 | → STAGE-5 |
+| **T-UI-CAMP-4** | `camp/*` 美术 manifest | P2 | 📋 可并行 | — |
 | **T-MARCH-M1** | 自动搜索服务 | P1 | ✅ **已交付** | 待探针登记 |
 | **T-MARCH-V1** | 搜索飘字 Toast | P1 | ✅ **已交付** | M1 |
 | **T-MARCH-M2～M3 / V2～V3** | 里程碑 + 采集 + 返程池 | P1 | ✅ **CTO YES** | 77 PASS |

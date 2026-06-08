@@ -8,16 +8,15 @@ const MAX_ACTIVE := 4
 const MAX_BENCH := 2
 
 
-static func ensure_formation(gm: Node) -> void:
+static func ensure_formation(gm: Node, sync_integrity: bool = true) -> void:
 	if gm == null or not gm is GameManager:
 		return
+	var created := false
 	if gm.squad_formation.is_empty():
 		gm.squad_formation = _default_formation()
-		rebalance_from_roster(gm)
-	_strip_player_from_halves(gm)
-	for half in [HALF_A, HALF_B]:
-		_refresh_half_slots(gm, half)
-	_purge_mia_and_dead_from_halves(gm)
+		created = true
+	if sync_integrity or created:
+		_sync_formation_integrity(gm as GameManager)
 
 
 static func _merc_in_formation_pool(m: Mercenary) -> bool:
@@ -41,25 +40,22 @@ static func _purge_mia_and_dead_from_halves(gm: GameManager) -> void:
 		gm.squad_formation[half] = {"active": kept_active, "bench": kept_bench}
 
 
+## T-UI-FORM-3R：招募/读档/赠兵后仅同步槽位卫生，不把名册佣兵自动写入 A/B（补位见 auto_fill_half）
 static func rebalance_from_roster(gm: GameManager) -> void:
 	ensure_formation(gm)
-	var all_ids: Array[String] = _merc_roster_ids(gm)
-	var in_a: Array[String] = _half_all_ids(gm.squad_formation, HALF_A)
-	var in_b: Array[String] = _half_all_ids(gm.squad_formation, HALF_B)
-	for mid in all_ids:
-		var m := gm.find_mercenary_by_id(mid)
-		if not _merc_in_formation_pool(m) or not _merc_deploy_ready(m):
-			continue
-		if mid in in_a or mid in in_b:
-			continue
-		if _half_active_count(gm.squad_formation, HALF_A) < MAX_ACTIVE:
-			_add_to_active(gm.squad_formation, HALF_A, mid)
-		elif _half_active_count(gm.squad_formation, HALF_B) < MAX_ACTIVE:
-			_add_to_active(gm.squad_formation, HALF_B, mid)
-		elif _half_bench_count(gm.squad_formation, HALF_B) < MAX_BENCH:
-			_add_to_bench(gm.squad_formation, HALF_B, mid)
-		elif _half_bench_count(gm.squad_formation, HALF_A) < MAX_BENCH:
-			_add_to_bench(gm.squad_formation, HALF_A, mid)
+
+
+static func _sync_formation_integrity(gm: GameManager) -> void:
+	if gm == null:
+		return
+	_strip_player_from_halves(gm)
+	for half in [HALF_A, HALF_B]:
+		_refresh_half_slots(gm, half)
+	_purge_mia_and_dead_from_halves(gm)
+
+
+static func is_merc_assigned(gm: GameManager, merc_id: String) -> bool:
+	return not find_merc_slot(gm, merc_id).is_empty()
 
 
 ## 解析下趟实际出征半组（只读，不改玩家设的 active_half 优先）
@@ -79,6 +75,135 @@ static func pick_deploy_half(gm: GameManager) -> String:
 	return resolve_deploy_half(gm)
 
 
+static func get_preferred_half(gm: GameManager) -> String:
+	ensure_formation(gm)
+	var pref: String = str(gm.squad_formation.get("active_half", HALF_A))
+	return pref if pref in [HALF_A, HALF_B] else HALF_A
+
+
+## 手动出征：仅编组优先半组可出战时返回该半组，否则空（由 start_run 返回 -7）
+static func resolve_manual_deploy_half(gm: GameManager) -> String:
+	var pref: String = get_preferred_half(gm)
+	if half_can_deploy(gm, pref):
+		return pref
+	return ""
+
+
+static func _count_filled_active_slots(gm: GameManager, half: String) -> int:
+	ensure_formation(gm)
+	var ids: Array[String] = _pad_slots(get_active_ids(gm.squad_formation, half), MAX_ACTIVE)
+	var n: int = 0
+	for mid in ids:
+		if mid != "":
+			n += 1
+	return n
+
+
+static func _min_personal_in_slot_ids(gm: GameManager, ids: Array[String]) -> int:
+	var worst: int = -1
+	for mid in ids:
+		if mid == "":
+			continue
+		var m: Mercenary = gm.find_mercenary_by_id(mid)
+		if m == null:
+			continue
+		if worst < 0:
+			worst = m.personal_stability
+		else:
+			worst = mini(worst, m.personal_stability)
+	return worst
+
+
+static func _sum_personal_in_slot_ids(gm: GameManager, ids: Array[String], use_max: bool = false) -> int:
+	var total: int = 0
+	for mid in ids:
+		if mid == "":
+			continue
+		var m: Mercenary = gm.find_mercenary_by_id(mid)
+		if m == null:
+			continue
+		if use_max:
+			total += m.get_personal_stability_max()
+		else:
+			total += m.personal_stability
+	return total
+
+
+## T-STAB-HALF：半组出战 4 槽 personal_stability 最小值（空槽跳过；全空返回 -1）
+static func get_half_active_stability_min(gm: GameManager, half: String) -> int:
+	ensure_formation(gm)
+	var ids: Array[String] = _pad_slots(get_active_ids(gm.squad_formation, half), MAX_ACTIVE)
+	return _min_personal_in_slot_ids(gm, ids)
+
+
+## T-STAB-HALF：半组替补 2 槽 min；全空替补视为无短板（返回 MAX_STABILITY）
+static func get_half_bench_stability_min(gm: GameManager, half: String) -> int:
+	ensure_formation(gm)
+	var ids: Array[String] = _pad_slots(get_bench_ids(gm.squad_formation, half), MAX_BENCH)
+	var worst: int = _min_personal_in_slot_ids(gm, ids)
+	if worst < 0:
+		return StabilitySystem.MAX_STABILITY
+	return worst
+
+
+## T-STAB-POOL：半组出征起点 = 出战4槽 personal 之和（替补不计；空槽=0）
+static func get_half_active_stability_sum(gm: GameManager, half: String) -> int:
+	ensure_formation(gm)
+	var ids: Array[String] = _pad_slots(get_active_ids(gm.squad_formation, half), MAX_ACTIVE)
+	return _sum_personal_in_slot_ids(gm, ids, false)
+
+
+static func get_half_active_stability_max_sum(gm: GameManager, half: String) -> int:
+	ensure_formation(gm)
+	var ids: Array[String] = _pad_slots(get_active_ids(gm.squad_formation, half), MAX_ACTIVE)
+	return _sum_personal_in_slot_ids(gm, ids, true)
+
+
+static func get_half_stability(gm: GameManager, half: String) -> int:
+	if _count_filled_active_slots(gm, half) <= 0:
+		return 0
+	return get_half_active_stability_sum(gm, half)
+
+
+static func get_half_stability_max(gm: GameManager, half: String) -> int:
+	if _count_filled_active_slots(gm, half) <= 0:
+		return 0
+	return get_half_active_stability_max_sum(gm, half)
+
+
+static func get_half_stability_parts(gm: GameManager, half: String) -> Dictionary:
+	var filled: int = _count_filled_active_slots(gm, half)
+	var active_sum: int = get_half_active_stability_sum(gm, half) if filled > 0 else 0
+	var active_max_sum: int = get_half_active_stability_max_sum(gm, half) if filled > 0 else 0
+	var active_min: int = get_half_active_stability_min(gm, half)
+	if active_min < 0:
+		active_min = 0
+	return {
+		"active_min": active_min,
+		"active_sum": active_sum,
+		"active_max_sum": active_max_sum,
+		"bench_min": get_half_bench_stability_min(gm, half),
+		"filled_active": filled,
+		"combined": active_sum,
+	}
+
+
+static func format_half_stability_text(gm: GameManager, half: String) -> String:
+	var parts: Dictionary = get_half_stability_parts(gm, half)
+	if int(parts.get("filled_active", 0)) <= 0:
+		return "—"
+	var active_sum: int = int(parts.get("active_sum", 0))
+	var active_max_sum: int = int(parts.get("active_max_sum", 0))
+	return "%d/%d" % [active_sum, maxi(1, active_max_sum)]
+
+
+static func format_halves_stability_summary(gm: GameManager) -> String:
+	return "A:%s · B:%s" % [
+		format_half_stability_text(gm, HALF_A),
+		format_half_stability_text(gm, HALF_B),
+	]
+
+
 static func half_can_deploy(gm: GameManager, half: String) -> bool:
 	if gm == null:
 		return false
@@ -86,7 +211,10 @@ static func half_can_deploy(gm: GameManager, half: String) -> bool:
 
 
 static func is_recovery_lock_active(gm: GameManager) -> bool:
-	ensure_formation(gm)
+	if gm == null:
+		return false
+	if gm.squad_formation.is_empty():
+		ensure_formation(gm)
 	return not half_can_deploy(gm, HALF_A) and not half_can_deploy(gm, HALF_B)
 
 
@@ -494,9 +622,6 @@ static func assign_merc_to_slot(
 	if slot_index < 0 or slot_index >= max_idx:
 		return -1
 	ensure_formation(gm)
-	var other: String = HALF_B if half == HALF_A else HALF_A
-	if merc_id in _half_all_ids(gm.squad_formation, other):
-		return -2
 	remove_merc_from_formation(gm, merc_id)
 	var active: Array[String] = get_active_ids(gm.squad_formation, half)
 	var bench: Array[String] = get_bench_ids(gm.squad_formation, half)
@@ -550,7 +675,10 @@ static func clear_slot(gm: GameManager, half: String, slot_kind: String, slot_in
 
 
 static func set_preferred_half(gm: GameManager, half: String) -> void:
-	ensure_formation(gm)
+	if gm == null:
+		return
+	if gm.squad_formation.is_empty():
+		ensure_formation(gm)
 	if half in [HALF_A, HALF_B]:
 		gm.squad_formation["active_half"] = half
 

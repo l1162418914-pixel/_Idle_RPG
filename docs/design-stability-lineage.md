@@ -49,18 +49,26 @@
 | 回城 | 大营整备 | 基地慢回稳定；养伤锁；比提灯 **略轻** |
 | 通关 | — | 通关地图额外扣稳定（长线压力） |
 
-### 2.3 数值锚点（现网）
+### 2.3 数值锚点（现网 · T-STAB-POOL + STAB-CLASS）
 
 | 常量 / 字段 | 值 / 含义 | 文件 |
 |-------------|-----------|------|
-| `MAX_STABILITY` | 100 | `stability_system.gd` |
-| `TEAM_WITHDRAW_THRESHOLD` | 30（强制返程） | 同上 |
-| `PERSONAL_BREAK_THRESHOLD` | 30（个人崩溃线） | 同上 |
-| `TEAM_HIT_SHARE` | 0.45 | 同上 |
+| `MAX_STABILITY` | 100（默认个人上限基准） | `stability_system.gd` |
+| `BREAK_THRESHOLD_RATIO` | 0.30（团队强制返程 & 个人崩溃线） | 同上 |
+| 团队强制返程 | `floor(team_stability_max × 0.30)`（本趟动态上限） | `StabilitySystem.get_run_withdraw_threshold()` |
+| 个人崩溃线 | `floor(该佣兵 personal_max × 0.30)` | `Mercenary.get_personal_break_threshold()` |
+| 职业个人上限 | 战士 110 · 法师 80 · 游侠 95（模板可覆盖） | `mercenary_templates.json` |
+| `toughness` 被动 | 个人上限 +10 | `Mercenary.get_personal_stability_max()` |
+| 半组 `half_sum` | `Σ 出战4槽 personal`；替补不计 | `squad_formation_service.gd` |
+| 本趟 `team_stability` | 实时 = 在编个人稳之和 | `stability_system.gd` |
+| `CASCADE_DEPLETION_RATIO` | 0.10（个人耗尽牵连队友） | 同上 |
+| `APPLY_PERSONAL_LOSS_ON_HIT` | true（受击扣个人再同步团队条） | 同上 |
+| 替补上阵 | 压力换人 / `try_bench_reinforcements` → `on_field_roster_changed` | `pressure_outcome_service.gd` |
+| `TEAM_HIT_SHARE` | 0.45 | `stability_system.gd` |
 | `HIT_STABILITY_SCALE` | 10（按伤害占 max_hp 比例） | 同上 |
 | `on_member_down` | 团队 -15 | 同上 |
 | `on_boss_killed` | 团队 +20 | 同上 |
-| `GameManager.team_stability` | 基地/下次出征共用 | `game_manager.gd` |
+| 根存档 `team_stability` | 废弃写入；UI 读编组半组聚合 | `save_serializer.gd` / `game_manager.gd` |
 | 伤疤 | `get_scar_stability_loss_mult()` 放大个人/团队损失 | `Mercenary` + `on_ally_hit` |
 
 ### 2.4 信号与流程

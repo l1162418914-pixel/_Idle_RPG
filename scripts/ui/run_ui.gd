@@ -96,10 +96,10 @@ func _setup_auto_controls() -> void:
 	_stop_auto_button.pressed.connect(_on_stop_auto_pressed)
 	hbox.add_child(_stop_auto_button)
 	_auto_retreat_safe_check = CheckButton.new()
-	_auto_retreat_safe_check.text = "自动撤:仅安全箱"
-	_auto_retreat_safe_check.tooltip_text = "携带价值只统计安全箱时勾选"
-	_auto_retreat_safe_check.button_pressed = GameManager.auto_retreat_safe_only
-	_auto_retreat_safe_check.toggled.connect(_on_auto_retreat_safe_toggled)
+	_auto_retreat_safe_check.text = "本趟策略"
+	_auto_retreat_safe_check.tooltip_text = "出征策略在大营 F2「出征策略」区设定，本趟出发时锁定"
+	_auto_retreat_safe_check.disabled = true
+	_auto_retreat_safe_check.button_pressed = true
 	hbox.add_child(_auto_retreat_safe_check)
 	_chase_counter_button = Button.new()
 	_chase_counter_button.text = "追击反击"
@@ -175,10 +175,6 @@ func _on_deep_counter_pressed() -> void:
 	var main = get_tree().current_scene
 	if main and main.has_method("_on_chase_deep_counter_pressed"):
 		main._on_chase_deep_counter_pressed()
-
-
-func _on_auto_retreat_safe_toggled(pressed: bool) -> void:
-	GameManager.auto_retreat_safe_only = pressed
 
 
 func _setup_shield_bars() -> void:
@@ -449,6 +445,10 @@ func update_display(run_data: Dictionary, lane: Dictionary = {}) -> void:
 	_paint_distance_line(run_data, lane)
 	if _lane_status_label and lane.has("status_text"):
 		_lane_status_label.text = str(lane.get("status_text", ""))
+	if _auto_retreat_safe_check:
+		var exp_lbl: String = str(run_data.get("expedition_label", ""))
+		if exp_lbl != "":
+			_auto_retreat_safe_check.text = "策略:%s" % exp_lbl
 
 
 func _paint_distance_line(run_data: Dictionary, lane: Dictionary) -> void:
@@ -497,11 +497,16 @@ func _paint_distance_line(run_data: Dictionary, lane: Dictionary) -> void:
 		else:
 			distance_label.modulate = Color.WHITE
 	else:
-		distance_label.text = "前进: %.0f / %.0fm" % [cur_dist, max_dist]
-		var carry: int = int(run_data.get("carry_value", 0))
-		var cth: int = int(run_data.get("carry_value_threshold", 0))
-		if cth > 0:
-			distance_label.text += "\n携带价值: %d / %d" % [carry, cth]
+		var exp_lbl: String = str(run_data.get("expedition_label", ""))
+		var exp_prefix := "[%s] " % exp_lbl if exp_lbl != "" else ""
+		distance_label.text = "%s前进: %.0f / %.0fm" % [exp_prefix, cur_dist, max_dist]
+		if exp_lbl != "推图":
+			var carry: int = int(run_data.get("carry_value", 0))
+			var cth: int = int(run_data.get("carry_value_threshold", 0))
+			if cth > 0:
+				distance_label.text += "\n携带价值: %d / %d" % [carry, cth]
+		else:
+			distance_label.text += "\n推图模式 · 仅手动撤离"
 		var ext_line: String = str(run_data.get("extract_line_label", ""))
 		if ext_line != "":
 			distance_label.text += "\n" + ext_line

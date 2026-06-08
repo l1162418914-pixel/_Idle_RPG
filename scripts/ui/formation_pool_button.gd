@@ -12,7 +12,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	flat = false
-	custom_minimum_size = Vector2(96, 36)
+	custom_minimum_size = Vector2(72, 32)
 	size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	add_theme_font_size_override("font_size", 11)
 	var sb := StyleBoxFlat.new()
@@ -49,19 +49,20 @@ func apply_pool(text: String, not_clickable: bool, modulate_color: Color, bench_
 	self.text = text
 	modulate = modulate_color
 	disabled = not_clickable
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	if not_clickable:
 		tooltip_text = ""
 	elif bench_only_mode:
 		tooltip_text = "养伤佣兵仅可编入替补席（先点「替」空槽，或拖入替补槽）"
 	else:
-		tooltip_text = "点选编入；按住拖动到半组槽位"
+		tooltip_text = "可编入半组；是否可出征取决于休整/稳定状态。点选或拖入槽位"
 
 
 func _on_pressed() -> void:
 	if pool_disabled or merc_id == "":
 		return
 	if formation_ui != null and formation_ui.has_method("_on_pool_merc_pressed"):
-		formation_ui._on_pool_merc_pressed(merc_id, bench_only)
+		formation_ui.call_deferred("_on_pool_merc_pressed", merc_id, bench_only)
 
 
 func _get_drag_data(_at_position: Vector2) -> Variant:
@@ -73,3 +74,12 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview.modulate = Color(0.85, 0.95, 1.0)
 	set_drag_preview(preview)
 	return {"merc_id": merc_id, "from_pool": true, "bench_only": bench_only}
+
+
+func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	return FormationPoolDropZone._is_slot_drag(data)
+
+
+func _drop_data(_at_position: Vector2, data: Variant) -> void:
+	if formation_ui != null and formation_ui.has_method("_handle_pool_drop"):
+		formation_ui.call_deferred("_handle_pool_drop", data)

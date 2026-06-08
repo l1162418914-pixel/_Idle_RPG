@@ -35,10 +35,11 @@ static func heal_mercenary(merc: Mercenary, heal_ratio: float) -> int:
 static func recover_personal_stability(merc: Mercenary, heal_ratio: float) -> int:
 	if merc == null or not merc.is_alive or merc.is_mia:
 		return 0
-	if merc.personal_stability >= StabilitySystem.MAX_STABILITY:
+	var cap: int = merc.get_personal_stability_max()
+	if merc.personal_stability >= cap:
 		merc.try_clear_personal_break()
 		return 0
-	var amount: int = maxi(1, int(float(StabilitySystem.MAX_STABILITY) * heal_ratio * 0.8))
+	var amount: int = maxi(1, int(float(cap) * heal_ratio * 0.8))
 	var before: int = merc.personal_stability
 	merc.modify_personal_stability(amount)
 	merc.try_clear_personal_break()

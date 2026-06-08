@@ -156,12 +156,22 @@ func _configure_prepare_roster_layout(roster_hbox: Control) -> void:
 			(list as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
-func _refresh_deploy_half_controls(half: String) -> void:
+func _refresh_deploy_half_controls(pref_half: String, deploy_half: String) -> void:
 	if _deploy_half_label:
-		var can: bool = half != "" and SquadFormationService.half_can_deploy(GameManager, half)
+		var can: bool = (
+			deploy_half != ""
+			and SquadFormationService.half_can_deploy(GameManager, deploy_half)
+		)
+		var pref_note := ""
+		if pref_half != "" and deploy_half != "" and pref_half != deploy_half:
+			pref_note = " · 编组优先%s" % pref_half
 		_deploy_half_label.text = (
-			"下趟出征半组: %s（%s）· 点选左侧加入/移出出战位"
-			% [half if half != "" else "—", "可出战" if can else "休整/无法出征"]
+			"下趟出征半组: %s（%s）%s · 点选左侧加入/移出出战位"
+			% [
+				deploy_half if deploy_half != "" else "—",
+				"可出战" if can else "休整/无法出征",
+				pref_note,
+			]
 		)
 	if _deploy_half_row == null:
 		return
@@ -172,8 +182,8 @@ func _refresh_deploy_half_controls(half: String) -> void:
 		if not str(btn.name).begins_with("DeployHalf"):
 			continue
 		var hid: String = str(btn.name).substr(10)
-		btn.disabled = hid == half
-		btn.text = "★ %s" % hid if hid == half else "半组 %s" % hid
+		btn.disabled = hid == pref_half
+		btn.text = "★编组%s" % hid if hid == pref_half else "半组 %s" % hid
 
 
 func _on_prepare_half_pressed(half: String) -> void:
@@ -206,14 +216,18 @@ func _refresh() -> void:
 		if req != "":
 			var prev: Dictionary = DataLoader.map_data(req)
 			extra = " | 前置: %s Boss" % prev.get("name", req)
-		var team_st: int = GameManager.get_team_stability()
+		var preview_half: String = SquadFormationService.resolve_manual_deploy_half(GameManager)
+		if preview_half == "":
+			preview_half = SquadFormationService.get_preferred_half(GameManager)
+		var team_st: int = GameManager.get_deploy_half_stability(preview_half)
 		var withdraw_hint := ""
-		if team_st <= StabilitySystem.TEAM_WITHDRAW_THRESHOLD + 10:
-			withdraw_hint = " (团队≤30强制撤离)"
+		var withdraw_at: int = StabilitySystem.get_team_withdraw_threshold()
+		if team_st <= withdraw_at + 10:
+			withdraw_hint = " (团队≤%d强制撤离)" % withdraw_at
 		var form_hint: String = SquadFormationService.get_formation_summary(GameManager)
 		var lines: PackedStringArray = []
 		lines.append(
-			"地图: %s | 危险%d | Boss %.0fm | 团队稳定度:%d%s%s" % [
+			"地图: %s | 危险%d | Boss %.0fm | 半组稳定:%d%s%s" % [
 				map_name, danger, boss_dist, team_st, withdraw_hint, extra
 			]
 		)
@@ -264,7 +278,10 @@ func _refresh() -> void:
 		else:
 			map_label.modulate = Color.WHITE
 	
-	_refresh_deploy_half_controls(half)
+	_refresh_deploy_half_controls(
+		SquadFormationService.get_preferred_half(GameManager),
+		half,
+	)
 	_refresh_safe_preview(md)
 	_refresh_available()
 	_refresh_selected()
@@ -598,7 +615,7 @@ func pulse_prepare_center(seconds: float = 2.0) -> void:
 
 func _update_start_button() -> void:
 	if start_button:
-		var half: String = SquadFormationService.pick_deploy_half(GameManager)
+		var half: String = SquadFormationService.resolve_manual_deploy_half(GameManager)
 		start_button.disabled = half == "" or GameManager.is_recovery_lock_active()
 		var mutual_target: String = ""
 		if (
@@ -617,7 +634,7 @@ func _update_start_button() -> void:
 func _update_mutual_recovery_hint() -> void:
 	if _mutual_hint_label == null:
 		return
-	var half: String = SquadFormationService.pick_deploy_half(GameManager)
+	var half: String = SquadFormationService.resolve_manual_deploy_half(GameManager)
 	if half == "" or not MutualRecoveryService.is_auto_enabled(GameManager):
 		_mutual_hint_label.text = ""
 		if _skip_mutual_check:

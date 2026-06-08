@@ -90,7 +90,7 @@ func init_from_template(template: Dictionary) -> void:
 		if class_tpl.has("active_skills"):
 			active_skills = class_tpl.get("active_skills", []).duplicate()
 	
-	personal_stability = _StabilitySystem.MAX_STABILITY
+	personal_stability = get_personal_stability_max()
 	reset_to_full_hp()
 
 
@@ -127,10 +127,34 @@ func get_hp_ratio() -> float:
 	return float(current_hp) / float(max_v)
 
 
+func get_personal_stability_max() -> int:
+	var base: int = _StabilitySystem.MAX_STABILITY
+	if template_id != "":
+		var tpl: Dictionary = DataLoader.merc_template(template_id)
+		if tpl.has("personal_stability_max"):
+			base = int(tpl.get("personal_stability_max", base))
+		elif tpl.has("class"):
+			var class_tpl: Dictionary = DataLoader.player_class(str(tpl.get("class", "")))
+			if class_tpl.has("personal_stability_max"):
+				base = int(class_tpl.get("personal_stability_max", base))
+	elif merc_class != "":
+		var class_tpl: Dictionary = DataLoader.player_class(merc_class)
+		if class_tpl.has("personal_stability_max"):
+			base = int(class_tpl.get("personal_stability_max", base))
+	if passive_skills.has("toughness"):
+		base += 10
+	return maxi(1, base)
+
+
+func get_personal_break_threshold() -> int:
+	return _StabilitySystem.get_personal_break_threshold_for_max(get_personal_stability_max())
+
+
 func modify_personal_stability(delta: int) -> void:
 	var was: int = personal_stability
-	personal_stability = clampi(personal_stability + delta, 0, _StabilitySystem.MAX_STABILITY)
-	if personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD:
+	var cap: int = get_personal_stability_max()
+	personal_stability = clampi(personal_stability + delta, 0, cap)
+	if personal_stability > get_personal_break_threshold():
 		try_clear_personal_break()
 	elif was > 0 and personal_stability == 0:
 		_try_pressure_zero_near_death()
@@ -143,12 +167,12 @@ func _try_pressure_zero_near_death() -> void:
 		if PressureOutcomeService.try_single_pressure_substitute(GameManager.current_run, self):
 			return
 		enter_near_death_state(0.05)
-	elif personal_stability <= _StabilitySystem.PERSONAL_BREAK_THRESHOLD:
+	elif personal_stability <= get_personal_break_threshold():
 		is_personal_break = true
 
 
 func is_personal_stability_ok() -> bool:
-	return personal_stability > _StabilitySystem.PERSONAL_BREAK_THRESHOLD
+	return personal_stability > get_personal_break_threshold()
 
 
 func is_test_roster_locked() -> bool:
@@ -273,7 +297,7 @@ func should_personal_break() -> bool:
 		return false
 	if merc_type == MercType.PLAYER:
 		return false
-	return personal_stability <= _StabilitySystem.PERSONAL_BREAK_THRESHOLD
+	return personal_stability <= get_personal_break_threshold()
 
 
 ## 非主角：战后血量过低则脱离队伍

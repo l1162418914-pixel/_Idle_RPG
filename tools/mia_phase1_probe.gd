@@ -152,6 +152,23 @@ func _run() -> void:
 	_probe_t02c_strip_player_from_halves()
 	_probe_t02c_no_lock_when_mercs_ready()
 	_probe_t_ui_form_1_start_run_preserves_active_half()
+	_probe_t_ui_form_2_manual_block_auto_fallback()
+	_probe_t_ui_form_3r_recruit_stays_in_pool()
+	_probe_t_ui_form_6_cross_half_assign()
+	_probe_t_stab_half_aggregate()
+	_probe_t_stab_half_ui_format()
+	_probe_t_stab_half_display_combined_cap()
+	_probe_t_stab_class_personal_max()
+	_probe_t_stab_pool_cascade()
+	_probe_t_ui_form_4_preferred_vs_deploy()
+	_probe_t_ui_form_layout_1_summary()
+	_probe_expedition_strategy_snapshot()
+	_probe_expedition_push_blocks_auto_retreat()
+	_probe_expedition_ui_retreat_row_layout()
+	_probe_camp_1a_stage_lineup()
+	_probe_stage_1a_bottom_stage()
+	_probe_frame_1a_shell_zones()
+	_probe_twin_1a_dual_window()
 	_probe_m2c_search_blocked_during_combat()
 	_probe_b3_grassland_march_events()
 	_probe_c1_test_maps_march_events()
@@ -3085,7 +3102,7 @@ func _probe_t_ui_form_1_start_run_preserves_active_half() -> void:
 		return
 	GameManager.state = GameManager.GameState.PREPARE
 	GameManager.selected_map_id = "grassland"
-	var code: int = GameManager.start_run(true)
+	var code: int = GameManager.start_run(true, true)
 	if code != 0:
 		_fail("FORM-1a", "start_run 应成功 (code %d)" % code)
 		return
@@ -3099,6 +3116,547 @@ func _probe_t_ui_form_1_start_run_preserves_active_half() -> void:
 	GameManager.state = GameManager.GameState.BASE
 	MutualRecoveryService.set_auto_enabled(GameManager, true)
 	_pass("FORM-1a", "T-UI-FORM-1 start_run 不覆盖 active_half")
+
+
+func _probe_t_ui_form_2_manual_block_auto_fallback() -> void:
+	_reset_gm()
+	MutualRecoveryService.set_auto_enabled(GameManager, false)
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": ["probe_m1"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	GameManager.state = GameManager.GameState.PREPARE
+	GameManager.selected_map_id = "grassland"
+	var manual: int = GameManager.start_run(false, false)
+	if manual != -7:
+		_fail("FORM-2a", "手动出征 B 优先不可出战应返回 -7 (got %d)" % manual)
+		return
+	if str(GameManager.squad_formation.get("active_half", "")) != SquadFormationService.HALF_B:
+		_fail("FORM-2a", "手动 -7 后 active_half 应仍为 B")
+		return
+	var auto: int = GameManager.start_run(false, true)
+	if auto != 0:
+		_fail("FORM-2a", "自动改派出征应成功 (code %d)" % auto)
+		return
+	if GameManager.last_deploy_half != SquadFormationService.HALF_A:
+		_fail("FORM-2a", "自动改派后 last_deploy_half 应为 A")
+		return
+	GameManager.current_run = null
+	GameManager.state = GameManager.GameState.BASE
+	_pass("FORM-2a", "T-UI-FORM-2 手动 -7 / 自动改派")
+
+
+func _probe_t_ui_form_3r_recruit_stays_in_pool() -> void:
+	_reset_gm()
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": [], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	var recruit := _make_probe_normal("form3r_new", "新兵")
+	GameManager.normal_roster.append(recruit)
+	SquadFormationService.rebalance_from_roster(GameManager)
+	var new_id: String = recruit.merc_id
+	if not SquadFormationService.find_merc_slot(GameManager, new_id).is_empty():
+		_fail("FORM-3R", "招募后新佣兵不应自动进入 A/B 槽")
+		return
+	if str(GameManager.squad_formation.get("active_half", "")) != SquadFormationService.HALF_B:
+		_fail("FORM-3R", "招募不应改变编组优先 active_half")
+		return
+	SquadFormationService.auto_fill_half(GameManager, SquadFormationService.HALF_B)
+	var slot: Dictionary = SquadFormationService.find_merc_slot(GameManager, new_id)
+	if slot.is_empty() or str(slot.get("half", "")) != SquadFormationService.HALF_B:
+		_fail("FORM-3R", "补满优先半组后新佣兵应进入半组 B")
+		return
+	_reset_gm()
+	GameManager.gold = 5000
+	GameManager.normal_roster.clear()
+	GameManager.elite_roster.clear()
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": [], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	GameManager.buildings["barracks"] = {"level": 2, "building_id": "barracks"}
+	var roster_before: int = GameManager.normal_roster.size()
+	var code: int = MercRecruitService.recruit_merc(GameManager, "normal")
+	if code != 0:
+		_fail("FORM-3R", "recruit_merc 应成功 (code=%d)" % code)
+		return
+	if GameManager.normal_roster.size() != roster_before + 1:
+		_fail("FORM-3R", "recruit_merc 应增加一名佣兵")
+		return
+	var recruited_id: String = GameManager.normal_roster[GameManager.normal_roster.size() - 1].merc_id
+	if SquadFormationService.is_merc_assigned(GameManager, recruited_id):
+		_fail("FORM-3R", "recruit_merc 后新佣兵不应自动进入 A/B 槽")
+		return
+	if str(GameManager.squad_formation.get("active_half", "")) != SquadFormationService.HALF_B:
+		_fail("FORM-3R", "recruit_merc 不应改变编组优先 active_half")
+		return
+	_pass("FORM-3R", "T-UI-FORM-3R 招募默认备战席")
+
+
+func _probe_t_ui_form_6_cross_half_assign() -> void:
+	_reset_gm()
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": ["probe_m1"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	var code: int = GameManager.formation_assign("probe_m1", SquadFormationService.HALF_B, "active", 0)
+	if code != 0:
+		_fail("FORM-6a", "A→B 跨半组 assign 应成功 (code %d)" % code)
+		return
+	var a_active: Array[String] = SquadFormationService.get_active_ids(
+		GameManager.squad_formation, SquadFormationService.HALF_A
+	)
+	if not a_active.is_empty() and a_active[0] != "":
+		_fail("FORM-6a", "A 出战位应已清空")
+		return
+	var b_active: Array[String] = SquadFormationService.get_active_ids(
+		GameManager.squad_formation, SquadFormationService.HALF_B
+	)
+	if b_active.is_empty() or b_active[0] != "probe_m1":
+		_fail("FORM-6a", "B 出战位应有 probe_m1")
+		return
+	var back: int = GameManager.formation_clear_slot(SquadFormationService.HALF_B, "active", 0)
+	if back != 0:
+		_fail("FORM-6a", "拖回备战席等价 clear_slot 应成功")
+		return
+	_pass("FORM-6a", "T-UI-FORM-6 跨半组 assign / 移出")
+
+
+func _probe_t_stab_half_aggregate() -> void:
+	_reset_gm()
+	MutualRecoveryService.set_auto_enabled(GameManager, false)
+	var m1 := GameManager.find_mercenary_by_id("probe_m1")
+	var m2 := GameManager.find_mercenary_by_id("probe_m2")
+	if m1 == null or m2 == null:
+		_fail("STAB-HALF-a", "探针佣兵缺失")
+		return
+	m1.personal_stability = 80
+	m2.personal_stability = 55
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_A,
+		SquadFormationService.HALF_A: {"active": ["probe_m1", "probe_m2"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	if SquadFormationService.get_half_active_stability_min(GameManager, SquadFormationService.HALF_A) != 55:
+		_fail("STAB-HALF-a", "战 min 应为 55 (got %d)" % SquadFormationService.get_half_active_stability_min(GameManager, SquadFormationService.HALF_A))
+		return
+	if SquadFormationService.get_half_bench_stability_min(GameManager, SquadFormationService.HALF_A) != 100:
+		_fail("STAB-HALF-a", "空替补应视为无短板 (got %d)" % SquadFormationService.get_half_bench_stability_min(GameManager, SquadFormationService.HALF_A))
+		return
+	if SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_A) != 135:
+		_fail("STAB-HALF-a", "半组稳定应为 80+55=135 (got %d)" % SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_A))
+		return
+	GameManager.squad_formation[SquadFormationService.HALF_A]["bench"] = ["probe_m2"]
+	m1.personal_stability = 40
+	if SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_A) != 95:
+		_fail("STAB-HALF-a", "战40+55 半组总和应为 95 (替补不计)")
+		return
+	if m1.get_personal_break_threshold() != 30:
+		_fail("STAB-HALF-a", "个人崩溃线应为 max 30%% (got %d)" % m1.get_personal_break_threshold())
+		return
+	if StabilitySystem.get_team_withdraw_threshold() != 30:
+		_fail("STAB-HALF-a", "团队强制撤阈值应为 30")
+		return
+	GameManager.squad_formation[SquadFormationService.HALF_B] = {"active": ["probe_m2"], "bench": []}
+	m2.personal_stability = 90
+	if GameManager.get_deploy_half_stability(SquadFormationService.HALF_B) != 90:
+		_fail("STAB-HALF-a", "B 半组应不受全局 team_stability 影响")
+		return
+	GameManager.state = GameManager.GameState.PREPARE
+	GameManager.selected_map_id = "grassland"
+	var code: int = GameManager.start_run(false, false)
+	if code != 0:
+		_fail("STAB-HALF-a", "A 半组出征应成功 (code %d)" % code)
+		return
+	if GameManager.current_run == null or GameManager.current_run.stability == null:
+		_fail("STAB-HALF-a", "应有 stability")
+		return
+	if GameManager.current_run.stability.team_stability != 95:
+		_fail("STAB-HALF-a", "本趟团队起点应为半组总和 95 (got %d)" % GameManager.current_run.stability.team_stability)
+		return
+	GameManager.current_run = null
+	GameManager.state = GameManager.GameState.BASE
+	_pass("STAB-HALF-a", "T-STAB-POOL 出战4人总和 + 出征起点")
+
+
+func _probe_t_stab_half_ui_format() -> void:
+	_reset_gm()
+	var m1 := GameManager.find_mercenary_by_id("probe_m1")
+	if m1 == null:
+		_fail("STAB-HALF-b", "探针佣兵缺失")
+		return
+	m1.personal_stability = 72
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_A,
+		SquadFormationService.HALF_A: {"active": ["probe_m1"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	if SquadFormationService.format_half_stability_text(GameManager, SquadFormationService.HALF_A) != "72/100":
+		_fail("STAB-HALF-b", "单员应显示 72/100 (got %s)" % SquadFormationService.format_half_stability_text(GameManager, SquadFormationService.HALF_A))
+		return
+	if GameManager.get_team_stability() != 72:
+		_fail("STAB-HALF-b", "get_team_stability 应读编组优先半组聚合")
+		return
+	GameManager.set_team_stability(5)
+	if GameManager.get_deploy_half_stability(SquadFormationService.HALF_A) != 72:
+		_fail("STAB-HALF-b", "set_team_stability 应不再影响半组聚合")
+		return
+	_pass("STAB-HALF-b", "T-STAB-POOL 文案 current/max 总和")
+
+
+func _probe_t_stab_half_display_combined_cap() -> void:
+	_reset_gm()
+	var weak := NormalMercenary.new()
+	weak.merc_id = "probe_weak"
+	weak.init_from_template(DataLoader.merc_template("warrior_normal"))
+	weak.personal_stability = weak.get_personal_stability_max()
+	var strong := EliteMercenary.new()
+	strong.merc_id = "probe_strong"
+	strong.init_from_template(DataLoader.merc_template("warrior_elite"))
+	strong.personal_stability = strong.get_personal_stability_max()
+	GameManager.normal_roster.append(weak)
+	GameManager.elite_roster.append(strong)
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": [], "bench": []},
+		SquadFormationService.HALF_B: {
+			"active": ["probe_weak", "probe_strong"],
+			"bench": [],
+		},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	if SquadFormationService.format_half_stability_text(GameManager, SquadFormationService.HALF_B) != "230/230":
+		_fail(
+			"STAB-HALF-c",
+			"双员应显示 230/230 (got %s)"
+			% SquadFormationService.format_half_stability_text(GameManager, SquadFormationService.HALF_B)
+		)
+		return
+	if SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_B) != 230:
+		_fail("STAB-HALF-c", "出征起点应为 105+125=230")
+		return
+	GameManager.squad_formation[SquadFormationService.HALF_A] = {"active": ["probe_strong"], "bench": []}
+	if SquadFormationService.format_half_stability_text(GameManager, SquadFormationService.HALF_A) != "125/125":
+		_fail("STAB-HALF-c", "A 单精英应显示 125/125")
+		return
+	if SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_A) < 125:
+		_fail("STAB-HALF-c", "单员出征起点应≥个人稳")
+		return
+	GameManager.squad_formation[SquadFormationService.HALF_A] = {"active": ["probe_weak"], "bench": []}
+	weak.personal_stability = 72
+	if SquadFormationService.get_half_stability(GameManager, SquadFormationService.HALF_A) != 72:
+		_fail("STAB-HALF-c", "单人 72 稳出征起点应为 72")
+		return
+	_pass("STAB-HALF-c", "T-STAB-POOL 人多总和更高，出征≥个人稳")
+
+
+func _probe_t_stab_class_personal_max() -> void:
+	var w := NormalMercenary.new()
+	w.init_from_template(DataLoader.merc_template("warrior_normal"))
+	if w.get_personal_stability_max() != 105:
+		_fail("STAB-CLASS-a", "warrior_normal 上限应为 105 (got %d)" % w.get_personal_stability_max())
+		return
+	var mg := NormalMercenary.new()
+	mg.init_from_template(DataLoader.merc_template("mage_normal"))
+	if mg.get_personal_stability_max() != 80:
+		_fail("STAB-CLASS-a", "mage_normal 上限应为 80 (got %d)" % mg.get_personal_stability_max())
+		return
+	var rg := NormalMercenary.new()
+	rg.init_from_template(DataLoader.merc_template("ranger_normal"))
+	if rg.get_personal_stability_max() != 92:
+		_fail("STAB-CLASS-a", "ranger_normal 上限应为 92 (got %d)" % rg.get_personal_stability_max())
+		return
+	var elite := EliteMercenary.new()
+	elite.init_from_template(DataLoader.merc_template("warrior_elite"))
+	if elite.get_personal_stability_max() != 125:
+		_fail("STAB-CLASS-a", "warrior_elite+toughness 上限应为 125 (got %d)" % elite.get_personal_stability_max())
+		return
+	if w.get_personal_break_threshold() != 31:
+		_fail("STAB-CLASS-a", "战105 崩溃线应为 31 (got %d)" % w.get_personal_break_threshold())
+		return
+	if mg.get_personal_break_threshold() != 24:
+		_fail("STAB-CLASS-a", "法80 崩溃线应为 24 (got %d)" % mg.get_personal_break_threshold())
+		return
+	_pass("STAB-CLASS-a", "T-STAB-CLASS 职业个人稳定上限")
+
+
+func _probe_t_stab_pool_cascade() -> void:
+	_reset_gm()
+	var m1 := GameManager.find_mercenary_by_id("probe_m1")
+	var m2 := GameManager.find_mercenary_by_id("probe_m2")
+	if m1 == null or m2 == null:
+		_fail("STAB-POOL-b", "探针佣兵缺失")
+		return
+	m1.personal_stability = 100
+	m2.personal_stability = 100
+	var squad := Squad.new()
+	squad.members = [m1, m2]
+	var stab := StabilitySystem.new()
+	stab.init(null, squad, 200, {}, 200)
+	if stab.team_stability != 200:
+		_fail("STAB-POOL-b", "团队条应等于个人之和 200")
+		return
+	stab._apply_personal_loss_with_cascade(m1, 100)
+	stab._sync_team_from_squad()
+	var spill: int = maxi(1, int(floor(float(m1.get_personal_stability_max()) * 0.10)))
+	if m2.personal_stability != 100 - spill:
+		_fail("STAB-POOL-b", "耗尽应牵连队友扣 10%% (got %d)" % m2.personal_stability)
+		return
+	if stab.team_stability != m1.personal_stability + m2.personal_stability:
+		_fail("STAB-POOL-b", "团队条应随个人池同步")
+		return
+	_pass("STAB-POOL-b", "T-STAB-POOL 个人耗尽牵连 10%")
+
+
+func _probe_t_ui_form_4_preferred_vs_deploy() -> void:
+	_reset_gm()
+	GameManager.squad_formation = {
+		"active_half": SquadFormationService.HALF_B,
+		SquadFormationService.HALF_A: {"active": ["probe_m1"], "bench": []},
+		SquadFormationService.HALF_B: {"active": [], "bench": []},
+	}
+	SquadFormationService.ensure_formation(GameManager)
+	var pref: String = SquadFormationService.get_preferred_half(GameManager)
+	var deploy: String = SquadFormationService.resolve_deploy_half(GameManager)
+	if pref != SquadFormationService.HALF_B:
+		_fail("FORM-4a", "编组优先应为 B (got %s)" % pref)
+		return
+	if deploy != SquadFormationService.HALF_A:
+		_fail("FORM-4a", "下趟出征应为 A (got %s)" % deploy)
+		return
+	if pref == deploy:
+		_fail("FORM-4a", "编组优先与出征半组应可解耦")
+		return
+	_pass("FORM-4a", "T-UI-FORM-4 编组优先 vs 下趟出征语义")
+
+
+func _probe_t_ui_form_layout_1_summary() -> void:
+	var form_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_ui.gd")
+	if not form_src.contains("const LAYOUT_REV := 9"):
+		_fail("FORM-LAYOUT-1a", "formation_ui LAYOUT_REV 应为 9")
+		return
+	if not form_src.contains("FormationSummaryUI") or not form_src.contains("_summary_ui"):
+		_fail("FORM-LAYOUT-1a", "应挂载 FormationSummaryUI 简表")
+		return
+	if not form_src.contains("高级编组") or not form_src.contains("_advanced_body"):
+		_fail("FORM-LAYOUT-1a", "槽位墙应收进高级编组折叠区")
+		return
+	if not form_src.contains("_on_advanced_toggle_pressed") or not form_src.contains("set_advanced_collapsed"):
+		_fail("FORM-LAYOUT-1a", "高级编组折叠条应可展开")
+		return
+	if not form_src.contains("_advanced_body.visible = false"):
+		_fail("FORM-LAYOUT-1a", "高级编组默认应收起")
+		return
+	if not form_src.contains("_summary_ui.refresh"):
+		_fail("FORM-LAYOUT-1a", "F2/刷新应走简表 refresh")
+		return
+	var summary_script: Script = load("res://scripts/ui/formation_summary_ui.gd") as Script
+	if summary_script == null:
+		_fail("FORM-LAYOUT-1a", "formation_summary_ui.gd 无法加载")
+		return
+	var summary: Node = summary_script.new() as Node
+	if summary == null or not summary is FormationSummaryUI:
+		_fail("FORM-LAYOUT-1a", "FormationSummaryUI 实例化失败")
+		return
+	summary.free()
+	_pass("FORM-LAYOUT-1a", "T-UI-FORM-LAYOUT-1 简表 + 高级编组可展开")
+
+
+func _probe_expedition_strategy_snapshot() -> void:
+	var merc := GameManager.find_mercenary_by_id("probe_m1")
+	if merc == null:
+		_fail("EXPED-1a", "探针佣兵缺失")
+		return
+	GameManager.expedition_priority = GameManager.EXPEDITION_PRIORITY_LOOT
+	GameManager.loot_discard_overflow = true
+	GameManager.auto_retreat_safe_only = true
+	var squad := Squad.new()
+	squad.build([merc])
+	var run := WorldRun.new("grassland", squad)
+	if run.start() != 0:
+		_fail("EXPED-1a", "WorldRun.start 失败")
+		return
+	if run.expedition_priority != GameManager.EXPEDITION_PRIORITY_LOOT:
+		_fail("EXPED-1a", "出征策略未快照")
+		return
+	if not is_equal_approx(run.expedition_advance_mult, 0.82):
+		_fail("EXPED-1a", "推进倍率应为 0.82 (got %s)" % run.expedition_advance_mult)
+		return
+	if not run.loot_discard_overflow or not run.auto_retreat_safe_only:
+		_fail("EXPED-1a", "战利品/撤离选项未快照")
+		return
+	GameManager.expedition_priority = GameManager.EXPEDITION_PRIORITY_PUSH
+	GameManager.loot_discard_overflow = false
+	if run.expedition_priority != GameManager.EXPEDITION_PRIORITY_LOOT:
+		_fail("EXPED-1a", "本趟出发后不应随大营改动")
+		return
+	if run.loot_discard_overflow != true:
+		_fail("EXPED-1a", "本趟战利品选项不应随大营改动")
+		return
+	_pass("EXPED-1a", "出征策略 start 快照锁定本趟")
+
+
+func _probe_expedition_push_blocks_auto_retreat() -> void:
+	var merc := GameManager.find_mercenary_by_id("probe_m1")
+	if merc == null:
+		_fail("EXPED-2a", "探针佣兵缺失")
+		return
+	GameManager.expedition_priority = GameManager.EXPEDITION_PRIORITY_PUSH
+	var squad := Squad.new()
+	squad.build([merc])
+	var run := WorldRun.new("grassland", squad)
+	if run.start() != 0:
+		_fail("EXPED-2a", "WorldRun.start 失败")
+		return
+	if not ExpeditionStrategyService.is_push(run):
+		_fail("EXPED-2a", "推图策略未快照")
+		return
+	if AutoRetreatService.check(run):
+		_fail("EXPED-2a", "推图模式不应自动撤离")
+		return
+	_pass("EXPED-2a", "推图模式禁用自动撤离")
+
+
+func _probe_expedition_ui_retreat_row_layout() -> void:
+	var form_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_ui.gd")
+	var base_src: String = FileAccess.get_file_as_string("res://scripts/ui/base_ui.gd")
+	if not form_src.contains("const LAYOUT_REV := 9"):
+		_fail("EXPED-UI-1", "formation_ui LAYOUT_REV 应为 9")
+		return
+	if not base_src.contains("const FORMATION_UI_LAYOUT_REV := 9"):
+		_fail("EXPED-UI-1", "base_ui FORMATION_UI_LAYOUT_REV 应为 9")
+		return
+	if not form_src.contains("var _retreat_row"):
+		_fail("EXPED-UI-1", "出征策略应拆分独立撤离行 _retreat_row")
+		return
+	if not form_src.contains("func _sync_expedition_retreat_row"):
+		_fail("EXPED-UI-1", "应通过 _sync_expedition_retreat_row 整行显隐")
+		return
+	if not form_src.contains("_retreat_row.visible = march_only"):
+		_fail("EXPED-UI-1", "均衡模式应控制整行 visible")
+		return
+	if not form_src.contains("_halves_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN"):
+		_fail("EXPED-UI-1", "半组行应 SIZE_SHRINK_BEGIN 防纵向拉伸")
+		return
+	_pass("EXPED-UI-1", "均衡撤离行拆分 + 半组不纵向 FILL")
+
+
+func _probe_camp_1a_stage_lineup() -> void:
+	var form_src: String = FileAccess.get_file_as_string("res://scripts/ui/formation_ui.gd")
+	if not form_src.contains("CampStage") or not form_src.contains("_refresh_camp_stage"):
+		_fail("CAMP-1a", "formation_ui 应挂载 CampStage")
+		return
+	var stage: CampStage = CampStage.new()
+	add_child(stage)
+	if not stage.is_collapsed():
+		_fail("CAMP-1a", "CampStage 应默认折叠")
+		stage.queue_free()
+		return
+	stage.set_collapsed(false)
+	var vis_fn := func(merc_id: String, _kind: String) -> Dictionary:
+		if merc_id == "":
+			return {
+				"ready": false,
+				"name_text": "",
+				"accent": Color(0.3, 0.3, 0.32),
+				"bg": Color(0.1, 0.1, 0.12, 0.9),
+			}
+		return {
+			"ready": true,
+			"name_text": merc_id,
+			"accent": Color(0.4, 0.65, 0.9),
+			"bg": Color(0.15, 0.2, 0.28, 0.95),
+		}
+	stage.refresh_lineup(
+		["probe_m1", "", "", ""],
+		["probe_m2", "", "", ""],
+		"",
+		vis_fn
+	)
+	if stage.find_child("CampRowA", true, false) == null:
+		_fail("CAMP-1a", "CampStage 缺少 CampRowA")
+		stage.queue_free()
+		return
+	if stage.count_filled_chips() != 2:
+		_fail("CAMP-1a", "横排应显示 2 名出战成员 (got %d)" % stage.count_filled_chips())
+		stage.queue_free()
+		return
+	stage.queue_free()
+	_pass("CAMP-1a", "T-UI-CAMP-1 营地舞台 + A/B 横排")
+
+
+func _probe_frame_1a_shell_zones() -> void:
+	var shell_src: String = FileAccess.get_file_as_string("res://scripts/ui/main_shell.gd")
+	if not shell_src.contains("UpperArea"):
+		_fail("FRAME-1a", "main_shell 应保留 UpperArea 计划区")
+		return
+	if shell_src.contains("VSplitContainer") or shell_src.contains('name = "StageBar"'):
+		_fail("FRAME-1a", "PlanningShell 不应再含 VSplit/StageBar")
+		return
+	if not shell_src.contains("UpperOverlayHost"):
+		_fail("FRAME-1a", "后勤/装备浮窗应挂 UpperOverlayHost（只遮上区）")
+		return
+	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
+	if not stage_src.contains("StageBar") or not stage_src.contains("_apply_stage_bar_mouse_policy"):
+		_fail("FRAME-1a", "StageShell 应承载 StageBar 表演层")
+		return
+	var camp_src: String = FileAccess.get_file_as_string("res://scripts/ui/camp_stage.gd")
+	if not camp_src.contains("_collapsed: bool = true") and not camp_src.contains("_collapsed = true"):
+		_fail("FRAME-1a", "CampStage 应默认折叠")
+		return
+	_pass("FRAME-1a", "T-UI-FRAME-1/TWIN 计划区与表演区分离")
+
+
+func _probe_twin_1a_dual_window() -> void:
+	var main_src: String = FileAccess.get_file_as_string("res://scripts/main.gd")
+	if not main_src.contains("StageWindow") or not main_src.contains("_stage_shell"):
+		_fail("TWIN-1a", "main.gd 应创建 StageWindow 并持有 StageShell")
+		return
+	if not main_src.contains("_stage_shell.apply_state") or not main_src.contains("_main_shell.apply_state"):
+		_fail("TWIN-1a", "state_changed 应同步 PlanningShell 与 StageShell")
+		return
+	if not main_src.contains("_shutdown_all_windows"):
+		_fail("TWIN-1a", "关主窗应关闭副窗")
+		return
+	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
+	if not stage_src.contains("get_combat_view") or not stage_src.contains("BottomStage"):
+		_fail("TWIN-1a", "StageShell 应提供 combat_view 与 BottomStage")
+		return
+	if not FileAccess.file_exists("res://scenes/stage_window.tscn"):
+		_fail("TWIN-1a", "缺少 scenes/stage_window.tscn")
+		return
+	_pass("TWIN-1a", "T-UI-TWIN-1 双窗壳层拆分")
+
+
+func _probe_stage_1a_bottom_stage() -> void:
+	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
+	if not stage_src.contains("BottomStage") or not stage_src.contains("_bottom_stage"):
+		_fail("STAGE-1a", "StageShell 应挂载 BottomStage")
+		return
+	var stage := BottomStage.new()
+	stage.custom_minimum_size = Vector2(480, 220)
+	stage.size = Vector2(480, 220)
+	add_child(stage)
+	stage.apply_game_state(GameManager.GameState.BASE)
+	if not stage.is_bonfire_visible():
+		_fail("STAGE-1a", "底栏营火 VisualSlot 应可见")
+		stage.queue_free()
+		return
+	if stage.count_visible_party_slots() < 1:
+		_fail("STAGE-1a", "底栏应显示至少 1 个队伍剪影")
+		stage.queue_free()
+		return
+	stage.queue_free()
+	_pass("STAGE-1a", "T-UI-STAGE-1/2 底栏营火+队伍剪影")
 
 
 func _probe_m2c_search_blocked_during_combat() -> void:

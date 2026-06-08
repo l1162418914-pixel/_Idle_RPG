@@ -79,7 +79,7 @@ static func try_single_pressure_substitute(run: WorldRun, merc: Mercenary) -> bo
 		return false
 	run.bench_reserves.append(merc)
 	var recovery: int = int(config().get("substitute_recovery_stability", 20))
-	merc.personal_stability = clampi(recovery, 1, StabilitySystem.MAX_STABILITY)
+	merc.personal_stability = clampi(recovery, 1, merc.get_personal_stability_max())
 	var idx: int = run.squad.members.find(merc)
 	if idx >= 0:
 		run.squad.members[idx] = replacement
@@ -95,6 +95,8 @@ static func try_single_pressure_substitute(run: WorldRun, merc: Mercenary) -> bo
 			"in_name": replacement.merc_name,
 		}
 	)
+	if run.stability != null:
+		run.stability.on_field_roster_changed()
 	return true
 
 

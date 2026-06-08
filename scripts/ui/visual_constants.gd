@@ -13,6 +13,11 @@ const PARTY_SILHOUETTE_COLORS: Array[Color] = [
 const PARTY_BLOCK_SIZE: Vector2 = Vector2(10, 14)
 const GATHER_PARTY_SIZE: Vector2 = Vector2(8, 12)
 
+const CAMP_GROUND_COLOR: Color = Color(0.07, 0.06, 0.08, 1.0)
+const CAMP_HORIZON_COLOR: Color = Color(0.14, 0.11, 0.09, 0.85)
+const CAMP_BONFIRE_COLOR: Color = Color(1.0, 0.52, 0.18, 0.95)
+const CAMP_BONFIRE_SIZE: Vector2 = Vector2(52, 60)
+
 const MILESTONE_MARKER_COLOR: Color = Color(0.9, 0.75, 0.35, 0.85)
 const MILESTONE_FIRED_COLOR: Color = Color(0.55, 0.5, 0.4, 0.42)
 const MILESTONE_FLASH_COLOR: Color = Color(1.0, 0.9, 0.5, 0.95)
@@ -62,6 +67,8 @@ static func placeholder_spec(art_key: String) -> Dictionary:
 			return {"color": BOSS_CHASE_BODY_COLOR, "size": BOSS_CHASE_BODY_SIZE}
 		"boss_chase/crown":
 			return {"color": BOSS_CHASE_CROWN_COLOR, "size": BOSS_CHASE_CROWN_SIZE}
+		"camp/bonfire":
+			return {"color": CAMP_BONFIRE_COLOR, "size": CAMP_BONFIRE_SIZE}
 		_:
 			if art_key.begins_with("party/silhouette"):
 				var tail: String = art_key.substr(art_key.rfind("_") + 1)

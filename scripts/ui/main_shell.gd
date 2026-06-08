@@ -1,17 +1,22 @@
 extends Control
 class_name MainShell
-## PC 主壳：顶栏 + 三窗槽位 + 可拖分割 + 底栏 Run 条 + Dock（T-11a / T-11b 三窗迁移）
+## PlanningWindow 主壳（T-UI-TWIN-1）
+## ShellVBox → TopBar / Toast / UpperArea / DockBar
+## CQ 表演已迁至独立 StageWindow（`StageShell`）
 
 const MIN_VIEWPORT_WIDTH := 1280
 const TOP_BAR_HEIGHT := 40
 const DOCK_HEIGHT := 48
-const RUN_BAR_MIN_HEIGHT := 220
+const PANEL_COLLAPSED_WIDTH := 44
+const PANEL_RATIO_LEFT := 0.32
+const PANEL_RATIO_CENTER := 0.36
+const PANEL_RATIO_RIGHT := 0.32
+const BOTTOM_STAGE_HEAL_REFRESH_MS := 3000
 
 var _base_ui: Control = null
 var _squad_ui: Control = null
 var _run_ui: Control = null
 var _result_ui: Control = null
-var _combat_view: CombatView = null
 
 var _top_gold: Label = null
 var _top_stability_bar: ProgressBar = null
@@ -28,14 +33,11 @@ var _right_panel: PanelContainer = null
 var _left_placeholder: Label = null
 var _center_placeholder: Label = null
 var _right_placeholder: Label = null
-var _combat_host: Control = null
-var _run_controls_host: Control = null
-var _march_lane_host: Control = null
-var _run_march_lane: RunMarchLane = null
-var _standby_label: Label = null
 var _lane_status_text: String = ""
 var _narrow_hint: Label = null
-var _main_split: VSplitContainer = null
+var _upper_wrap: Control = null
+var _upper_area: HBoxContainer = null
+var _upper_overlay_host: Control = null
 var _dock_hint: Label = null
 var _dock_buttons: Dictionary = {}
 var _toast_panel: PanelContainer = null
@@ -59,6 +61,17 @@ var _logistics_tab_dead: VBoxContainer = null
 var _recovery_ui: RecoveryUI = null
 var _logistics_open: bool = false
 var _panel_highlight_tween: Tween = null
+var _panel_collapsed: Dictionary = {
+	"left": false,
+	"center": false,
+	"right": false,
+}
+var _left_rail: Button = null
+var _center_rail: Button = null
+var _right_rail: Button = null
+var _left_collapse_btn: Button = null
+var _center_collapse_btn: Button = null
+var _right_collapse_btn: Button = null
 
 
 func setup(
@@ -75,22 +88,26 @@ func setup(
 	_build_logistics_popup()
 	_build_running_panels()
 	_attach_shell_content()
-	_embed_run_combat()
 	_wire_dock()
 	_connect_signals()
 	set_process_unhandled_input(true)
 	_check_viewport_width()
-	resized.connect(_check_viewport_width)
+	resized.connect(_on_shell_resized)
 	_hide_all_placeholders()
-	apply_state(GameManager.state)
+	call_deferred("apply_state", GameManager.state)
 
 
-func get_combat_view() -> CombatView:
-	return _combat_view
-
-
-func get_run_march_lane() -> RunMarchLane:
-	return _run_march_lane
+func attach_equipment_ui(equipment_ui: Control) -> void:
+	if equipment_ui == null or _upper_overlay_host == null:
+		return
+	if equipment_ui.get_parent() != _upper_overlay_host:
+		equipment_ui.reparent(_upper_overlay_host)
+	equipment_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	equipment_ui.offset_left = 0
+	equipment_ui.offset_top = 0
+	equipment_ui.offset_right = 0
+	equipment_ui.offset_bottom = 0
+	equipment_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func apply_lane_snapshot(lane: Dictionary) -> void:
@@ -106,18 +123,20 @@ func apply_state(state: int) -> void:
 	if state != GameManager.GameState.RUNNING:
 		_lane_status_text = ""
 		_last_run_data.clear()
+	_apply_default_panel_collapse(state)
 	_refresh_top_bar(state)
 	_apply_slot_visibility(state)
 	_update_dock_highlight(state)
-	if state == GameManager.GameState.BASE and _base_ui and _base_ui.has_method("_refresh"):
-		_base_ui._refresh()
+	if state == GameManager.GameState.BASE and _base_ui and _base_ui.has_method("schedule_refresh"):
+		_base_ui.schedule_refresh()
+	elif state == GameManager.GameState.BASE and _base_ui and _base_ui.has_method("_refresh"):
+		call_deferred("_deferred_base_ui_refresh")
 	if state == GameManager.GameState.PREPARE and _squad_ui and _squad_ui.has_method("_refresh"):
 		_squad_ui._refresh()
 	if state == GameManager.GameState.RUNNING:
 		refresh_running_panels()
 	elif state == GameManager.GameState.RESULT:
 		_refresh_result_grid()
-	_update_run_bar_mode(state)
 
 
 func refresh_running_panels() -> void:
@@ -203,66 +222,54 @@ func _build_layout() -> void:
 
 	_build_toast(shell_vbox)
 
-	_main_split = VSplitContainer.new()
-	_main_split.name = "MainSplit"
-	_main_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_main_split.split_offset = 430
-	shell_vbox.add_child(_main_split)
+	_upper_wrap = Control.new()
+	_upper_wrap.name = "UpperArea"
+	_upper_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_upper_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell_vbox.add_child(_upper_wrap)
+	_upper_area = HBoxContainer.new()
+	_upper_area.name = "UpperAreaHBox"
+	_upper_area.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_upper_area.offset_left = 0
+	_upper_area.offset_top = 0
+	_upper_area.offset_right = 0
+	_upper_area.offset_bottom = 0
+	_upper_area.add_theme_constant_override("separation", 4)
+	_upper_wrap.add_child(_upper_area)
+	var upper := _upper_area
 
-	var upper := HBoxContainer.new()
-	upper.name = "UpperArea"
-	upper.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	upper.add_theme_constant_override("separation", 4)
-	_main_split.add_child(upper)
-
-	_left_panel = _make_panel(upper, "LeftPanel", 0.32)
-	_left_slot = _make_slot(_left_panel, "LeftSlot")
+	var left_pack := _make_collapsible_panel(upper, "LeftPanel", PANEL_RATIO_LEFT, "left", "地图")
+	_left_panel = left_pack.panel
+	_left_slot = left_pack.slot
+	_left_rail = left_pack.rail
+	_left_collapse_btn = left_pack.collapse_btn
 	_left_placeholder = _make_placeholder(_left_slot, "左窗 · 地图 / 结算")
 
-	_center_panel = _make_panel(upper, "CenterPanel", 0.36)
-	_center_slot = _make_slot(_center_panel, "CenterSlot")
+	var center_pack := _make_collapsible_panel(upper, "CenterPanel", PANEL_RATIO_CENTER, "center", "编组")
+	_center_panel = center_pack.panel
+	_center_slot = center_pack.slot
+	_center_rail = center_pack.rail
+	_center_collapse_btn = center_pack.collapse_btn
 	_center_placeholder = _make_placeholder(_center_slot, "中窗 · 编组 / 准备")
 
-	_right_panel = _make_panel(upper, "RightPanel", 0.32)
-	_right_slot = _make_slot(_right_panel, "RightSlot")
+	var right_pack := _make_collapsible_panel(upper, "RightPanel", PANEL_RATIO_RIGHT, "right", "背包")
+	_right_panel = right_pack.panel
+	_right_slot = right_pack.slot
+	_right_rail = right_pack.rail
+	_right_collapse_btn = right_pack.collapse_btn
 	_right_placeholder = _make_placeholder(_right_slot, "右窗 · 背包 / 网格 (T-05)")
 
-	var run_bar := VBoxContainer.new()
-	run_bar.name = "RunBar"
-	run_bar.custom_minimum_size = Vector2(0, RUN_BAR_MIN_HEIGHT)
-	run_bar.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	run_bar.add_theme_constant_override("separation", 4)
-	_main_split.add_child(run_bar)
+	_apply_panel_collapse_layout()
 
-	_run_controls_host = VBoxContainer.new()
-	_run_controls_host.name = "RunControlsHost"
-	_run_controls_host.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	run_bar.add_child(_run_controls_host)
-
-	_march_lane_host = Control.new()
-	_march_lane_host.name = "MarchLaneHost"
-	_march_lane_host.custom_minimum_size = Vector2(0, 52)
-	_march_lane_host.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	run_bar.add_child(_march_lane_host)
-	_run_march_lane = RunMarchLane.new()
-	_run_march_lane.name = "RunMarchLane"
-	_run_march_lane.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_march_lane_host.add_child(_run_march_lane)
-
-	_combat_host = VBoxContainer.new()
-	_combat_host.name = "CombatHost"
-	_combat_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	run_bar.add_child(_combat_host)
-
-	_standby_label = Label.new()
-	_standby_label.name = "StandbyLabel"
-	_standby_label.text = "营火边陲 — 选择地图出征"
-	_standby_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_standby_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_standby_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_standby_label.add_theme_font_size_override("font_size", 14)
-	_standby_label.modulate = Color(0.65, 0.75, 0.9)
-	run_bar.add_child(_standby_label)
+	_upper_overlay_host = Control.new()
+	_upper_overlay_host.name = "UpperOverlayHost"
+	_upper_overlay_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_upper_overlay_host.offset_left = 0
+	_upper_overlay_host.offset_top = 0
+	_upper_overlay_host.offset_right = 0
+	_upper_overlay_host.offset_bottom = 0
+	_upper_overlay_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_upper_wrap.add_child(_upper_overlay_host)
 
 	var dock := HBoxContainer.new()
 	dock.name = "DockBar"
@@ -279,7 +286,7 @@ func _build_layout() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	dock.add_child(spacer)
 	_dock_hint = Label.new()
-	_dock_hint.text = "THB 2.0 PC 壳"
+	_dock_hint.text = "◀ 可单独收起侧窗 · 设置=全部展开"
 	_dock_hint.modulate = Color(0.55, 0.6, 0.7)
 	dock.add_child(_dock_hint)
 	_dock_buttons["settings"] = _make_dock_button(dock, "设置", "")
@@ -369,9 +376,9 @@ func _build_top_stability(parent: HBoxContainer) -> void:
 	var box := HBoxContainer.new()
 	box.name = "TopStabilityBox"
 	box.add_theme_constant_override("separation", 4)
-	box.custom_minimum_size = Vector2(168, 0)
+	box.custom_minimum_size = Vector2(280, 0)
 	var caption := Label.new()
-	caption.text = "稳定"
+	caption.text = "半组稳定"
 	caption.add_theme_font_size_override("font_size", 11)
 	caption.modulate = Color(0.75, 0.82, 0.9)
 	box.add_child(caption)
@@ -389,22 +396,26 @@ func _build_top_stability(parent: HBoxContainer) -> void:
 	_apply_stability_bar_visual(0)
 
 
-func _stability_tint(value: int) -> Color:
-	if value <= 30:
+func _stability_tint(value: int, max_value: int = StabilitySystem.MAX_STABILITY) -> Color:
+	var cap: int = maxi(1, max_value)
+	var withdraw: int = StabilitySystem.get_team_withdraw_threshold_for_max(cap)
+	if value <= withdraw:
 		return Color(1.0, 0.35, 0.35)
-	if value <= 50:
+	if value <= int(float(cap) * 0.50):
 		return Color(1.0, 0.72, 0.3)
-	if value <= 70:
+	if value <= int(float(cap) * 0.70):
 		return Color(0.95, 0.88, 0.35)
 	return Color(0.45, 0.82, 0.55)
 
 
-func _apply_stability_bar_visual(value: int) -> void:
+func _apply_stability_bar_visual(value: int, max_value: int = StabilitySystem.MAX_STABILITY) -> void:
 	if _top_stability_bar == null:
 		return
-	_top_stability_bar.value = clampi(value, 0, StabilitySystem.MAX_STABILITY)
+	var cap: int = maxi(1, max_value)
+	_top_stability_bar.max_value = cap
+	_top_stability_bar.value = clampi(value, 0, cap)
 	var fill := StyleBoxFlat.new()
-	fill.bg_color = _stability_tint(value)
+	fill.bg_color = _stability_tint(value, cap)
 	_top_stability_bar.add_theme_stylebox_override("fill", fill)
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(0.12, 0.14, 0.18)
@@ -417,32 +428,183 @@ func apply_run_snapshot(run_data: Dictionary) -> void:
 		_refresh_top_bar(GameManager.GameState.RUNNING)
 
 
-func _make_panel(parent: HBoxContainer, panel_name: String, ratio: float) -> PanelContainer:
+func _make_collapsible_panel(
+	parent: HBoxContainer,
+	panel_name: String,
+	ratio: float,
+	side_key: String,
+	rail_label: String
+) -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.name = panel_name
+	panel.clip_contents = true
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_stretch_ratio = ratio
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(panel)
-	return panel
+	var row := HBoxContainer.new()
+	row.name = "PanelRow"
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 0
+	row.offset_top = 0
+	row.offset_right = 0
+	row.offset_bottom = 0
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 0)
+	panel.add_child(row)
+	var rail := Button.new()
+	rail.name = "%sRail" % panel_name
+	rail.text = "▶\n%s" % rail_label
+	rail.tooltip_text = "展开%s窗" % rail_label
+	rail.custom_minimum_size = Vector2(PANEL_COLLAPSED_WIDTH, 0)
+	rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rail.visible = false
+	rail.pressed.connect(_on_panel_rail_pressed.bind(side_key))
+	row.add_child(rail)
+	var slot := MarginContainer.new()
+	slot.name = "%sSlot" % panel_name
+	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slot.add_theme_constant_override("margin_left", 6)
+	slot.add_theme_constant_override("margin_top", 6)
+	slot.add_theme_constant_override("margin_right", 6)
+	slot.add_theme_constant_override("margin_bottom", 6)
+	row.add_child(slot)
+	var collapse_btn := Button.new()
+	collapse_btn.name = "%sCollapse" % panel_name
+	collapse_btn.text = "◀"
+	collapse_btn.tooltip_text = "收起%s窗" % rail_label
+	collapse_btn.custom_minimum_size = Vector2(26, 0)
+	collapse_btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	collapse_btn.pressed.connect(_on_panel_collapse_pressed.bind(side_key))
+	row.add_child(collapse_btn)
+	return {
+		"panel": panel,
+		"slot": slot,
+		"rail": rail,
+		"collapse_btn": collapse_btn,
+	}
 
 
-func _make_slot(panel: PanelContainer, slot_name: String) -> MarginContainer:
-	var margin := MarginContainer.new()
-	margin.name = slot_name
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.offset_left = 0
-	margin.offset_top = 0
-	margin.offset_right = 0
-	margin.offset_bottom = 0
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 6)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_right", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(margin)
-	return margin
+func _panel_ratio(side_key: String) -> float:
+	match side_key:
+		"left":
+			return PANEL_RATIO_LEFT
+		"center":
+			return PANEL_RATIO_CENTER
+		"right":
+			return PANEL_RATIO_RIGHT
+		_:
+			return 0.32
+
+
+func _panel_by_side(side_key: String) -> PanelContainer:
+	match side_key:
+		"left":
+			return _left_panel
+		"center":
+			return _center_panel
+		"right":
+			return _right_panel
+		_:
+			return null
+
+
+func _slot_by_side(side_key: String) -> Control:
+	match side_key:
+		"left":
+			return _left_slot
+		"center":
+			return _center_slot
+		"right":
+			return _right_slot
+		_:
+			return null
+
+
+func _rail_by_side(side_key: String) -> Button:
+	match side_key:
+		"left":
+			return _left_rail
+		"center":
+			return _center_rail
+		"right":
+			return _right_rail
+		_:
+			return null
+
+
+func _collapse_btn_by_side(side_key: String) -> Button:
+	match side_key:
+		"left":
+			return _left_collapse_btn
+		"center":
+			return _center_collapse_btn
+		"right":
+			return _right_collapse_btn
+		_:
+			return null
+
+
+func _apply_default_panel_collapse(state: int) -> void:
+	# 仅 RUNNING 默认收起左/中，突出底栏战斗与右窗战利品；其余状态三窗可同时满屏展开
+	match state:
+		GameManager.GameState.RUNNING:
+			_panel_collapsed = {"left": true, "center": true, "right": false}
+		GameManager.GameState.BASE, GameManager.GameState.PREPARE, GameManager.GameState.RESULT:
+			_panel_collapsed = {"left": false, "center": false, "right": false}
+		_:
+			pass
+	_apply_panel_collapse_layout()
+
+
+func _set_panel_collapsed(side_key: String, collapsed: bool) -> void:
+	if not _panel_collapsed.has(side_key):
+		return
+	_panel_collapsed[side_key] = collapsed
+	_apply_panel_collapse_layout()
+
+
+func _ensure_panel_expanded(side_key: String) -> void:
+	_set_panel_collapsed(side_key, false)
+
+
+func _expand_all_panels() -> void:
+	for key in _panel_collapsed.keys():
+		_panel_collapsed[key] = false
+	_apply_panel_collapse_layout()
+
+
+func _apply_panel_collapse_layout() -> void:
+	for side_key in ["left", "center", "right"]:
+		var collapsed: bool = bool(_panel_collapsed.get(side_key, false))
+		var panel := _panel_by_side(side_key)
+		var slot := _slot_by_side(side_key)
+		var rail := _rail_by_side(side_key)
+		var collapse_btn := _collapse_btn_by_side(side_key)
+		if panel == null:
+			continue
+		if slot:
+			slot.visible = not collapsed
+		if rail:
+			rail.visible = collapsed
+		if collapse_btn:
+			collapse_btn.visible = not collapsed
+		if collapsed:
+			panel.size_flags_stretch_ratio = 0.0
+			panel.custom_minimum_size.x = PANEL_COLLAPSED_WIDTH
+		else:
+			panel.size_flags_stretch_ratio = _panel_ratio(side_key)
+			panel.custom_minimum_size.x = 0
+
+
+func _on_panel_rail_pressed(side_key: String) -> void:
+	_ensure_panel_expanded(side_key)
+
+
+func _on_panel_collapse_pressed(side_key: String) -> void:
+	_set_panel_collapsed(side_key, true)
 
 
 func _make_placeholder(slot: Control, text: String) -> Label:
@@ -468,13 +630,18 @@ func _make_dock_button(parent: HBoxContainer, label: String, shortcut: String) -
 
 
 func _build_logistics_popup() -> void:
+	var overlay_parent: Node = _upper_overlay_host if _upper_overlay_host else self
 	_logistics_overlay = ColorRect.new()
 	_logistics_overlay.name = "LogisticsOverlay"
 	_logistics_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_logistics_overlay.offset_left = 0
+	_logistics_overlay.offset_top = 0
+	_logistics_overlay.offset_right = 0
+	_logistics_overlay.offset_bottom = 0
 	_logistics_overlay.color = Color(0.04, 0.05, 0.08, 0.75)
 	_logistics_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_logistics_overlay.visible = false
-	add_child(_logistics_overlay)
+	overlay_parent.add_child(_logistics_overlay)
 	_logistics_overlay.gui_input.connect(_on_logistics_overlay_input)
 	_logistics_panel = PanelContainer.new()
 	_logistics_panel.name = "LogisticsPanel"
@@ -485,7 +652,7 @@ func _build_logistics_popup() -> void:
 	_logistics_panel.offset_right = 260
 	_logistics_panel.offset_bottom = 210
 	_logistics_panel.visible = false
-	add_child(_logistics_panel)
+	overlay_parent.add_child(_logistics_panel)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
 	margin.add_theme_constant_override("margin_top", 12)
@@ -592,21 +759,6 @@ func _attach_shell_content() -> void:
 			bg.visible = false
 
 
-func _embed_run_combat() -> void:
-	if _run_ui:
-		_mount_in_slot(_run_ui, _run_controls_host)
-		if _run_ui.has_method("bind_main_shell"):
-			_run_ui.bind_main_shell(self)
-		var combat_node := _run_ui.get_node_or_null("MarginContainer/MainVBox/CombatView")
-		if combat_node:
-			_combat_view = combat_node as CombatView
-			_mount_in_slot(_combat_view, _combat_host)
-			_combat_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			var bf := _combat_view.get_node_or_null("BattlefieldHBox") as Control
-			if bf:
-				bf.custom_minimum_size = Vector2(0, 120)
-
-
 func _apply_slot_visibility(state: int) -> void:
 	var is_base := state == GameManager.GameState.BASE
 	var is_prepare := state == GameManager.GameState.PREPARE
@@ -641,8 +793,6 @@ func _apply_slot_visibility(state: int) -> void:
 		_running_right_root.visible = is_running
 	if _result_grid_ui:
 		_result_grid_ui.visible = is_result
-	if _run_ui:
-		_run_ui.visible = is_running
 
 
 func _hide_all_placeholders() -> void:
@@ -683,10 +833,12 @@ func _mount_in_slot(node: Control, slot: Control) -> void:
 func _connect_signals() -> void:
 	if not GameManager.gold_changed.is_connected(_on_gold_changed):
 		GameManager.gold_changed.connect(_on_gold_changed)
-	if not GameManager.squad_stability_changed.is_connected(_on_stability_changed):
-		GameManager.squad_stability_changed.connect(_on_stability_changed)
 	if not GameManager.formation_changed.is_connected(_on_formation_changed):
 		GameManager.formation_changed.connect(_on_formation_changed)
+	if not GameManager.formation_preference_changed.is_connected(_on_formation_preference_changed):
+		GameManager.formation_preference_changed.connect(_on_formation_preference_changed)
+	if not GameManager.roster_healed.is_connected(_on_roster_healed_top_bar):
+		GameManager.roster_healed.connect(_on_roster_healed_top_bar)
 	if not GameManager.state_changed.is_connected(_on_state_changed_top_bar):
 		GameManager.state_changed.connect(_on_state_changed_top_bar)
 	if _run_ui and not _run_ui.hint_posted.is_connected(_on_run_hint_posted):
@@ -748,12 +900,16 @@ func _on_gold_changed(_amount: int) -> void:
 	_refresh_top_bar(GameManager.state)
 
 
-func _on_stability_changed(_value: int) -> void:
+func _on_roster_healed_top_bar() -> void:
 	_refresh_top_bar(GameManager.state)
 
 
 func _on_formation_changed() -> void:
-	_refresh_top_bar(GameManager.state)
+	call_deferred("_refresh_top_bar", GameManager.state)
+
+
+func _on_formation_preference_changed(_half: String) -> void:
+	call_deferred("_refresh_top_bar", GameManager.state)
 
 
 func _on_state_changed_top_bar(state: int) -> void:
@@ -770,11 +926,12 @@ func _refresh_top_bar(state: int) -> void:
 			_top_recovery.modulate = Color(0.75, 0.9, 1.0)
 		elif GameManager.is_recovery_lock_active():
 			var msg: String = SquadFormationService.get_recovery_lock_message(GameManager)
-			var eta: float = float(
-				SquadFormationService.get_recovery_status(GameManager).get("eta_seconds", 0.0)
-			)
-			if eta > 1.0:
-				msg = "%s · 约%.0fs" % [msg, eta]
+			if SquadFormationService.has_living_merc_roster(GameManager):
+				var eta: float = float(
+					SquadFormationService.get_recovery_status(GameManager).get("eta_seconds", 0.0)
+				)
+				if eta > 1.0:
+					msg = "%s · 约%.0fs" % [msg, eta]
 			_top_recovery.text = msg
 			_top_recovery.modulate = Color(1.0, 0.55, 0.45)
 		else:
@@ -783,29 +940,44 @@ func _refresh_top_bar(state: int) -> void:
 
 
 func _refresh_top_stability(state: int) -> void:
-	var team_st: int = GameManager.get_team_stability()
-	var detail: String = str(team_st)
+	var pref: String = SquadFormationService.get_preferred_half(GameManager)
+	var bar_st: int = GameManager.get_deploy_half_stability(pref)
+	var bar_max: int = GameManager.get_deploy_half_stability_max(pref)
+	var detail: String = SquadFormationService.format_halves_stability_summary(GameManager)
 	var pressure_hint := ""
 	if state == GameManager.GameState.RUNNING and not _last_run_data.is_empty():
-		team_st = int(
-			_last_run_data.get("team_stability", _last_run_data.get("stability", team_st))
+		bar_st = int(
+			_last_run_data.get("team_stability", _last_run_data.get("stability", bar_st))
 		)
-		var personal_min: int = int(_last_run_data.get("min_personal_stability", team_st))
-		detail = "%d / %d" % [team_st, personal_min]
+		bar_max = int(_last_run_data.get("team_stability_max", bar_max))
+		if bar_max <= 0:
+			bar_max = maxi(bar_st, StabilitySystem.MAX_STABILITY)
+		var personal_min: int = int(_last_run_data.get("min_personal_stability", bar_st))
+		var run_half: String = str(GameManager.last_deploy_half)
+		if run_half in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+			detail = "半组%s %d/%d · 个人最低%d" % [run_half, bar_st, bar_max, personal_min]
+		else:
+			detail = "%d/%d · 个人最低%d" % [bar_st, bar_max, personal_min]
 		var pressure: float = float(_last_run_data.get("stability_pressure", 1.0))
 		if pressure > 1.01:
 			pressure_hint = " ×%.1f" % pressure
 	elif state == GameManager.GameState.PREPARE:
-		detail = "%d（出征）" % team_st
+		var deploy_half: String = SquadFormationService.resolve_manual_deploy_half(GameManager)
+		if deploy_half == "":
+			deploy_half = pref
+		bar_st = GameManager.get_deploy_half_stability(deploy_half)
+		bar_max = GameManager.get_deploy_half_stability_max(deploy_half)
+		detail = "半组%s %s（出征）" % [
+			deploy_half,
+			SquadFormationService.format_half_stability_text(GameManager, deploy_half),
+		]
 	elif state == GameManager.GameState.BASE:
-		if team_st < StabilitySystem.MAX_STABILITY:
-			detail = "%d（回城恢复）" % team_st
-		else:
-			detail = "满"
-	_apply_stability_bar_visual(team_st)
+		detail = SquadFormationService.format_halves_stability_summary(GameManager)
+		bar_max = maxi(maxi(bar_max, bar_st), StabilitySystem.MAX_STABILITY)
+	_apply_stability_bar_visual(bar_st, bar_max)
 	if _top_stability_detail:
 		_top_stability_detail.text = detail + pressure_hint
-		_top_stability_detail.modulate = _stability_tint(team_st)
+		_top_stability_detail.modulate = _stability_tint(bar_st, bar_max)
 	if _top_map:
 		match state:
 			GameManager.GameState.BASE:
@@ -822,30 +994,6 @@ func _refresh_top_stability(state: int) -> void:
 				_top_map.text = "地图: %s" % map_name
 			_:
 				_top_map.text = "地图: —"
-
-
-func _update_run_bar_mode(state: int) -> void:
-	var running := state == GameManager.GameState.RUNNING
-	var result := state == GameManager.GameState.RESULT
-	if _standby_label:
-		_standby_label.visible = not running
-		match state:
-			GameManager.GameState.BASE:
-				_standby_label.text = "营火边陲 — 选择地图出征"
-			GameManager.GameState.PREPARE:
-				_standby_label.text = "路线预览 — 确认编组后出发"
-			GameManager.GameState.RESULT:
-				_standby_label.text = "本趟已结束 — 查看结算后回大营"
-			_:
-				_standby_label.text = ""
-	if _run_controls_host:
-		_run_controls_host.visible = running
-	if _march_lane_host:
-		_march_lane_host.visible = running
-	if _combat_host:
-		_combat_host.visible = running or result
-	if _combat_view:
-		_combat_view.visible = running or result
 
 
 func _update_dock_highlight(state: int) -> void:
@@ -886,6 +1034,7 @@ func _highlight_panel(panel: PanelContainer, seconds: float = 2.0) -> void:
 
 
 func _on_dock_map() -> void:
+	_ensure_panel_expanded("left")
 	match GameManager.state:
 		GameManager.GameState.BASE:
 			if _base_ui and _base_ui.has_method("scroll_maps_list_to_top"):
@@ -908,6 +1057,7 @@ func _on_dock_map() -> void:
 
 
 func _on_dock_formation() -> void:
+	_ensure_panel_expanded("center")
 	match GameManager.state:
 		GameManager.GameState.BASE:
 			if _base_ui and _base_ui.has_method("scroll_formation_into_view"):
@@ -928,6 +1078,7 @@ func _on_dock_formation() -> void:
 
 
 func _on_dock_bag() -> void:
+	_ensure_panel_expanded("right")
 	_highlight_panel(_right_panel, 2.0)
 	if GameManager.state == GameManager.GameState.BASE and _base_ui:
 		_base_ui._on_equipment_pressed()
@@ -945,7 +1096,9 @@ func _on_dock_deploy() -> void:
 				if _dock_hint:
 					_dock_hint.text = "左窗 · 点卡片选中 → 出征"
 		GameManager.GameState.PREPARE:
-			GameManager.start_run()
+			var code: int = GameManager.start_run()
+			if code != 0:
+				show_toast(GameManager.get_run_start_error_message(code), Color.ORANGE_RED, 4.0)
 		_:
 			pass
 
@@ -974,17 +1127,26 @@ func refresh_base_panels() -> void:
 
 
 func _open_logistics() -> void:
+	_sync_upper_overlay_bounds()
 	_logistics_open = true
 	if _logistics_overlay:
 		_logistics_overlay.visible = true
+		_logistics_overlay.move_to_front()
 	if _logistics_panel:
 		_logistics_panel.visible = true
 		_logistics_panel.move_to_front()
 	refresh_base_panels()
-	if _base_ui and _base_ui.has_method("_refresh"):
-		_base_ui._refresh()
+	if _base_ui and _base_ui.has_method("schedule_refresh"):
+		_base_ui.schedule_refresh()
+	elif _base_ui and _base_ui.has_method("_refresh"):
+		call_deferred("_deferred_base_ui_refresh")
 	if _dock_hint:
 		_dock_hint.text = "后勤：建筑升级 / 招募 / 阵亡名册"
+
+
+func _deferred_base_ui_refresh() -> void:
+	if _base_ui and _base_ui.has_method("_refresh"):
+		_base_ui._refresh()
 
 
 func _close_logistics() -> void:
@@ -1001,8 +1163,21 @@ func _on_logistics_overlay_input(event: InputEvent) -> void:
 
 
 func _on_dock_settings() -> void:
+	_expand_all_panels()
 	if _dock_hint:
-		_dock_hint.text = "战斗速度等在底栏 Debug 工具条"
+		_dock_hint.text = "已展开全部侧窗（点 ◀ 可单独收起；战斗速度见 Stage 窗 Debug）"
+
+
+func _on_shell_resized() -> void:
+	_check_viewport_width()
+	_sync_upper_overlay_bounds()
+
+
+func _sync_upper_overlay_bounds() -> void:
+	if _upper_overlay_host == null:
+		return
+	_upper_overlay_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_upper_overlay_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _check_viewport_width() -> void:

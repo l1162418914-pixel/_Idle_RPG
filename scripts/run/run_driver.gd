@@ -536,6 +536,9 @@ func _tick_pending_substitute() -> void:
 	if _combat.deploy_pressure_substitute(in_m, slot):
 		if _combat_view and _combat_view.has_method("sync_from_active_combat"):
 			_combat_view.sync_from_active_combat()
+		var run: WorldRun = GameManager.current_run
+		if run != null and run.stability != null:
+			run.stability.on_field_roster_changed()
 
 
 func _abort_combat_for_forced_withdraw(run: WorldRun) -> void:
@@ -585,6 +588,9 @@ func _process_run_retreats(run: WorldRun) -> void:
 		run.squad.members.erase(m)
 		run.on_member_retreat()
 	var bench_added: Array[String] = SquadFormationService.try_bench_reinforcements(run)
+	if not bench_added.is_empty():
+		if run.stability != null:
+			run.stability.on_field_roster_changed()
 	if not bench_added.is_empty() and _run_ui:
 		_run_ui.show_run_hint("替补上阵: %s" % ", ".join(bench_added), Color.SKY_BLUE)
 		NearDeathRunService.assign_carry_support(run.squad)

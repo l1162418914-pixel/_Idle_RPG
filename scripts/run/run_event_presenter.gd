@@ -155,15 +155,32 @@ static func present(event_name: String, data: Dictionary, run_ui: Control, run: 
 			run_ui.show_run_hint("【搜索】%s" % msg, tint)
 		"material_dropped":
 			run_ui.show_run_hint("获得物资: %s" % str(data.get("name", "")), Color(0.75, 0.9, 1.0))
+		"loot_discarded":
+			run_ui.show_run_hint(
+				"溢出丢弃: %s" % str(data.get("item_name", "战利品")),
+				Color(0.9, 0.65, 0.55)
+			)
 		"auto_retreat":
 			var cv: int = int(data.get("carry_value", 0))
 			var th: int = int(data.get("threshold", 0))
 			var ar: String = str(data.get("reason", ""))
+			var hint: String = str(data.get("item_hint", ""))
 			var msg := "携带价值 %d 达标，自动返程" % cv
-			if ar == "auto_rule":
-				msg = "自动规则触发返程（携带 %d）" % cv
-			elif th > 0:
-				msg = "携带价值 %d≥%d，自动返程" % [cv, th]
+			match ar:
+				"loot_high_value":
+					msg = "搜刮策略 · 高价值%s，自动返程" % (
+						"「%s」" % hint if hint != "" else "战利品"
+					)
+				"loot_bags_full":
+					msg = "搜刮策略 · 箱/外露已满"
+					if hint != "":
+						msg += "（%s）" % hint
+					msg += "，自动返程"
+				"auto_rule":
+					msg = "均衡策略 · 背包将满，自动返程（携带 %d）" % cv
+				_:
+					if th > 0:
+						msg = "均衡策略 · 携带 %d≥%d，自动返程" % [cv, th]
 			run_ui.show_run_hint(msg, Color.SKY_BLUE)
 		"extract_guard_triggered":
 			run_ui.show_run_hint(

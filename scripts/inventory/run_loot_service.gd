@@ -26,13 +26,13 @@ static func add_equipment_drop(run, equip: Equipment) -> Dictionary:
 		init_run_grids(run)
 	if run.safe_loot.place_auto(equip):
 		return {"ok": true, "where": "safe"}
-	if _loot_auto_evict_enabled() and _try_evict_safe_and_place(run, equip):
+	if _loot_auto_evict_enabled(run) and _try_evict_safe_and_place(run, equip):
 		return {"ok": true, "where": "safe", "evicted": true}
 	if run.exposed_loot.place_auto(equip):
 		return {"ok": true, "where": "exposed"}
-	if _loot_auto_evict_enabled() and _try_evict_exposed_and_place(run, equip):
+	if _loot_auto_evict_enabled(run) and _try_evict_exposed_and_place(run, equip):
 		return {"ok": true, "where": "exposed", "evicted": true}
-	if _loot_discard_overflow_enabled():
+	if _loot_discard_overflow_enabled(run):
 		return {"ok": true, "where": "discarded"}
 	return {"ok": false, "where": "none"}
 
@@ -58,9 +58,9 @@ static func add_material_drop(run, mat: RunMaterial) -> Dictionary:
 		return {"ok": true, "where": "safe"}
 	if run.exposed_loot.place_material_auto(mat):
 		return {"ok": true, "where": "exposed"}
-	if _loot_auto_evict_enabled() and _try_evict_exposed_equipment_for_material(run, mat):
+	if _loot_auto_evict_enabled(run) and _try_evict_exposed_equipment_for_material(run, mat):
 		return {"ok": true, "where": "exposed", "evicted": true}
-	if _loot_discard_overflow_enabled():
+	if _loot_discard_overflow_enabled(run):
 		return {"ok": true, "where": "discarded"}
 	return {"ok": false, "where": "none"}
 
@@ -143,11 +143,15 @@ static func _try_evict_exposed_and_place(run, equip: Equipment) -> bool:
 	return true
 
 
-static func _loot_auto_evict_enabled() -> bool:
+static func _loot_auto_evict_enabled(run) -> bool:
+	if run != null:
+		return bool(run.loot_auto_evict_low_value)
 	return GameManager == null or GameManager.loot_auto_evict_low_value
 
 
-static func _loot_discard_overflow_enabled() -> bool:
+static func _loot_discard_overflow_enabled(run) -> bool:
+	if run != null:
+		return bool(run.loot_discard_overflow)
 	return GameManager != null and GameManager.loot_discard_overflow
 
 

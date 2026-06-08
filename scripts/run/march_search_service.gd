@@ -17,7 +17,7 @@ static func tick(run, allowed: bool) -> Array:
 	if cfg.is_empty():
 		return out
 	var interval: float = float(cfg.get("interval_m", DEFAULT_INTERVAL_M))
-	interval *= _expedition_search_interval_mult()
+	interval *= float(run.expedition_search_interval_mult)
 	if interval <= 0.0:
 		return out
 	var pool_id: String = resolve_pool_id(cfg, run.is_retreating)
@@ -211,13 +211,3 @@ static func _pool(pool_id: String) -> Dictionary:
 	return {}
 
 
-static func _expedition_search_interval_mult() -> float:
-	if GameManager == null:
-		return 1.0
-	match GameManager.expedition_priority:
-		GameManager.EXPEDITION_PRIORITY_PUSH:
-			return 1.3
-		GameManager.EXPEDITION_PRIORITY_LOOT:
-			return 0.72
-		_:
-			return 1.0

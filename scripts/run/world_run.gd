@@ -13,6 +13,8 @@ signal run_completed(result: Dictionary)
 signal run_event(event_name: String, data: Dictionary)
 
 var map_id: String = ""
+## T-STAB-HALF：本趟出征半组（A/B），用于半组稳定起点
+var deploy_half: String = ""
 var run_mode: int = RunMode.NORMAL
 ## 回收目标（留营 MIA 佣兵 id，仅 RECOVERY）
 var recovery_target_ids: Array[String] = []
@@ -86,7 +88,6 @@ var extract_guard_cleared: bool = false
 var pending_extract_guard: RunExtractItem = null
 var last_extract_item_name: String = ""
 var bench_reserves: Array[Mercenary] = []
-var deploy_half: String = "A"
 ## 本趟是否因灭团收场（T-MIA：结算 tier=mia）
 var squad_wiped: bool = false
 ## 撤离中未抵营收场（走 B-3a/b，非战场灭团 B-1）
@@ -108,6 +109,16 @@ var _pending_awakening_shield_bonus: int = 0
 var march_search_last_anchor: float = 0.0
 ## T-MARCH-M2：已触发的 march_events[] 下标
 var march_events_fired: Array = []
+## 出征策略快照（start 时锁定，本趟不变）
+var expedition_priority: String = "march"
+var expedition_advance_mult: float = 1.0
+var expedition_search_interval_mult: float = 1.0
+var expedition_spawn_interval_mult: float = 1.0
+var loot_auto_evict_low_value: bool = true
+var loot_discard_overflow: bool = false
+var auto_retreat_value_enabled: bool = true
+var auto_retreat_safe_only: bool = false
+var run_loot_discarded_count: int = 0
 
 
 func _init(p_map_id: String, p_squad: Squad) -> void:
@@ -131,11 +142,21 @@ func start() -> int:
 	
 	stability = StabilitySystem.new()
 	var start_team: int = StabilitySystem.MAX_STABILITY
-	if GameManager:
-		start_team = GameManager.get_team_stability()
+	var start_team_max: int = StabilitySystem.MAX_STABILITY
 	if map_data.has("run_start_team_stability"):
 		start_team = int(map_data.run_start_team_stability)
-	stability.init(squad.get_player(), squad, start_team, map_data)
+		start_team_max = start_team
+	elif GameManager:
+		var half: String = str(GameManager.last_deploy_half)
+		if half not in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+			half = SquadFormationService.resolve_deploy_half(GameManager)
+		if half in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+			start_team = SquadFormationService.get_half_stability(GameManager, half)
+			start_team_max = SquadFormationService.get_half_stability_max(GameManager, half)
+		else:
+			start_team = GameManager.get_team_stability()
+			start_team_max = maxi(start_team, StabilitySystem.MAX_STABILITY)
+	stability.init(squad.get_player(), squad, start_team, map_data, start_team_max)
 	stability.team_stability_changed.connect(_on_team_stability_changed)
 	stability.forced_withdraw.connect(_on_forced_withdraw)
 	
@@ -206,6 +227,8 @@ func start() -> int:
 	_pending_awakening_shield_bonus = 0
 	march_search_last_anchor = 0.0
 	march_events_fired.clear()
+	run_loot_discarded_count = 0
+	_snapshot_expedition_prefs()
 	if GameManager:
 		deploy_half = str(GameManager.squad_formation.get("active_half", SquadFormationService.HALF_A))
 		bench_reserves = SquadFormationService.load_bench_reserves(GameManager, deploy_half)
@@ -251,6 +274,7 @@ func tick(delta: float) -> Dictionary:
 	result.retreat_reason = retreat_reason
 	result.team_stability = stability.team_stability
 	result.stability = stability.team_stability
+	result.team_stability_max = stability.team_stability_max
 	result.min_personal_stability = stability.get_min_personal_stability()
 	result.stability_pressure = stability.get_team_cost_multiplier()
 	result.boss_chase_active = boss_chase_active
@@ -273,8 +297,9 @@ func tick(delta: float) -> Dictionary:
 	result.equip_shield_max = equip_shield_max
 	result.material_shield = material_shield_current
 	result.material_shield_max = material_shield_max
-	result.carry_value = CarryValueService.compute(self, GameManager.auto_retreat_safe_only if GameManager else false)
+	result.carry_value = CarryValueService.compute(self, auto_retreat_safe_only)
 	result.carry_value_threshold = AutoRetreatService.get_value_threshold(self)
+	result.expedition_label = get_expedition_label()
 	result.extract_line_label = get_extract_line_label()
 	result.has_extract_line = has_active_extract_line()
 	_apply_loot_stats_to_dict(result)
@@ -552,10 +577,45 @@ func _roll_chase_kill_loot(enemy_data: Dictionary, table: Dictionary) -> void:
 
 func _add_run_loot(equip: Equipment) -> void:
 	var placed: Dictionary = RunLootService.add_equipment_drop(self, equip)
-	if placed.get("ok", false):
+	var where: String = str(placed.get("where", ""))
+	if where == "discarded":
+		run_loot_discarded_count += 1
+		emit_signal(
+			"run_event",
+			"loot_discarded",
+			{"item_name": equip.item_name, "quality_name": equip.quality_name}
+		)
+	elif placed.get("ok", false):
 		_sync_total_loot_cache()
+		ExpeditionStrategyService.on_equipment_acquired(self, equip, placed)
 	else:
 		push_warning("WorldRun: 掉落 %s 未能放入安全箱/外露网格" % equip.item_name)
+		ExpeditionStrategyService.on_equipment_acquired(self, equip, placed)
+
+
+func _snapshot_expedition_prefs() -> void:
+	if GameManager == null:
+		return
+	expedition_priority = GameManager.expedition_priority
+	expedition_advance_mult = GameManager.get_expedition_advance_mult()
+	expedition_search_interval_mult = GameManager.get_expedition_search_interval_mult()
+	expedition_spawn_interval_mult = GameManager.get_expedition_spawn_interval_mult()
+	loot_auto_evict_low_value = GameManager.loot_auto_evict_low_value
+	loot_discard_overflow = GameManager.loot_discard_overflow
+	auto_retreat_value_enabled = GameManager.auto_retreat_value_enabled
+	auto_retreat_safe_only = GameManager.auto_retreat_safe_only
+
+
+func get_expedition_label() -> String:
+	if GameManager:
+		return GameManager.get_expedition_priority_label(expedition_priority)
+	match expedition_priority:
+		"push":
+			return "推图"
+		"loot":
+			return "搜刮"
+		_:
+			return "均衡"
 
 
 func _sync_total_loot_cache() -> void:
@@ -629,8 +689,11 @@ func build_extract_guard_encounter() -> Dictionary:
 
 func _add_run_material(mat: RunMaterial) -> void:
 	var placed: Dictionary = RunLootService.add_material_drop(self, mat)
-	if not placed.get("ok", false):
+	if placed.get("ok", false):
+		ExpeditionStrategyService.on_material_acquired(self, mat, placed)
+	else:
 		push_warning("WorldRun: 物资 %s 未能放入网格" % mat.item_name)
+		ExpeditionStrategyService.on_material_acquired(self, mat, placed)
 
 
 func on_member_down() -> void:
@@ -1032,7 +1095,7 @@ func get_retreat_destination_label() -> String:
 
 
 func _on_team_stability_changed(new_val: int) -> void:
-	if new_val <= StabilitySystem.TEAM_WITHDRAW_THRESHOLD:
+	if stability != null and new_val <= stability.get_run_withdraw_threshold():
 		emit_signal("run_event", "withdraw_confirm", {"stability": new_val, "team_stability": new_val})
 
 
@@ -1042,8 +1105,8 @@ func _on_forced_withdraw() -> void:
 
 
 func sync_stability_to_manager() -> void:
-	if stability != null and GameManager:
-		GameManager.set_team_stability(stability.team_stability)
+	# T-STAB-HALF：本趟团队条不写回全局 team_stability（半组稳定由槽内 personal 聚合）
+	pass
 
 
 func _resolve_result_player_alive() -> bool:
@@ -1167,12 +1230,4 @@ func end_run(forced: bool = false) -> Dictionary:
 
 
 func _expedition_priority_advance_mult() -> float:
-	if GameManager == null:
-		return 1.0
-	match GameManager.expedition_priority:
-		GameManager.EXPEDITION_PRIORITY_PUSH:
-			return 1.22
-		GameManager.EXPEDITION_PRIORITY_LOOT:
-			return 0.82
-		_:
-			return 1.0
+	return expedition_advance_mult

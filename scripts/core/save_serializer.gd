@@ -36,8 +36,8 @@ static func to_save_dict(gm: GameManager) -> Dictionary:
 		"expedition_priority": gm.expedition_priority,
 		"loot_auto_evict_low_value": gm.loot_auto_evict_low_value,
 		"loot_discard_overflow": gm.loot_discard_overflow,
-		"team_stability": gm.team_stability,
-		"squad_stability": gm.team_stability,
+		"team_stability": StabilitySystem.MAX_STABILITY,
+		"squad_stability": StabilitySystem.MAX_STABILITY,
 		"buildings": gm.buildings.duplicate(),
 		"player": serialize_merc(gm.player),
 		"roster": {
@@ -76,8 +76,8 @@ static func from_save_dict(gm: GameManager, data: Dictionary) -> void:
 	gm.loot_auto_evict_low_value = data.get("loot_auto_evict_low_value", true)
 	gm.loot_discard_overflow = data.get("loot_discard_overflow", false)
 	gm.auto_run_enabled = false
-	var loaded_team: int = data.get("team_stability", data.get("squad_stability", StabilitySystem.MAX_STABILITY))
-	gm.team_stability = clampi(loaded_team, 0, StabilitySystem.MAX_STABILITY)
+	# T-STAB-HALF-b：全局 team_stability 已废弃，稳定由槽内 personal_stability 聚合
+	gm.team_stability = StabilitySystem.MAX_STABILITY
 	gm.sync_always_unlocked_maps()
 	gm.refresh_map_unlocks()
 	gm.buildings = data.get("buildings", {})
@@ -270,9 +270,9 @@ static func apply_merc_data(merc: Mercenary, data: Dictionary) -> void:
 	merc.is_retreated = data.get("is_retreated", false)
 	merc.is_personal_break = data.get("is_personal_break", false)
 	merc.personal_stability = clampi(
-		data.get("personal_stability", StabilitySystem.MAX_STABILITY),
+		data.get("personal_stability", merc.get_personal_stability_max()),
 		0,
-		StabilitySystem.MAX_STABILITY
+		merc.get_personal_stability_max()
 	)
 	merc.attack_range = data.get("attack_range", 50.0)
 	merc.attack_speed = data.get("attack_speed", 1.0)

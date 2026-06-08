@@ -29,7 +29,11 @@ static func tick(run: WorldRun, delta: float) -> Array:
 	if run.boss_spawned or bool(run.map_data.get("disable_mob_spawns", false)):
 		return events
 	run.spawn_timer += delta
-	var interval: float = run.spawn_interval * run.get_spawn_jitter()
+	var interval: float = (
+		run.spawn_interval
+		* run.get_spawn_jitter()
+		* float(run.expedition_spawn_interval_mult)
+	)
 	if run.spawn_timer >= interval:
 		run.spawn_timer = 0.0
 		var enemy_data: Dictionary = run.spawn_random_enemy()

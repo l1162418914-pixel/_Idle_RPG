@@ -48,6 +48,70 @@ var expedition_priority: String = EXPEDITION_PRIORITY_MARCH
 var loot_auto_evict_low_value: bool = true
 ## 格满且无法挤占时丢弃新掉落（否则保留在地面/不掉落）
 var loot_discard_overflow: bool = false
+
+
+func get_expedition_advance_mult() -> float:
+	match expedition_priority:
+		EXPEDITION_PRIORITY_PUSH:
+			return 1.15
+		EXPEDITION_PRIORITY_LOOT:
+			return 0.88
+		_:
+			return 1.0
+
+
+func get_expedition_search_interval_mult() -> float:
+	match expedition_priority:
+		EXPEDITION_PRIORITY_PUSH:
+			return 1.25
+		EXPEDITION_PRIORITY_LOOT:
+			return 0.68
+		_:
+			return 1.0
+
+
+## 进军遇敌间隔倍率（>1 更少接战，<1 更密接战）
+func get_expedition_spawn_interval_mult() -> float:
+	match expedition_priority:
+		EXPEDITION_PRIORITY_PUSH:
+			return 0.9
+		EXPEDITION_PRIORITY_LOOT:
+			return 1.28
+		_:
+			return 1.0
+
+
+func get_expedition_priority_label(pri: String = "") -> String:
+	var p: String = pri if pri != "" else expedition_priority
+	match p:
+		EXPEDITION_PRIORITY_PUSH:
+			return "推图"
+		EXPEDITION_PRIORITY_LOOT:
+			return "搜刮"
+		_:
+			return "均衡"
+
+
+func get_expedition_prefs_summary() -> String:
+	var loot_bits: PackedStringArray = []
+	if loot_auto_evict_low_value:
+		loot_bits.append("挤占")
+	if loot_discard_overflow:
+		loot_bits.append("丢弃")
+	var loot_note := " · ".join(loot_bits) if loot_bits.size() > 0 else ""
+	match expedition_priority:
+		EXPEDITION_PRIORITY_PUSH:
+			var tail := " · %s" % loot_note if loot_note != "" else ""
+			return "推图 · 冲Boss解锁下一关 · 仅手动撤离%s" % tail
+		EXPEDITION_PRIORITY_LOOT:
+			var tail := " · %s" % loot_note if loot_note != "" else ""
+			return "搜刮 · 满载/高价值自动撤 · 少接战%s" % tail
+		_:
+			var ret := "达标自动撤"
+			if auto_retreat_safe_only:
+				ret += "·仅安全箱"
+			var tail := " · %s · %s" % [loot_note, ret] if loot_note != "" else " · %s" % ret
+			return "均衡 · 正常跑图%s" % tail
 ## 双半组编制 { active_half, A: {active, bench}, B: {...} }
 var squad_formation: Dictionary = {}
 var last_run_squad_snapshot: Array[String] = []
@@ -75,7 +139,6 @@ var skip_mutual_recovery_next_run: bool = false
 
 const REVIVE_COST_BASE: int = 80
 const HIGH_VALUE_MIA_REVIVE_MULT: int = 12
-const BASE_STABILITY_RECOVER_PER_SEC: float = 2.5
 ## 正常通关地图后额外扣除的稳定度（再加地图危险等级）
 const MAP_CLEAR_STABILITY_BASE: int = 6
 const REVIVE_COST_PER_LEVEL: int = 15
@@ -89,10 +152,11 @@ signal roster_healed()
 signal team_stability_changed(new_value: int)
 signal squad_stability_changed(new_value: int)
 signal run_start_failed(code: int)
+signal deploy_half_reassigned(preferred: String, actual: String)
 signal formation_changed
+signal formation_preference_changed(half: String)
 
 var _base_heal_timer: float = 0.0
-var _stability_recover_accum: float = 0.0
 ## 测试图出征前快照（回大营时还原，不入账）
 var _test_run_baseline: Dictionary = {}
 
@@ -169,6 +233,12 @@ func get_run_start_error_message(code: int) -> String:
 			return "无法出征：地图尚未解锁"
 		-5:
 			return SquadFormationService.get_recovery_lock_message(self)
+		-7:
+			var pref: String = SquadFormationService.get_preferred_half(self)
+			return (
+				"无法出征：编组优先半组 %s 无可用出战佣兵。"
+				+ "请编入出战位、A↔B 互换或从备战席补满。"
+			) % pref
 		_:
 			return "无法出征（错误码 %d）" % code
 
@@ -194,11 +264,10 @@ func start_auto_expedition(map_id: String) -> int:
 	if selected_squad.is_empty():
 		auto_run_enabled = false
 		return -2
-	return start_run()
+	return start_run(false, true)
 
 
 func is_recovery_lock_active() -> bool:
-	SquadFormationService.ensure_formation(self)
 	return SquadFormationService.is_recovery_lock_active(self)
 
 
@@ -229,7 +298,7 @@ func formation_clear_slot(half: String, slot_kind: String, slot_index: int) -> i
 
 func formation_set_preferred_half(half: String) -> void:
 	SquadFormationService.set_preferred_half(self, half)
-	formation_changed.emit()
+	formation_preference_changed.emit(half)
 
 
 func formation_swap_halves() -> void:
@@ -288,7 +357,7 @@ func continue_auto_loop_after_result(result: Dictionary) -> void:
 		if selected_squad.is_empty():
 			stop_auto_run()
 			return
-		start_run()
+		start_run(false, true)
 	else:
 		stop_auto_run()
 
@@ -358,7 +427,6 @@ func _begin_recovery_run(merc_id: String, deploy_half: String, mutual: bool) -> 
 	SquadFormationService.ensure_formation(self)
 	if deploy_half == "":
 		return -5
-	squad_formation["active_half"] = deploy_half
 	SquadFormationService.auto_fill_half(self, deploy_half)
 	var deploy: Array[Mercenary] = SquadFormationService.resolve_active_squad(self, deploy_half)
 	if deploy.is_empty():
@@ -371,6 +439,7 @@ func _begin_recovery_run(merc_id: String, deploy_half: String, mutual: bool) -> 
 	var squad := Squad.new()
 	squad.build(deploy)
 	current_run = WorldRun.new(map_id, squad)
+	current_run.deploy_half = deploy_half
 	RunModeService.apply_for_departure(self, current_run)
 	var ok = current_run.start()
 	_snapshot_mia_ids_at_departure()
@@ -379,6 +448,7 @@ func _begin_recovery_run(merc_id: String, deploy_half: String, mutual: bool) -> 
 		current_run = null
 		mutual_recovery_this_run = false
 		return -2
+	last_deploy_half = deploy_half
 	state = GameState.RUNNING
 	run_started.emit()
 	state_changed.emit(GameState.RUNNING)
@@ -447,11 +517,18 @@ func try_morgue_medical_revive(merc_id: String) -> int:
 	return 0
 
 
-func start_run(skip_mutual_recovery: bool = false) -> int:
+func start_run(skip_mutual_recovery: bool = false, allow_deploy_fallback: bool = false) -> int:
 	if is_recovery_lock_active():
 		return -5
 	SquadFormationService.ensure_formation(self)
-	var half: String = SquadFormationService.pick_deploy_half(self)
+	var pref: String = SquadFormationService.get_preferred_half(self)
+	var half: String = ""
+	if allow_deploy_fallback:
+		half = SquadFormationService.resolve_deploy_half(self)
+	else:
+		if not SquadFormationService.half_can_deploy(self, pref):
+			return -7
+		half = pref
 	if half == "":
 		return -5
 	var skip_mutual: bool = skip_mutual_recovery or skip_mutual_recovery_next_run
@@ -477,12 +554,15 @@ func start_run(skip_mutual_recovery: bool = false) -> int:
 	var squad = Squad.new()
 	squad.build(deploy)
 	current_run = WorldRun.new(selected_map_id, squad)
+	current_run.deploy_half = half
 	RunModeService.apply_for_departure(self, current_run)
 	var ok = current_run.start()
 	if ok != 0:
 		return -2
 	_snapshot_mia_ids_at_departure()
 	last_deploy_half = half
+	if allow_deploy_fallback and half != pref:
+		deploy_half_reassigned.emit(pref, half)
 	state = GameState.RUNNING
 	run_started.emit()
 	state_changed.emit(GameState.RUNNING)
@@ -767,7 +847,6 @@ func _capture_test_run_baseline() -> Dictionary:
 func _finish_test_run_session() -> void:
 	if _test_run_baseline.is_empty():
 		return
-	set_team_stability(int(_test_run_baseline.get("team_stability", team_stability)))
 	elite_roster.clear()
 	for edata in _test_run_baseline.get("elite", []):
 		if edata is Dictionary:
@@ -1324,23 +1403,39 @@ func persist_on_shutdown() -> void:
 
 
 func get_team_stability() -> int:
-	return clampi(team_stability, 0, StabilitySystem.MAX_STABILITY)
+	## T-STAB-HALF-b：全局条废弃，兼容旧调用 → 编组优先半组聚合
+	return get_deploy_half_stability(SquadFormationService.get_preferred_half(self))
 
 
-func set_team_stability(value: int) -> void:
-	var prev: int = team_stability
-	team_stability = clampi(value, 0, StabilitySystem.MAX_STABILITY)
-	if team_stability != prev:
-		team_stability_changed.emit(team_stability)
-		squad_stability_changed.emit(team_stability)
+func get_deploy_half_stability(half: String = "") -> int:
+	SquadFormationService.ensure_formation(self)
+	if half == "":
+		half = SquadFormationService.resolve_deploy_half(self)
+	if half not in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+		return 0
+	return SquadFormationService.get_half_stability(self, half)
+
+
+func get_deploy_half_stability_max(half: String = "") -> int:
+	SquadFormationService.ensure_formation(self)
+	if half == "":
+		half = SquadFormationService.resolve_deploy_half(self)
+	if half not in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+		return 0
+	return SquadFormationService.get_half_stability_max(self, half)
+
+
+func set_team_stability(_value: int) -> void:
+	## T-STAB-HALF-b：不再维护全局 team_stability；测试图用 map run_start_team_stability
+	pass
 
 
 func get_squad_stability() -> int:
-	return get_team_stability()
+	return get_deploy_half_stability(SquadFormationService.get_preferred_half(self))
 
 
-func set_squad_stability(value: int) -> void:
-	set_team_stability(value)
+func set_squad_stability(_value: int) -> void:
+	pass
 
 
 func is_normal_map_completion(result: Dictionary) -> bool:
@@ -1358,30 +1453,37 @@ func _apply_map_clear_stability_penalty(result: Dictionary) -> void:
 	var md: Dictionary = DataLoader.map_data(map_id)
 	var danger: int = int(md.get("danger_level", 1)) if not md.is_empty() else 1
 	var cost: int = MAP_CLEAR_STABILITY_BASE + danger * 2
-	var before: int = team_stability
-	set_team_stability(team_stability - cost)
+	var half: String = last_deploy_half
+	if half not in [SquadFormationService.HALF_A, SquadFormationService.HALF_B]:
+		return
+	SquadFormationService.ensure_formation(self)
+	var merc_ids: Array[String] = []
+	merc_ids.append_array(SquadFormationService.get_active_ids(squad_formation, half))
+	merc_ids.append_array(SquadFormationService.get_bench_ids(squad_formation, half))
+	var targets: Array[String] = []
+	for mid in merc_ids:
+		if mid != "" and mid not in targets:
+			targets.append(mid)
+	if targets.is_empty():
+		return
+	var per: int = maxi(1, int(ceil(float(cost) / float(targets.size()))))
+	var before_combined: int = SquadFormationService.get_half_stability(self, half)
+	for mid in targets:
+		var m := find_mercenary_by_id(mid)
+		if m != null:
+			m.modify_personal_stability(-per)
+	var after_combined: int = SquadFormationService.get_half_stability(self, half)
 	var map_name: String = str(md.get("name", map_id))
-	last_run_stability_note = "通关「%s」团队稳定度 -%d（%d → %d）" % [map_name, cost, before, team_stability]
+	last_run_stability_note = (
+		"通关「%s」半组%s稳定 -%d（%d → %d）" % [map_name, half, cost, before_combined, after_combined]
+	)
+	formation_changed.emit()
 
 
 func _process(delta: float) -> void:
 	if state != GameState.BASE and state != GameState.PREPARE:
 		return
 	_tick_base_healing(delta)
-	_tick_base_stability_recovery(delta)
-
-
-func _tick_base_stability_recovery(delta: float) -> void:
-	if team_stability >= StabilitySystem.MAX_STABILITY:
-		_stability_recover_accum = 0.0
-		return
-	var rate: float = BASE_STABILITY_RECOVER_PER_SEC * get_infirmary_heal_speed_multiplier()
-	_stability_recover_accum += delta * rate
-	if _stability_recover_accum < 1.0:
-		return
-	var gain: int = int(_stability_recover_accum)
-	_stability_recover_accum -= float(gain)
-	set_team_stability(team_stability + gain)
 
 
 func _tick_base_healing(delta: float) -> void:

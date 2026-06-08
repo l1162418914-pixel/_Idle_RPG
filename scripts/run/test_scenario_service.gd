@@ -79,8 +79,7 @@ static func apply_on_prepare(gm: GameManager, map_id: String) -> void:
 			apply_test_roster(gm, roster)
 		if str(md.get("test_scenario", "")) == "mia_wipe":
 			_inject_mia_wipe_frozen_pool(gm, map_id, roster)
-			var start_stab: int = int(md.get("run_start_team_stability", 100))
-			gm.set_team_stability(start_stab)
+			pass  # 稳定起点见 map run_start_team_stability（WorldRun.start）
 		return
 	match str(md.get("test_scenario", "")):
 		"boss_chase", "awakening":

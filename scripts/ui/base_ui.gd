@@ -2,6 +2,7 @@ extends Control
 ## BaseUI — 基地主界面
 
 const _BaseCampBagUIScene = preload("res://scripts/ui/base_camp_bag_ui.gd")
+const FORMATION_UI_LAYOUT_REV := 9  ## 与 formation_ui.gd LAYOUT_REV 同步
 
 @onready var gold_label: Label = $MarginContainer/MainVBox/GoldLabel
 @onready var maps_list: VBoxContainer = $MarginContainer/MainVBox/Scroll/Content/MapsList
@@ -24,7 +25,6 @@ var _shell_attached: bool = false
 var _main_shell: MainShell = null
 var _test_maps_expanded: bool = false
 var _maps_scroll: ScrollContainer = null
-var _form_scroll: ScrollContainer = null
 var _camp_bag_ui: Control = null
 
 
@@ -41,36 +41,48 @@ func _ready() -> void:
 	if _equipment_ui and _equipment_ui.has_signal("closed"):
 		_equipment_ui.closed.connect(_refresh)
 	GameManager.roster_healed.connect(_on_roster_healed)
-	GameManager.squad_stability_changed.connect(_on_squad_stability_changed)
+	GameManager.formation_changed.connect(_on_formation_layout_refresh)
 	GameManager.run_start_failed.connect(_on_run_start_failed)
+	GameManager.deploy_half_reassigned.connect(_on_deploy_half_reassigned)
 	_ensure_auto_run_toggle()
 	_ensure_legacy_roster_sections()
-	_refresh()
+	schedule_refresh()
 
 
 func _on_roster_healed() -> void:
-	if GameManager.state == GameManager.GameState.BASE:
-		_refresh()
+	if GameManager.state != GameManager.GameState.BASE:
+		return
+	_refresh_roster()
+	_append_infirmary_status()
 
 
-func _on_squad_stability_changed(_value: int) -> void:
-	if GameManager.state == GameManager.GameState.BASE:
-		_refresh()
+func schedule_refresh(include_formation: bool = true) -> void:
+	call_deferred("_refresh", include_formation)
+
+
+func _on_formation_layout_refresh() -> void:
+	if GameManager.state != GameManager.GameState.BASE:
+		return
+	_refresh_roster()
 
 
 func ensure_formation_in(host: Control) -> VBoxContainer:
-	if _formation_ui and is_instance_valid(_formation_ui):
-		if _formation_ui.get_parent() != host:
-			_formation_ui.reparent(host)
-		return _formation_ui
 	var script_res: Script = load("res://scripts/ui/formation_ui.gd")
 	if script_res == null or host == null:
 		return null
+	if _formation_ui and is_instance_valid(_formation_ui):
+		var rev: int = int(_formation_ui.get_meta("layout_rev", -1)) if _formation_ui.has_meta("layout_rev") else -1
+		if rev == FORMATION_UI_LAYOUT_REV:
+			if _formation_ui.get_parent() != host:
+				_formation_ui.reparent(host)
+			return _formation_ui
+		_formation_ui.queue_free()
+		_formation_ui = null
 	_formation_ui = VBoxContainer.new()
 	_formation_ui.set_script(script_res)
 	_formation_ui.name = "FormationPanel"
 	_formation_ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_formation_ui.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_formation_ui.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	host.add_child(_formation_ui)
 	return _formation_ui
 
@@ -112,25 +124,29 @@ func attach_to_shell(
 	if status_label:
 		status_label.visible = false
 	left_slot.add_child(shell_left_root)
+	var center_scroll := ScrollContainer.new()
+	center_scroll.name = "BaseCenterScroll"
+	center_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	center_slot.add_child(center_scroll)
 	shell_center_root = VBoxContainer.new()
 	shell_center_root.name = "BaseCenterFormation"
 	shell_center_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell_center_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_form_scroll = ScrollContainer.new()
-	_form_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_form_scroll.clip_contents = true
+	shell_center_root.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	center_scroll.add_child(shell_center_root)
 	var form_host := VBoxContainer.new()
+	form_host.name = "FormationHost"
 	form_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_form_scroll.add_child(form_host)
-	shell_center_root.add_child(_form_scroll)
-	center_slot.add_child(shell_center_root)
+	form_host.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	shell_center_root.add_child(form_host)
 	ensure_formation_in(form_host)
 	shell_right_root = VBoxContainer.new()
 	shell_right_root.name = "BaseRightRoster"
 	shell_right_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell_right_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var roster_title := Label.new()
-	roster_title.text = "—— 可出征名册 ——"
+	roster_title.text = "—— 名册（可编入备战席；出征须满足条件）——"
 	shell_right_root.add_child(roster_title)
 	var roster_scroll := ScrollContainer.new()
 	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -209,8 +225,6 @@ func scroll_maps_list_to_top() -> void:
 
 
 func scroll_formation_into_view(pulse_sec: float = 0.0) -> void:
-	if _form_scroll:
-		_form_scroll.scroll_vertical = 0
 	if _formation_ui and _formation_ui.has_method("scroll_pool_into_view"):
 		_formation_ui.scroll_pool_into_view()
 	if pulse_sec > 0.0 and _formation_ui:
@@ -285,6 +299,13 @@ func _on_run_start_failed(code: int) -> void:
 	_user_feedback(GameManager.get_run_start_error_message(code), Color.ORANGE_RED)
 
 
+func _on_deploy_half_reassigned(preferred: String, actual: String) -> void:
+	_user_feedback(
+		"编组优先半组 %s 不可出征，本趟改派半组 %s" % [preferred, actual],
+		Color(1.0, 0.85, 0.55),
+	)
+
+
 func _update_gold(amount: int) -> void:
 	if gold_label:
 		gold_label.text = "金币: %d" % amount
@@ -295,7 +316,7 @@ func _on_state_changed(new_state: int) -> void:
 		_refresh()
 
 
-func _refresh() -> void:
+func _refresh(include_formation: bool = true) -> void:
 	if _camp_bag_ui and _camp_bag_ui.has_method("refresh"):
 		_camp_bag_ui.refresh()
 	if gold_label:
@@ -305,7 +326,9 @@ func _refresh() -> void:
 		_auto_run_check.button_pressed = GameManager.auto_run_preferred
 		_auto_run_check.set_block_signals(false)
 	_refresh_status_line()
-	if _formation_ui and _formation_ui.has_method("_refresh"):
+	if include_formation and _formation_ui and _formation_ui.has_method("_schedule_refresh"):
+		_formation_ui._schedule_refresh()
+	elif include_formation and _formation_ui and _formation_ui.has_method("_refresh"):
 		_formation_ui._refresh()
 	_refresh_maps_panel()
 	_refresh_buildings()
@@ -386,7 +409,7 @@ func _ensure_legacy_roster_sections() -> void:
 		return
 	var dead_title := content.get_node_or_null("DeadTitle")
 	var roster_title := Label.new()
-	roster_title.text = "—— 可出征名册 ——"
+	roster_title.text = "—— 名册（可编入备战席；出征须满足条件）——"
 	content.add_child(roster_title)
 	if roster_container:
 		content.move_child(roster_title, roster_container.get_index())
@@ -540,8 +563,10 @@ func _add_roster_row(tag: String, merc: Mercenary, merc_type: String, merc_id: S
 		extra += " 伤痕×%d" % merc.scar_stacks
 		if scar_fx != "":
 			extra += " (%s)" % scar_fx
-	label.text = "%s %s %s HP:%d/%d 个人稳:%d ATK:%d%s" % [
-		tag, merc.merc_name, _level_exp_text(merc), merc.current_hp, max_hp, merc.personal_stability, atk, extra
+	var stab_max: int = merc.get_personal_stability_max()
+	label.text = "%s %s %s HP:%d/%d 个人稳:%d/%d ATK:%d%s" % [
+		tag, merc.merc_name, _level_exp_text(merc), merc.current_hp, max_hp,
+		merc.personal_stability, stab_max, atk, extra
 	]
 	match section:
 		"active":
@@ -770,8 +795,8 @@ func _on_map_card_selected(map_id: String) -> void:
 			_main_shell.show_toast("已注入测试编队 · %s" % hint, Color(0.75, 0.92, 1.0), 4.0)
 	_refresh_maps_panel()
 	_refresh_roster()
-	if _formation_ui and _formation_ui.has_method("_refresh"):
-		_formation_ui._refresh()
+	if _formation_ui and _formation_ui.has_method("_schedule_refresh"):
+		_formation_ui._schedule_refresh()
 	if _main_shell:
 		_main_shell.apply_state(GameManager.state)
 
