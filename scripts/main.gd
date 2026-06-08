@@ -1,5 +1,5 @@
 extends Control
-## Main — 主场景薄壳：PlanningWindow + StageWindow 双窗 + RunDriver
+## Main — 主场景薄壳：Planning 根窗 + StageWindow 屏坐标固定的兄弟窗 + RunDriver
 
 const STAGE_WINDOW_SCENE := preload("res://scenes/stage_window.tscn")
 const PLANNING_WIDTH := 1280
@@ -19,8 +19,7 @@ var _manual_withdraw_dialog: ConfirmationDialog = null
 var _run_driver: RunDriver = RunDriver.new()
 var _shutting_down: bool = false
 var _syncing_stage_layout: bool = false
-var _track_stage_layout: bool = false
-var _last_stage_win_pos: Vector2i = Vector2i.ZERO
+var _stage_screen_anchored: bool = false
 
 
 func _ready() -> void:
@@ -28,6 +27,7 @@ func _ready() -> void:
 	_configure_planning_window()
 	_find_ui_refs()
 	_setup_stage_window()
+	_attach_planning_as_stage_child()
 	if _stage_shell and _run_ui:
 		_stage_shell.setup(_run_ui, _main_shell)
 		_combat_view = _stage_shell.get_combat_view()
@@ -42,10 +42,12 @@ func _ready() -> void:
 
 
 func _configure_planning_window() -> void:
-	var main_win := get_window()
+	var main_win := get_window() as Window
+	if main_win == null:
+		return
+	main_win.title = "TBH Idle RPG — 管理"
 	main_win.size = Vector2i(PLANNING_WIDTH, PLANNING_HEIGHT)
 	main_win.min_size = Vector2i(PLANNING_WIDTH, 360)
-	# 主窗仅 resize 时重排副窗；**拖动锚点=副窗**（拖副窗则主窗跟上，见 _process）
 	if main_win.has_signal("size_changed"):
 		if not main_win.size_changed.is_connected(_on_planning_window_size_changed):
 			main_win.size_changed.connect(_on_planning_window_size_changed)
@@ -59,7 +61,7 @@ func _setup_stage_window() -> void:
 		push_error("Main: StageWindow 场景加载失败")
 		return
 	_stage_window.name = "StageWindow"
-	get_tree().root.add_child(_stage_window)
+	_stage_window.title = "TBH Idle RPG — Stage"
 	_stage_shell = _stage_window.get_node_or_null("StageShell") as StageShell
 	if _stage_shell == null:
 		push_error("Main: StageShell 缺失")
@@ -69,43 +71,62 @@ func _setup_stage_window() -> void:
 	if _stage_window.has_signal("size_changed"):
 		if not _stage_window.size_changed.is_connected(_on_stage_window_size_changed):
 			_stage_window.size_changed.connect(_on_stage_window_size_changed)
-	_place_stage_window_below_planning()
-	_last_stage_win_pos = _stage_window.position
-	_track_stage_layout = true
-	set_process(true)
+	_stage_window.size = Vector2i(PLANNING_WIDTH, STAGE_HEIGHT)
+
+
+func _attach_planning_as_stage_child() -> void:
+	if _stage_window == null:
+		return
+	var planning_win := get_window() as Window
+	if planning_win == null:
+		return
+	if not planning_win.close_requested.is_connected(_on_planning_window_close_requested):
+		planning_win.close_requested.connect(_on_planning_window_close_requested)
+	var root := get_tree().root
+	var parent := _stage_window.get_parent()
+	if parent != root:
+		if parent != null:
+			parent.remove_child(_stage_window)
+		root.add_child(_stage_window)
+	_stage_window.transient = false
+	planning_win.visible = true
+	planning_win.show()
 	_stage_window.show()
+	call_deferred("_sync_twin_window_layout", true)
 
 
-func _place_stage_window_below_planning() -> void:
+func _sync_twin_window_layout(anchor_stage: bool = false) -> void:
 	if _syncing_stage_layout or _stage_window == null:
 		return
 	_syncing_stage_layout = true
-	var main_win := get_window()
-	_stage_window.position = Vector2i(main_win.position.x, main_win.position.y + main_win.size.y)
-	_stage_window.size = Vector2i(maxi(main_win.size.x, 640), STAGE_HEIGHT)
-	_last_stage_win_pos = _stage_window.position
+	var planning_win := get_window() as Window
+	if planning_win != null:
+		var w: int = maxi(maxi(planning_win.size.x, _stage_window.size.x), PLANNING_WIDTH)
+		planning_win.size = Vector2i(w, PLANNING_HEIGHT)
+		_stage_window.size = Vector2i(w, STAGE_HEIGHT)
+		if anchor_stage or not _stage_screen_anchored:
+			_stage_window.position = Vector2i(
+				planning_win.position.x,
+				planning_win.position.y + planning_win.size.y
+			)
+			_stage_screen_anchored = true
+		planning_win.visible = true
+		planning_win.show()
+		_stage_window.visible = true
+		_stage_window.show()
 	_syncing_stage_layout = false
 
 
-func _sync_planning_window_above_stage() -> void:
-	if _syncing_stage_layout or _stage_window == null:
-		return
-	_syncing_stage_layout = true
-	var main_win := get_window()
-	var stage_pos := _stage_window.position
-	var stage_w: int = _stage_window.size.x
-	main_win.position = Vector2i(stage_pos.x, stage_pos.y - main_win.size.y)
-	main_win.size = Vector2i(maxi(stage_w, PLANNING_WIDTH), main_win.size.y)
-	_syncing_stage_layout = false
+func _on_planning_window_close_requested() -> void:
+	_shutdown_all_windows()
 
 
 func _on_planning_window_size_changed() -> void:
-	_place_stage_window_below_planning()
+	_sync_twin_window_layout(true)
 
 
 func _on_stage_window_size_changed() -> void:
-	_sync_planning_window_above_stage()
-	_last_stage_win_pos = _stage_window.position
+	_sync_twin_window_layout(false)
 
 
 func _setup_manual_withdraw_dialog() -> void:
@@ -130,7 +151,6 @@ func _shutdown_all_windows() -> void:
 	if _shutting_down:
 		return
 	_shutting_down = true
-	_track_stage_layout = false
 	GameManager.persist_on_shutdown()
 	if _stage_window and is_instance_valid(_stage_window):
 		_stage_window.hide()
@@ -150,9 +170,27 @@ func _find_ui_refs() -> void:
 		push_error("Main: MainShell 缺失，Planning 壳为唯一上窗路径")
 		return
 	_main_shell.setup(_base_ui, _squad_ui, _run_ui, _result_ui)
+	_main_shell.bind_window_host(self)
 	var equip_ui := get_node_or_null("EquipmentUI") as Control
 	if equip_ui and _main_shell:
 		_main_shell.attach_equipment_ui(equip_ui)
+
+
+func focus_stage_window() -> void:
+	if _stage_window == null or not is_instance_valid(_stage_window):
+		return
+	_stage_window.grab_focus()
+	if _stage_window.has_method("move_to_foreground"):
+		_stage_window.move_to_foreground()
+
+
+func raise_planning_subwindow() -> void:
+	var planning_win := get_window() as Window
+	if planning_win == null:
+		return
+	# 角标/建筑点击只开上窗浮层，不重置下窗屏坐标、不抢焦点（避免 WM 带动 Stage 位移）
+	planning_win.visible = true
+	planning_win.show()
 
 
 func _on_state_changed(new_state: int) -> void:
@@ -163,11 +201,6 @@ func _on_state_changed(new_state: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if _track_stage_layout and _stage_window != null:
-		var pos := _stage_window.position
-		if pos != _last_stage_win_pos:
-			_last_stage_win_pos = pos
-			_sync_planning_window_above_stage()
 	_run_driver.process(delta)
 
 

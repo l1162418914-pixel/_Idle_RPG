@@ -137,6 +137,8 @@ func _run() -> void:
 	_probe_t02_ranged_respects_forward_cap()
 	_probe_02_dual_melee_tank_front()
 	_probe_02_dual_melee_both_in_range()
+	_probe_combat_melee_counter_damage()
+	_probe_combat_melee_counter_longer_range_enemy()
 	_probe_t03_elite_inherits_class_active_skills()
 	_probe_t03_skill_cd_chip_shows_remaining()
 	_probe_t03_skill_cd_chip_ready_state()
@@ -167,8 +169,11 @@ func _run() -> void:
 	_probe_expedition_ui_retreat_row_layout()
 	_probe_camp_1a_stage_lineup()
 	_probe_stage_1a_bottom_stage()
+	_probe_stage_5a_building_click()
 	_probe_frame_1a_shell_zones()
 	_probe_twin_1a_dual_window()
+	_probe_cq_shell_2a_hud_dock()
+	_probe_tbh_shell_1a_upper_modal()
 	_probe_m2c_search_blocked_during_combat()
 	_probe_b3_grassland_march_events()
 	_probe_c1_test_maps_march_events()
@@ -2793,6 +2798,48 @@ func _probe_02_dual_melee_both_in_range() -> void:
 	_pass("02-6", "T-02 双近战均可进 attack_range")
 
 
+func _probe_combat_melee_counter_damage() -> void:
+	var tank := _make_probe_elite("eng_t", "钢铁守卫", "warrior_elite")
+	var squad := Squad.new()
+	squad.build([tank])
+	var enemy: Array = [{
+		"uid": "eng_slime",
+		"name": "史莱姆",
+		"stats": {"hp": 15, "patk": 1, "pdef": 0, "spd": 1, "attack_range": 60},
+	}]
+	var combat := CombatController.new()
+	combat.init_combat(squad, enemy, null, 120.0)
+	var foe: CombatEntity = combat.enemies[0]
+	var start_hp: int = foe.current_hp
+	for _i in 300:
+		combat.tick(0.05)
+	if foe.current_hp >= start_hp:
+		_fail("COMBAT-ENG-1a", "友方近战应在接战后对敌造成伤害 (hp=%d)" % foe.current_hp)
+		return
+	_pass("COMBAT-ENG-1a", "友方近战接战可还手（射程不对称）")
+
+
+func _probe_combat_melee_counter_longer_range_enemy() -> void:
+	var tank := _make_probe_elite("eng_t2", "钢铁守卫", "warrior_elite")
+	var squad := Squad.new()
+	squad.build([tank])
+	var enemy: Array = [{
+		"uid": "eng_wolf",
+		"name": "野狼",
+		"stats": {"hp": 24, "patk": 3, "pdef": 0, "spd": 3, "attack_range": 60},
+	}]
+	var combat := CombatController.new()
+	combat.init_combat(squad, enemy, null, 180.0)
+	var foe: CombatEntity = combat.enemies[0]
+	var start_hp: int = foe.current_hp
+	for _i in 360:
+		combat.tick(0.05)
+	if foe.current_hp >= start_hp:
+		_fail("COMBAT-ENG-1b", "敌射程>友方时仍应贴近还手 (hp=%d)" % foe.current_hp)
+		return
+	_pass("COMBAT-ENG-1b", "敌长射程时友方贴近还手")
+
+
 func _make_probe_elite(id: String, name: String, template_id: String) -> EliteMercenary:
 	var m := EliteMercenary.new()
 	m.merc_id = id
@@ -3634,7 +3681,72 @@ func _probe_twin_1a_dual_window() -> void:
 	if not FileAccess.file_exists("res://scenes/stage_window.tscn"):
 		_fail("TWIN-1a", "缺少 scenes/stage_window.tscn")
 		return
-	_pass("TWIN-1a", "T-UI-TWIN-1 双窗壳层拆分")
+	if not main_src.contains("_attach_planning_as_stage_child") or not main_src.contains("transient"):
+		_fail("TWIN-1a", "双窗应通过 _attach_planning_as_stage_child 绑定 transient 子窗")
+		return
+	if not main_src.contains("add_child(_stage_window)") or not main_src.contains("_sync_twin_window_layout"):
+		_fail("TWIN-1a", "StageWindow 应独立挂载并同步双窗布局")
+		return
+	if not stage_src.contains("HudDock") or not stage_src.contains("_mount_hud_dock"):
+		_fail("TWIN-1a", "HudDock 应挂在 StageShell（下窗）")
+		return
+	_pass("TWIN-1a", "T-UI-TWIN-1 双窗：Planning 根窗 + Stage 兄弟窗 + 下窗 Dock")
+
+
+func _probe_cq_shell_2a_hud_dock() -> void:
+	const DOCK_PATH := "res://scripts/ui/hud_dock.gd"
+	if not FileAccess.file_exists(DOCK_PATH):
+		_fail("CQ-SHELL-2a", "缺少 scripts/ui/hud_dock.gd")
+		return
+	var dock_src: String = FileAccess.get_file_as_string(DOCK_PATH)
+	if not dock_src.contains("class_name HudDock"):
+		_fail("CQ-SHELL-2a", "HudDock 应声明 class_name HudDock")
+		return
+	var anchor_bottom_right := dock_src.contains("PRESET_BOTTOM_RIGHT")
+	if not anchor_bottom_right:
+		var has_right := dock_src.contains("anchor_right") and dock_src.contains("1")
+		var has_bottom := dock_src.contains("anchor_bottom") and dock_src.contains("1")
+		if not (has_right and has_bottom):
+			_fail("CQ-SHELL-2a", "HudDock 应 anchor 右下（PRESET_BOTTOM_RIGHT 或 anchor_right/bottom=1）")
+			return
+	if not dock_src.contains("ResourceStrip") and not dock_src.contains("_resource_strip"):
+		_fail("CQ-SHELL-2a", "资源条应在角标左侧（ResourceStrip / _resource_strip）")
+		return
+	for key in ["deploy", "formation", "bag", "map", "logistics"]:
+		if not dock_src.contains('"%s"' % key):
+			_fail("CQ-SHELL-2a", "HudDock 缺少角标键 \"%s\"" % key)
+			return
+	var host_mounted := false
+	for host_path in [
+		"res://scripts/ui/stage_shell.gd",
+		"res://scripts/ui/main_shell.gd",
+		"res://scripts/ui/cq_shell.gd",
+	]:
+		if not FileAccess.file_exists(host_path):
+			continue
+		var host_src: String = FileAccess.get_file_as_string(host_path)
+		if host_src.contains("HudDock"):
+			host_mounted = true
+			break
+	if not host_mounted:
+		_fail("CQ-SHELL-2a", "MainShell 或 CqShell 应实例化/挂载 HudDock")
+		return
+	_pass("CQ-SHELL-2a", "T-UI-CQ-SHELL-2 HudDock 右下 + 资源条 + 角标")
+
+
+func _probe_tbh_shell_1a_upper_modal() -> void:
+	var main_src: String = FileAccess.get_file_as_string("res://scripts/ui/main_shell.gd")
+	var modal_src: String = FileAccess.get_file_as_string("res://scripts/ui/tbh_modal_window.gd")
+	if not modal_src.contains("class_name TbModalWindow") or not modal_src.contains("close_requested"):
+		_fail("TBH-SHELL-1a", "应提供 TbModalWindow 浮层壳")
+		return
+	if not main_src.contains("TbModalWindow") or not main_src.contains("_animate_tbh_modal_open"):
+		_fail("TBH-SHELL-1a", "MainShell 应挂载 TBH 居中浮窗")
+		return
+	if not main_src.contains("TbhUpperOverlay") or not main_src.contains("UpperOverlayHost"):
+		_fail("TBH-SHELL-1a", "TBH 浮层应挂在 UpperOverlayHost")
+		return
+	_pass("TBH-SHELL-1a", "TBH 上窗浮层集成（传送门/英雄/仓库）")
 
 
 func _probe_stage_1a_bottom_stage() -> void:
@@ -3657,6 +3769,22 @@ func _probe_stage_1a_bottom_stage() -> void:
 		return
 	stage.queue_free()
 	_pass("STAGE-1a", "T-UI-STAGE-1/2 底栏营火+队伍剪影")
+
+
+func _probe_stage_5a_building_click() -> void:
+	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/bottom_stage.gd")
+	var shell_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
+	var main_src: String = FileAccess.get_file_as_string("res://scripts/ui/main_shell.gd")
+	if not stage_src.contains("building_pressed") or not stage_src.contains("BUILDING_INFIRMARY"):
+		_fail("STAGE-5a", "BottomStage 应发射 building_pressed 与建筑常量")
+		return
+	if not shell_src.contains("_on_bottom_stage_building_pressed") or not shell_src.contains("open_stage_building"):
+		_fail("STAGE-5a", "StageShell 应转发建筑点击到 MainShell")
+		return
+	if not main_src.contains("func open_stage_building") or not main_src.contains("focus_stage_logistics"):
+		_fail("STAGE-5a", "MainShell 应提供 open_stage_building / focus_stage_logistics")
+		return
+	_pass("STAGE-5a", "T-UI-STAGE-5 下窗建筑可点 → 后勤/背包")
 
 
 func _probe_m2c_search_blocked_during_combat() -> void:

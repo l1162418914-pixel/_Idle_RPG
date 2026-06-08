@@ -159,19 +159,32 @@ func attach_to_shell(left_slot: Control, center_slot: Control, right_slot: Contr
 	shell_right_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell_right_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if grid_snapshot:
+		if grid_snapshot is RunGridUI:
+			(grid_snapshot as RunGridUI).compact_snapshot = true
 		grid_snapshot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		shell_right_root.add_child(grid_snapshot)
 	var loot_scroll := main_vbox.get_node_or_null("LootScroll") as Control
 	if loot_scroll:
+		loot_scroll.custom_minimum_size = Vector2(0, 72)
 		loot_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		loot_scroll.reparent(shell_right_root)
 	if loot_status_label:
 		loot_status_label.reparent(shell_right_root)
 	if equip_all_button:
 		equip_all_button.reparent(shell_right_root)
+	var action_row := HBoxContainer.new()
+	action_row.name = "ResultActionRow"
+	action_row.add_theme_constant_override("separation", 8)
+	action_row.size_flags_vertical = Control.SIZE_SHRINK_END
+	if _stop_auto_button:
+		_stop_auto_button.reparent(action_row)
+	if _redeploy_button:
+		_redeploy_button.reparent(action_row)
 	if return_button:
 		return_button.custom_minimum_size = Vector2(120, 36)
-		return_button.reparent(shell_right_root)
+		return_button.disabled = false
+		return_button.reparent(action_row)
+	shell_right_root.add_child(action_row)
 	right_slot.add_child(shell_right_root)
 	visible = false
 
@@ -396,6 +409,8 @@ func _show_result(result: Dictionary) -> void:
 	_update_equip_all_button()
 	_maybe_schedule_auto_continue(result)
 	_update_redeploy_button(result)
+	if return_button:
+		return_button.disabled = false
 
 
 func _update_redeploy_button(result: Dictionary) -> void:

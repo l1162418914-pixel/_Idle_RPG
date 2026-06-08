@@ -21,9 +21,11 @@
 
 ---
 
-## 二、总布局（双窗 · T-UI-TWIN-1 · 2026-06-08）
+## 二、总布局（单窗 + WORLD-REEL · 2026-06-09 CTO 优先）
 
-> **修订**：单窗 1280×720 VSplit **废止**为默认壳；改为 **两个 OS 窗口**（仍可并排视为一条 CQ 演出带）。
+> **现行定案**：[design-world-reel-CTO.md](design-world-reel-CTO.md) — 单窗 1280×720；`StageBand` 贴底全宽 **WorldReelPlane**（Camp+Map 分块）；`HudDock` 右下。  
+> **废止主方案**：`T-UI-CQ-SHELL-3` 60/40 分栏；`T-UI-TWIN` 双 OS 窗仅过渡。  
+> 下文双窗图为历史参考。
 
 ### 窗口 A · PlanningWindow（1280×460，min 高 360）
 

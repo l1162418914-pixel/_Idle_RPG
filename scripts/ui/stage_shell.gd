@@ -1,7 +1,8 @@
 extends Control
 class_name StageShell
-## T-UI-TWIN-1 · StageWindow 表演壳（BottomStage / RunMarchLane / CombatView）
+## T-UI-TWIN-1 · StageWindow 表演壳（BottomStage / RunMarchLane / CombatView / HudDock）
 
+const _HudDockScene = preload("res://scripts/ui/hud_dock.gd")
 const STAGE_MIN_HEIGHT := 220
 const BOTTOM_STAGE_HEAL_REFRESH_MS := 3000
 
@@ -16,6 +17,7 @@ var _standby_label: Label = null
 var _bottom_stage: BottomStage = null
 var _stage_bar: VBoxContainer = null
 var _last_bottom_stage_heal_refresh_msec: int = 0
+var _hud_dock: HudDock = null
 var _shell_built: bool = false
 
 
@@ -23,10 +25,36 @@ func setup(run_ui: Control, planning_shell: MainShell = null) -> void:
 	_run_ui = run_ui
 	_planning_shell = planning_shell
 	_ensure_shell_built()
+	_mount_hud_dock()
 	_embed_run_combat()
 	_connect_signals()
 	_apply_stage_bar_mouse_policy()
+	if not resized.is_connected(_on_stage_shell_resized):
+		resized.connect(_on_stage_shell_resized)
 	call_deferred("apply_state", GameManager.state)
+
+
+func _on_stage_shell_resized() -> void:
+	if _hud_dock:
+		_hud_dock.sync_layout()
+
+
+func _mount_hud_dock() -> void:
+	if _hud_dock != null:
+		return
+	_hud_dock = _HudDockScene.new()
+	_hud_dock.name = "HudDock"
+	if not _hud_dock.icon_pressed.is_connected(_on_stage_hud_icon_pressed):
+		_hud_dock.icon_pressed.connect(_on_stage_hud_icon_pressed)
+	add_child(_hud_dock)
+	_hud_dock.bind_stage_band(null)
+	if _planning_shell:
+		_planning_shell.register_external_hud_dock(_hud_dock)
+
+
+func _on_stage_hud_icon_pressed(key: String) -> void:
+	if _planning_shell:
+		_planning_shell.handle_hud_icon_pressed(key)
 
 
 func get_combat_view() -> CombatView:
@@ -35,6 +63,23 @@ func get_combat_view() -> CombatView:
 
 func get_run_march_lane() -> RunMarchLane:
 	return _run_march_lane
+
+
+func focus_camp_buildings(seconds: float = 2.0) -> void:
+	if _bottom_stage == null or not _bottom_stage.visible:
+		return
+	_bottom_stage.pulse_all_buildings(seconds)
+	pulse_stage_focus(seconds)
+
+
+func scroll_to_camp_building(building_id: String) -> void:
+	if _bottom_stage:
+		_bottom_stage.scroll_to_building(building_id)
+
+
+func pulse_camp_building(building_id: String, seconds: float = 2.0) -> void:
+	if _bottom_stage:
+		_bottom_stage.pulse_building(building_id, seconds)
 
 
 func pulse_stage_focus(seconds: float = 2.0) -> void:
@@ -100,8 +145,15 @@ func _ensure_shell_built() -> void:
 	_stage_bar.add_child(_combat_host)
 	_bottom_stage = BottomStage.new()
 	_bottom_stage.name = "BottomStage"
+	_bottom_stage.custom_minimum_size = Vector2(0, STAGE_MIN_HEIGHT)
+	_bottom_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bottom_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_bottom_stage.visible = false
+	_bottom_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not _bottom_stage.active_slot_pressed.is_connected(_on_bottom_stage_active_slot):
+		_bottom_stage.active_slot_pressed.connect(_on_bottom_stage_active_slot)
+	if not _bottom_stage.building_pressed.is_connected(_on_bottom_stage_building_pressed):
+		_bottom_stage.building_pressed.connect(_on_bottom_stage_building_pressed)
 	_stage_bar.add_child(_bottom_stage)
 	_standby_label = Label.new()
 	_standby_label.name = "StandbyLabel"
@@ -200,6 +252,37 @@ func _refresh_bottom_stage(state: int = GameManager.state) -> void:
 		GameManager.GameState.RESULT,
 	]:
 		_bottom_stage.apply_game_state(state)
+		_sync_formation_selection_to_bottom_stage()
+
+
+func sync_formation_selection(selection_key: String) -> void:
+	if _bottom_stage:
+		_bottom_stage.set_formation_selection_key(selection_key)
+
+
+func _sync_formation_selection_to_bottom_stage() -> void:
+	var form := _get_formation_ui()
+	if form and form.has_method("get_selection_key"):
+		sync_formation_selection(form.get_selection_key())
+
+
+func _get_formation_ui() -> Control:
+	if _planning_shell and _planning_shell.has_method("get_formation_ui"):
+		return _planning_shell.get_formation_ui()
+	return null
+
+
+func _on_bottom_stage_active_slot(half: String, index: int) -> void:
+	var form := _get_formation_ui()
+	if form and form.has_method("_on_slot_pressed"):
+		form._on_slot_pressed(half, "active", index)
+
+
+func _on_bottom_stage_building_pressed(building_id: String) -> void:
+	if _planning_shell and _planning_shell.has_method("open_stage_building"):
+		_planning_shell.open_stage_building(building_id)
+	if _bottom_stage:
+		_bottom_stage.pulse_building(building_id, 1.2)
 
 
 func _update_run_bar_mode(state: int) -> void:

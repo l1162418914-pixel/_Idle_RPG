@@ -125,6 +125,10 @@ func _refresh_heal_visuals() -> void:
 	_refresh_heal_lightweight()
 
 
+func get_selection_key() -> String:
+	return str(_selected.get("key", ""))
+
+
 func pulse_formation_focus(seconds: float = 2.0) -> void:
 	pulse_stage_focus(seconds)
 	if _summary_ui:
@@ -703,6 +707,9 @@ func _refresh_selection_highlights() -> void:
 	)
 	if _camp_stage:
 		_camp_stage.set_selection_highlight(sel_key)
+	var stage := _find_stage_shell()
+	if stage and stage.has_method("sync_formation_selection"):
+		stage.sync_formation_selection(sel_key)
 	_refresh_summary()
 
 

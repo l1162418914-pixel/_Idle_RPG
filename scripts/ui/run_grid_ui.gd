@@ -4,6 +4,9 @@ class_name RunGridUI
 
 const CELL_PX := 15
 
+## 结算右窗快照：不纵向撑满，避免挤掉「返回基地」等底栏按钮
+var compact_snapshot: bool = false
+
 var _summary: Label = null
 var _warning: Label = null
 var _safe_title: Label = null
@@ -18,9 +21,8 @@ func _ready() -> void:
 
 func _ensure_ui() -> void:
 	if _summary != null:
+		_apply_size_flags()
 		return
-	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 4)
 	_summary = Label.new()
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -45,6 +47,15 @@ func _ensure_ui() -> void:
 	_exposed_host = Control.new()
 	_exposed_host.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	add_child(_exposed_host)
+	_apply_size_flags()
+
+
+func _apply_size_flags() -> void:
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if compact_snapshot:
+		size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	else:
+		size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 
 func show_empty_preview(safe_size: Vector2i, exposed_size: Vector2i) -> void:

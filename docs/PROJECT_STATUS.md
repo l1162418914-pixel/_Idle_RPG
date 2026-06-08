@@ -1,7 +1,7 @@
 # 项目状态（PROJECT_STATUS）
 
 > **开工必读链：** [session_rules/README.md](session_rules/README.md)（按角色）→ [CTO.md](CTO.md) / [TASK_PROTOCOL.md](TASK_PROTOCOL.md) → **本文** → [ARCHITECTURE.md](ARCHITECTURE.md) → [EXTERNAL_AI_BRIEF.md](EXTERNAL_AI_BRIEF.md)（外部评审用）→ 最近 worklog。  
-> 最后更新：2026-06-09（**T-UI-LAYOUT 用户分区定案** · 后勤改下窗 CQ · 编组 ⏸ 待定）
+> 最后更新：2026-06-09（**T-UI-WORLD-REEL 定案入板** · 废止 SHELL-3 60/40 · [design-world-reel-CTO.md](design-world-reel-CTO.md)）
 
 ### CTO 结论（对齐版）
 
@@ -11,7 +11,7 @@
 | **大营 UI B 线** | ✅ 逻辑 + **F5 冒烟 YES**（出征/网格/底栏随 test_01 验证） |
 | **跑图 MARCH** | ✅ M1～M3 + V1～V3；**F5 test_01 搜索+接战冻结 YES** |
 | **美术** | ✅ **FW-1～3**（manifest 可挂真图；战斗区仍占位色块属预期） |
-| **UI 双窗** | 🟡 **T-UI-TWIN-1 开发交付 · 待 CTO F5**（上窗计划 / 下窗动画） |
+| **UI 壳** | 🟡 **T-UI-WORLD-REEL 定案**（Camp+分块地图+区块过渡）· [design-world-reel-CTO.md](design-world-reel-CTO.md)；SHELL-1/2 仍有效；**废止 SHELL-3 左右分栏** |
 | **探针日** | ✅ **冒烟收盘**（见下表）；**延期**：test_03 F5、grassland 80m、MIA、T-02a |
 
 ---
@@ -35,7 +35,7 @@
 | **B · 程序** | Dev Agent | 探针缺口、headless 补探针、文档债、**不修已 YES 逻辑** | 小 PR / 单 TASK |
 | **C · 内容** | 你 + 美术 | `march_events.json`、地图里程碑、`art/` 挂 manifest | 无需改 Combat 公式 |
 | **D · 编队** | Dev Agent | **FORM 语义 3R/6** + **FORM-LAYOUT 方案 B** | 见 §T-UI-FORM / §T-UI-LAYOUT |
-| **E · 大营观感** | Dev Agent + 美术 | **T-UI-TWIN-1**（双窗壳）→ **STAGE-2**（CQ 像素动画）+ CAMP-4 | 见 §T-UI-TWIN / §T-UI-STAGE |
+| **E · 壳+卷轴** | Dev Agent + 美术 | **T-UI-WORLD-REEL-1～4** + SHELL-1/2 | 见 §T-UI-WORLD-REEL |
 
 ### 当前程序指针（编队专题）
 
@@ -50,24 +50,34 @@
 
 产品定案：[design-expedition-meta.md](design-expedition-meta.md) §双半组语义。
 
-### 当前程序指针（大营观感 · E 线）
+### 当前程序指针（E 线 · 壳 + 世界卷轴）
 
 | 顺序 | ID | 状态 |
 |------|-----|------|
-| 1 | **T-UI-TWIN-1** | 🟡 **开发交付 · 待 CTO F5** |
-| 2 | **T-UI-STAGE-2** | 📋 **下一开发**（营火 idle 真图） |
-| 3 | **T-UI-STAGE-5** | 📋 待排（**下窗 CQ 后勤建筑**） |
-| 4 | T-UI-STAGE-3 | 待排（养伤包扎/躺卧） |
-| 5 | T-UI-STAGE-4 | 待排（抵营/清点动画） |
-| — | T-UI-STAGE-1 | 🟡 **并入 TWIN-1**（`StageShell`+`BottomStage`） |
-| — | T-UI-CAMP-1 | 🟡 部分交付（中窗缩略；可折叠） |
-| — | T-UI-CAMP-4 | 可与 STAGE-2 并行 |
-| — | **T-UI-FORM-LAYOUT-1/2** | D 线 · 方案 B（下窗点人+上窗简表） |
-| — | **T-UI-FORM-3R/6** | D 线语义（门禁 LAYOUT） |
+| 1 | **T-UI-REEL-1** | 📋 **E 线下一开发**（单窗 `StageBand` + `CampSegment` + 默认 Camp+chunk0） |
+| 2 | **T-UI-REEL-2** | 📋 待排（分块 Host + 双卷轴 + 雾缝 + 视差 + 动态 blend） |
+| 3 | **T-UI-REEL-3** | 📋 待排（`CombatSlice` 块内拼接） |
+| 4 | **T-UI-REEL-4** | 📋 待排（里程碑/搜索/采集 → 块内像素） |
+| ∥ | **T-UI-CQ-SHELL-2** | 📋 与 REEL-1 **并行**（`HudDock` 右下） |
+| ∥ | **T-UI-FORM-3R** | 📋 D 线 **并行**（与 REEL 无硬门禁） |
+| — | T-UI-CQ-SHELL-1 | 🟡 **并入 REEL-1**（单窗贴底） |
+| — | ~~T-UI-CQ-SHELL-3~~ | ❌ **废止主方案** | → REEL-3 CombatSlice |
+| — | T-UI-TWIN-1 | 🟡 过渡；REEL-1 后默认单窗 |
+| — | T-UI-FORM-LAYOUT-2 | 📋 门禁 **REEL-1**（Camp 点人） |
 
-产品定案：用户 2026-06-08 **动画与计划 UI 切成两个 OS 窗口** → [design-pc-shell.md](design-pc-shell.md) §二·双窗。
+产品定案：[design-world-reel-CTO.md](design-world-reel-CTO.md) · 一条平面 Camp+Map 分块 · 无固定门。
 
-**复制给开发（E 线当前）**：T-UI-TWIN-1 已合码则转 CTO 验收；下一单 **T-UI-STAGE-2**（`camp/*` manifest + idle 序列帧）。
+**并行策略（CTO）**
+
+| TASK | 与 REEL-1 | 与 FORM-3R | 与 SHELL-1 |
+|------|-----------|------------|------------|
+| **REEL-1** | — | **并行**（不同文件） | **吸收** SHELL-1 交付 |
+| **SHELL-2** | **并行** | 并行 | 依赖单窗壳（REEL-1 同 PR 或紧随其后） |
+| **FORM-3R** | **并行** | — | 并行 |
+| **FORM-LAYOUT-2** | **门禁 REEL-1** | 建议 FORM-3R YES 后 | — |
+| **REEL-2～4** | 顺序门禁 | 并行 | — |
+
+**复制给开发（E 线当前）**：**T-UI-REEL-1**（必读 design-world-reel-CTO.md）；禁止做 SHELL-3 60/40 分栏。
 
 ### 第 1 周（优先）
 
@@ -408,7 +418,130 @@
 
 ---
 
-## T-UI-TWIN · 双窗壳层（CTO 定案 2026-06-08）
+## T-UI-WORLD-REEL · CQ 式世界卷轴（CTO 定案 2026-06-09）
+
+> **产品全文**：[design-world-reel-CTO.md](design-world-reel-CTO.md)  
+> **一句话**：底栏 = **一条横卷平面**（左 **Camp 固定** + 右 **Map 分块**）；逻辑 `max_distance` 分块（例 6×100m）；换屏 = **双 Host + 雾缝 + 两层视差**，**里程不停 tick**；接战 = 块内 **CombatSlice**（**无** CQ 固定门、**无** SHELL-3 右栏 40%）。  
+> **架构**：不改 `WorldRun` 里程/刷怪公式、`CombatController` 伤害胜负（[ARCHITECTURE.md](ARCHITECTURE.md) §三）；表现层改 scroll/块映射。
+
+### 任务板
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-REEL-1** | 单窗 `StageBand` + `WorldReelPlane` + `CampSegment` + 默认视口 Camp+chunk0/雾锁 | 📋 **E 线下一开发** | 吸收 **SHELL-1** |
+| **T-UI-REEL-2** | 分块卷轴：`ChunkHost` + 双 Host 并行 + `FogSeam` + far/near 视差 + 动态 `blend_half_m(speed)` | 📋 待排 | REEL-1 |
+| **T-UI-REEL-3** | `CombatSliceHost` 块内拼接；进军停滚 scroll；边界先接战再换块 | 📋 待排 | REEL-2 |
+| **T-UI-REEL-4** | `march_events` / 搜索 / 采集：全局米 → `chunk_index` + 块内像素 | 📋 待排 | REEL-3 |
+| **T-UI-CQ-SHELL-2** | `HudDock` 右下 + 资源条 | 📋 可与 REEL-1 并行 | 单窗壳 |
+| **T-ART-REEL-1** | 1 图 N 块 `march_reel/*` + `camp/reel` 占位 manifest | 📋 内容并行 | FW-3 |
+| ~~**T-UI-CQ-SHELL-3**~~ | ~~左 60% / 右 40% `CombatPane`~~ | ❌ **废止主方案** | → REEL-3 |
+
+### REEL-1 交付（预估）
+
+- 单窗 1280×720；`StageBand` 贴底高 280～320px；`USE_DUAL_WINDOW` 默认 false
+- `WorldReelPlane`：`CampSegment`（`bottom_stage.gd` 演进）+ `MapSegment` 占位 chunk[0]；未选图右侧 **雾锁**
+- 默认镜头：**Camp ≈ 1.2 屏** + chunk[0] 入口；BASE 滚轮可逛营地；PREPARE 锁入口屏
+- `map_templates.world_reel` 字段桩（可先 grassland 6×100m）
+- **影响文件**：`main.gd`、`stage_shell.gd`、`world_reel_plane.gd`（新）、`bottom_stage.gd`、`data/map_templates/*.json`
+
+### REEL-2 交付（预估 · 含原 2a/2b/2c）
+
+- 单 `ChunkHost`：far/near 视差 + `local_m` 块内 scroll；选图 reload chunk 集
+- 双 `ActiveHost`/`IncomingHost`：跨 `chunk_distance_m` 顶进顶出；**`distance_traveled` 过渡不暂停**
+- `FogSeamRight` + `blend = smoothstep(±blend_half_m)`，`blend_half_m = clamp(BASE+K*speed, MIN, MAX)`
+- `RunMarchLane` 逻辑输出 `chunk_index`/`local_m`（窄条视差可降级）
+- **影响文件**：`chunk_host.gd`、`run_march_lane.gd`、`parallax_backdrop.gd`（并入或废弃）
+
+### REEL-3 交付（预估）
+
+- `CombatSliceHost` 宽 480～640px，挂当前 `ChunkHost`；`CombatView` 父节点迁入
+- 进军：块内停 **scroll**（非停 WorldRun tick）；返程：块仍过渡 + 战斗锚队伍
+- 99m 遭遇：**先接战再换块**；Boss：末块 + 可选 boss 切片
+- **禁止**：全宽盖住 Camp；CQ 固定传送门流程
+
+### REEL-4 交付（预估）
+
+- `MarchEventMarkers` / 搜索飘字 / 采集：`at_distance` → 块内坐标
+- headless：REEL-2b 边界 `chunk_index`；REEL-2c blend clamp；REEL-3 与 M2c 一致
+
+### 冻结
+
+- `T-UI-CQ-SHELL-3` 60/40 分栏作默认接战方案
+- 改 `CombatController` 公式、写回 `merc.patk`、单图 600m 无限横滑美术
+- CQ 固定传送门、消块、默认双 OS 窗
+
+### 验收探针（F5 · 摘自 design-world-reel-CTO §十二）
+
+1. 单窗贴底；默认 **Camp 建筑 + 地图入口屏**（或雾锁）。  
+2. 选 `grassland`：右侧 chunk 集切换；Camp 不变。  
+3. 出征约每 **100m** 换屏；距离数字 **持续增加**。  
+4. 块缝雾带有效；接战在 **条带内** 不全屏盖 Camp。  
+5. 99m 遭遇先战后换块；返程反向过渡。  
+6. BASE 可滚营地；RUNNING 禁手滑；`MiaPhase1Probe` 0 FAIL。
+
+### 与 FORM / LAYOUT
+
+| 项 | 关系 |
+|----|------|
+| **FORM-3R** | D 线并行；不挡 REEL-1 |
+| **FORM-LAYOUT-2** | Camp 点人；门禁 REEL-1 CampSegment |
+| **STAGE-5 后勤建筑** | 并入 `CampSegment` 热点；随 REEL-1/2 |
+
+---
+
+## T-UI-CQ-SHELL · 单窗壳 + Hud（CTO 定案 2026-06-09 · REEL 子集）
+
+> **主视觉排期已迁至 §T-UI-WORLD-REEL**；本节仅保留壳与 Hud。  
+> 设计：[design-base-ui.md](design-base-ui.md) §T-UI-CQ-SHELL · [design-world-reel-CTO.md](design-world-reel-CTO.md) §六
+
+| ID | 名称 | 状态 | 门禁 |
+|----|------|------|------|
+| **T-UI-CQ-SHELL-1** | 单窗 720p；`StageBand` anchor 贴底 | 🟡 **并入 REEL-1** | — |
+| **T-UI-CQ-SHELL-2** | `HudDock` 右下 + 点出地图/简表/背包 | 📋 待排；**可与 REEL-1 并行** | 单窗 |
+| ~~**T-UI-CQ-SHELL-3**~~ | ~~60/40 左右分栏接战~~ | ❌ **废止** | → **REEL-3** |
+
+### SHELL-1 交付（预估）
+
+- 合并 `main.gd`：默认 **单 Window** 1280×720；可选 `USE_DUAL_WINDOW=false`
+- 根布局：`VBox` — `UpperHudHost`（expand 留白）+ `StageBand`（min 280px 贴底）
+- 从 `stage_shell.gd` 迁入 `StageBand` 子树；**全宽** `WorldReelPlane`（**不做** SHELL-3 分栏）
+- **影响文件**：`main.gd`、`main_shell.gd` 或新 `cq_shell.gd`、`scenes/main.tscn`
+
+### SHELL-2 交付（预估）
+
+- `HudDock`：**屏幕右下**，`anchor_right=1` `anchor_bottom=1`，底边对齐 `StageBand` 顶边（与 CQ 截图一致）
+- 角标 48×48 方钮（出征/英雄/背包/地图/后勤/设置）；资源条在角标 **左侧** 横向紧凑排列
+- 点击 → 弹出 `FormationSummary` / 地图 / 背包（原 Planning 三窗改 **模态/侧板**）
+- 原 `DockBar` 整条底栏 **废止**为默认
+- **验收**：F5 角标簇在右下、不挡 `StageBand` 左栏营火主区
+- **headless CQ-SHELL-2a**：见下表
+
+### CQ-SHELL-2a 探针（headless · 开发对照实现）
+
+| 检查项 | 要求 |
+|--------|------|
+| 文件 | `scripts/ui/hud_dock.gd`，`class_name HudDock` |
+| 锚点 | `PRESET_BOTTOM_RIGHT` 或 `anchor_right/bottom = 1` |
+| 资源条 | `ResourceStrip` 或 `_resource_strip`，在角标 **左侧** |
+| 角标键 | `deploy` / `formation` / `bag` / `map` / `logistics` 五键 |
+| 贴边 | 源码含 `StageBand` / `stage_band`（贴舞台顶边，CQ 右下） |
+| 挂载 | `main_shell.gd` 或 `cq_shell.gd` 含 `HudDock` |
+
+> 探针在 `mia_phase1_probe.gd` → `_probe_cq_shell_2a_hud_dock`；**SHELL-2 交付前预期 FAIL**，合码后须 PASS。
+
+### ~~SHELL-3~~（废止）
+
+- 原 60/40 分栏 → **T-UI-REEL-3** `CombatSliceHost` 块内拼接。勿再实现。
+
+### 验收（F5 · 壳层）
+
+1. 单窗；`StageBand` 贴底（REEL-1）。  
+2. `HudDock` 右下（SHELL-2 / CQ-SHELL-2a）。  
+3. 接战见 **§T-UI-WORLD-REEL** REEL-3，非右栏 40%。
+
+---
+
+## T-UI-TWIN · 双窗壳层（CTO 定案 2026-06-08 · 过渡）
 
 > 产品：用户定案 — **计划 UI 与动画场景切成两个 OS 窗口**，非单窗 VSplit。  
 > 上窗只管事；下窗只表演。数据仍走 `GameManager` Autoload，**单进程单存档**。
@@ -1138,7 +1271,14 @@ RESULT：点「返回基地」「再战」→ 回营或再开
 | **T-UI-FORM-4** | 编队文案 + F1 语义 | P1 | 📋 待排 | FORM-2 |
 | **T-UI-FORM-F5** | 备战席实机验收 | P0 QA | 🟡 条件通过 | 热修暂过关 |
 | **T-UI-FORM-7** | 备战席体验优化 | P2 | ⏸ 可选 | FORM-F5 |
-| **T-UI-TWIN-1** | **PlanningWindow + StageWindow 双窗** | **P0** | 🟡 **开发交付 · 待 CTO** | T-11 |
+| **T-UI-REEL-1** | **WorldReel Camp+chunk0 单窗贴底** | **P0** | 📋 **下一开发** | SHELL-1 吸收 |
+| **T-UI-REEL-2** | **分块双卷轴+雾+视差** | **P0** | 📋 待排 | REEL-1 |
+| **T-UI-REEL-3** | **CombatSlice 块内拼接** | **P0** | 📋 待排 | REEL-2 |
+| **T-UI-REEL-4** | **事件坐标块内迁移** | P1 | 📋 待排 | REEL-3 |
+| **T-UI-CQ-SHELL-2** | **HudDock 右下** | **P0** | 📋 可并行 REEL-1 | 单窗 |
+| ~~T-UI-CQ-SHELL-3~~ | ~~60/40 分栏~~ | — | ❌ 废止 | → REEL-3 |
+| **T-ART-REEL-1** | **march_reel 分块 manifest** | P2 | 📋 可并行 | FW-3 |
+| **T-UI-TWIN-1** | 双窗（过渡） | P1 | 🟡 待 SHELL-1 废止默认 | T-11 |
 | **T-UI-STAGE-1** | **StageShell BottomStage 状态机** | **P0** | 🟡 **开发交付 · 待 CTO** | TWIN-1 |
 | **T-UI-STAGE-2** | 副窗 CQ 真图 + idle 序列帧 | **P0** | 📋 **下一开发** | TWIN YES |
 | **T-UI-STAGE-3** | 养伤/休整底栏子态 | P1 | 📋 待排 | STAGE-2 |

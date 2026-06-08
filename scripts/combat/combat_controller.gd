@@ -84,7 +84,7 @@ func init_combat(
 		var e := CombatEntity.new()
 		e.init_from_merc(m, "ally_")
 		e.formation_slot = i
-		e.position = BattlefieldSlots.ally_position_at_slot(i, _party_anchor_shift)
+		e.position = _clamp_spawn_x(BattlefieldSlots.ally_position_at_slot(i, _party_anchor_shift))
 		e.spawn_anchor_x = e.position
 		if m.is_awakening:
 			e.current_hp = maxi(1, m.current_hp)
@@ -105,7 +105,7 @@ func init_combat(
 		var e = CombatEntity.new()
 		e.init_from_enemy(data)
 		e.formation_slot = i
-		e.position = BattlefieldSlots.enemy_position_at_slot(i, _party_anchor_shift)
+		e.position = _clamp_spawn_x(BattlefieldSlots.enemy_position_at_slot(i, _party_anchor_shift))
 		e.spawn_anchor_x = e.position
 		e.on_death.connect(_on_enemy_death)
 		enemies.append(e)
@@ -169,6 +169,8 @@ func tick(delta: float) -> Dictionary:
 		if entity.is_awakening():
 			if NearDeathAwakeningService.tick_combat(entity, delta):
 				_entity_tick(entity, enemies, delta, events, true)
+			else:
+				_movement_policy.tick_ally(self, entity, enemies, allies, delta, events)
 			continue
 		_movement_policy.tick_ally(self, entity, enemies, allies, delta, events)
 	
@@ -215,9 +217,10 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 	if entity.is_incapacitated():
 		return
 	
-	# 友方：射程外也可尝试施法（治疗/自保/远程技能）
-	if is_ally and _try_cast_active_skill(entity, opponents, allies, events):
-		return
+	# 友方：仅普攻射程外尝试治疗/远程技能；绝不抢占 ATTACKING 普攻 tick
+	if is_ally and not _ally_in_basic_attack_range(entity, opponents):
+		if _try_cast_active_skill_out_of_range(entity, opponents, allies, events):
+			return
 	
 	var fighters_only: bool = _opponent_target_fighters_only(is_ally)
 	
@@ -233,6 +236,8 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 				entity.action_state = CombatEntity.ActionState.IDLE
 				return
 			
+			if is_ally and not entity.is_ranged_unit():
+				_pursue_contact_if_outranged(entity, opponents, delta)
 			var gap: float = abs(entity.position - move_target.position)
 			if gap > entity.attack_range + 0.01:
 				if entity.is_ranged_unit() and is_ally:
@@ -246,6 +251,12 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 				)
 			elif entity.is_ranged_unit() and is_ally:
 				_hold_ranged_position(entity, delta)
+			
+			if attack_target == null and is_ally and not entity.is_ranged_unit():
+				_pursue_contact_if_outranged(entity, opponents, delta)
+				attack_target = find_nearest_in_range(
+					opponents, entity.position, entity.attack_range, fighters_only
+				)
 			
 			if attack_target:
 				entity.action_state = CombatEntity.ActionState.ATTACKING
@@ -272,6 +283,8 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 					entity.action_state = CombatEntity.ActionState.IDLE
 				else:
 					entity.action_state = CombatEntity.ActionState.MOVING
+					if is_ally and not entity.is_ranged_unit():
+						_pursue_contact_if_outranged(entity, opponents, delta)
 					_move_toward_attack_range(entity, move_target, delta)
 				return
 			
@@ -280,9 +293,95 @@ func _entity_tick(entity: CombatEntity, opponents: Array, delta: float, events: 
 			var cooldown: float = 1.0 / maxf(0.01, entity.attack_speed)
 			if entity.attack_timer >= cooldown:
 				entity.attack_timer = 0.0
-				if is_ally and _try_cast_active_skill(entity, opponents, allies, events):
-					return
 				_do_attack(entity, attack_target, events)
+				if is_ally and _ally_in_basic_attack_range(entity, opponents):
+					_try_cast_active_skill_ally(entity, opponents, allies, events)
+
+
+func _clamp_spawn_x(logic_x: float) -> float:
+	return clampf(logic_x, 0.0, BATTLEFIELD_WIDTH)
+
+
+func _ally_in_basic_attack_range(entity: CombatEntity, opponents: Array) -> bool:
+	return find_nearest_in_range(opponents, entity.position, entity.attack_range, false) != null
+
+
+func _try_cast_active_skill_out_of_range(
+	caster: CombatEntity,
+	opponents: Array,
+	ally_list: Array,
+	events: Array
+) -> bool:
+	if _skill_executor == null:
+		return false
+	return _skill_executor.try_cast_active_skill(
+		caster, opponents, ally_list, events, false
+	)
+
+
+func _try_cast_active_skill_ally(
+	caster: CombatEntity,
+	opponents: Array,
+	ally_list: Array,
+	events: Array
+) -> bool:
+	if _skill_executor == null:
+		return false
+	return _skill_executor.try_cast_active_skill(
+		caster, opponents, ally_list, events, true
+	)
+
+
+func _find_opponent_in_range_of_me(entity: CombatEntity, opponents: Array) -> CombatEntity:
+	var best: CombatEntity = null
+	var best_dist: float = INF
+	for opp in opponents:
+		if not opp is CombatEntity:
+			continue
+		var unit: CombatEntity = opp as CombatEntity
+		if unit.is_dead():
+			continue
+		var dist: float = absf(unit.position - entity.position)
+		if dist <= unit.attack_range + 0.01 and dist < best_dist:
+			best_dist = dist
+			best = unit
+	return best
+
+
+func _required_melee_contact_x(entity: CombatEntity, aggressor: CombatEntity) -> float:
+	var standoff: float = maxf(4.0, entity.attack_range * 0.98)
+	if aggressor.position >= entity.position:
+		return aggressor.position - standoff
+	return aggressor.position + standoff
+
+
+func _pursue_contact_with(
+	entity: CombatEntity,
+	aggressor: CombatEntity,
+	delta: float
+) -> void:
+	if entity.is_ranged_unit() or aggressor == null:
+		return
+	var goal: float = _clamp_spawn_x(_required_melee_contact_x(entity, aggressor))
+	var step: float = entity.move_speed * delta
+	if entity.position < goal - 0.01:
+		_set_entity_position_x(entity, minf(entity.position + step, goal))
+	elif entity.position > goal + 0.01:
+		_set_entity_position_x(entity, maxf(entity.position - step, goal))
+	entity.is_facing_right = aggressor.position > entity.position
+
+
+func _pursue_contact_if_outranged(
+	entity: CombatEntity,
+	opponents: Array,
+	delta: float
+) -> void:
+	if entity.is_ranged_unit() or _ally_in_basic_attack_range(entity, opponents):
+		return
+	var aggressor: CombatEntity = _find_opponent_in_range_of_me(entity, opponents)
+	if aggressor == null:
+		return
+	_pursue_contact_with(entity, aggressor, delta)
 
 
 func _try_cast_active_skill(caster: CombatEntity, opponents: Array, ally_list: Array, events: Array) -> bool:
@@ -514,7 +613,7 @@ func _move_toward_attack_range(entity: CombatEntity, target: CombatEntity, delta
 		_advance_ranged_ally_toward_range(entity, target, delta)
 		return
 	var dist: float = abs(entity.position - target.position)
-	if dist <= entity.attack_range:
+	if dist <= entity.attack_range + 0.01:
 		return
 	var dir: float = 1.0 if target.position > entity.position else -1.0
 	var ideal_pos: float = _melee_ideal_position(entity, target, dir)

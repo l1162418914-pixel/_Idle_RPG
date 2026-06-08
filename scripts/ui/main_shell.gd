@@ -1,12 +1,19 @@
 extends Control
 class_name MainShell
-## PlanningWindow 主壳（T-UI-TWIN-1）
-## ShellVBox → TopBar / Toast / UpperArea / DockBar
+## PlanningWindow 主壳（T-UI-TWIN-1 → TBH 上窗浮层 + CQ 角标 Dock）
+## ShellVBox → TopBar / UpperHudHost（三窗轨 + TBH 模态）/ StageBand；HudDock 右下
 ## CQ 表演已迁至独立 StageWindow（`StageShell`）
+
+const _TbModalWindowScene = preload("res://scripts/ui/tbh_modal_window.gd")
 
 const MIN_VIEWPORT_WIDTH := 1280
 const TOP_BAR_HEIGHT := 40
 const DOCK_HEIGHT := 48
+## SHELL-1 单窗后改为 280–320；TWIN 过渡期用薄占位条
+const STAGE_BAND_MIN_HEIGHT := 72
+const TBH_MODAL_MAP_SIZE := Vector2(440, 400)
+const TBH_MODAL_FORM_SIZE := Vector2(500, 440)
+const TBH_MODAL_BAG_SIZE := Vector2(480, 460)
 const PANEL_COLLAPSED_WIDTH := 44
 const PANEL_RATIO_LEFT := 0.32
 const PANEL_RATIO_CENTER := 0.36
@@ -72,6 +79,18 @@ var _right_rail: Button = null
 var _left_collapse_btn: Button = null
 var _center_collapse_btn: Button = null
 var _right_collapse_btn: Button = null
+var _stage_band: Control = null
+var _hud_dock: HudDock = null
+var _dock_bar: HBoxContainer = null
+var _cq_overlay: ColorRect = null
+var _cq_slide_host: Control = null
+var _cq_slide_panel: TbModalWindow = null
+var _cq_slide_body: Control = null
+var _cq_slide_tween: Tween = null
+var _cq_mounted_panel: PanelContainer = null
+var _cq_restore_parent: Node = null
+var _cq_restore_index: int = -1
+var _cq_open_key: String = ""
 
 
 func setup(
@@ -85,16 +104,50 @@ func setup(
 	_run_ui = run_ui
 	_result_ui = result_ui
 	_build_layout()
+	_build_cq_slide_shell()
 	_build_logistics_popup()
 	_build_running_panels()
 	_attach_shell_content()
 	_wire_dock()
+	_apply_cq_shell_defaults()
 	_connect_signals()
 	set_process_unhandled_input(true)
 	_check_viewport_width()
 	resized.connect(_on_shell_resized)
 	_hide_all_placeholders()
 	call_deferred("apply_state", GameManager.state)
+
+
+func get_formation_ui() -> Control:
+	if _base_ui and _base_ui.has_method("get_formation_ui"):
+		return _base_ui.get_formation_ui()
+	return null
+
+
+func register_external_hud_dock(dock: HudDock) -> void:
+	_hud_dock = dock
+
+
+var _window_host: Node = null
+
+
+func bind_window_host(host: Node) -> void:
+	_window_host = host
+
+
+func _ensure_planning_subwindow_visible() -> void:
+	if _window_host and _window_host.has_method("raise_planning_subwindow"):
+		_window_host.raise_planning_subwindow()
+		return
+	var win := get_window() as Window
+	if win:
+		win.visible = true
+		win.show()
+
+
+func handle_hud_icon_pressed(key: String) -> void:
+	_ensure_planning_subwindow_visible()
+	_on_hud_icon_pressed(key)
 
 
 func attach_equipment_ui(equipment_ui: Control) -> void:
@@ -170,6 +223,7 @@ func refresh_running_panels() -> void:
 func _refresh_result_grid() -> void:
 	if _result_grid_ui == null:
 		return
+	_result_grid_ui.compact_snapshot = true
 	var run = GameManager.current_run
 	if run and run.safe_loot and run.exposed_loot:
 		_result_grid_ui.refresh_from_run(run)
@@ -178,6 +232,7 @@ func _refresh_result_grid() -> void:
 			GameManager.get_safe_box_grid_size(),
 			_get_map_exposed_size(GameManager.selected_map_id)
 		)
+	_result_grid_ui.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 
 
 func _get_map_exposed_size(map_id: String) -> Vector2i:
@@ -223,10 +278,20 @@ func _build_layout() -> void:
 	_build_toast(shell_vbox)
 
 	_upper_wrap = Control.new()
-	_upper_wrap.name = "UpperArea"
+	_upper_wrap.name = "UpperHudHost"
 	_upper_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_upper_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell_vbox.add_child(_upper_wrap)
+	var sky := ColorRect.new()
+	sky.name = "UpperSky"
+	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sky.offset_left = 0
+	sky.offset_top = 0
+	sky.offset_right = 0
+	sky.offset_bottom = 0
+	sky.color = Color(0.1, 0.12, 0.18, 1.0)
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_upper_wrap.add_child(sky)
 	_upper_area = HBoxContainer.new()
 	_upper_area.name = "UpperAreaHBox"
 	_upper_area.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -271,8 +336,40 @@ func _build_layout() -> void:
 	_upper_overlay_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_upper_wrap.add_child(_upper_overlay_host)
 
+	_stage_band = Control.new()
+	_stage_band.name = "StageBand"
+	_stage_band.custom_minimum_size = Vector2(0, STAGE_BAND_MIN_HEIGHT)
+	_stage_band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_stage_band.size_flags_vertical = Control.SIZE_SHRINK_END
+	_stage_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var stage_bg := ColorRect.new()
+	stage_bg.name = "StageBandBg"
+	stage_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stage_bg.offset_left = 0
+	stage_bg.offset_top = 0
+	stage_bg.offset_right = 0
+	stage_bg.offset_bottom = 0
+	stage_bg.color = Color(0.06, 0.07, 0.1, 0.92)
+	stage_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage_band.add_child(stage_bg)
+	var stage_hint := Label.new()
+	stage_hint.name = "StageBandHint"
+	stage_hint.set_anchors_preset(Control.PRESET_CENTER)
+	stage_hint.offset_left = -200
+	stage_hint.offset_top = -12
+	stage_hint.offset_right = 200
+	stage_hint.offset_bottom = 12
+	stage_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage_hint.text = "StageBand · 舞台见下窗（SHELL-1 单窗后迁入）"
+	stage_hint.modulate = Color(0.45, 0.5, 0.58)
+	stage_hint.add_theme_font_size_override("font_size", 11)
+	stage_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage_band.add_child(stage_hint)
+	shell_vbox.add_child(_stage_band)
+
 	var dock := HBoxContainer.new()
 	dock.name = "DockBar"
+	_dock_bar = dock
 	dock.custom_minimum_size = Vector2(0, DOCK_HEIGHT)
 	dock.add_theme_constant_override("separation", 8)
 	shell_vbox.add_child(dock)
@@ -286,7 +383,7 @@ func _build_layout() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	dock.add_child(spacer)
 	_dock_hint = Label.new()
-	_dock_hint.text = "◀ 可单独收起侧窗 · 设置=全部展开"
+	_dock_hint.text = "角标打开 TBH 浮窗 · 设置=展开三窗轨"
 	_dock_hint.modulate = Color(0.55, 0.6, 0.7)
 	dock.add_child(_dock_hint)
 	_dock_buttons["settings"] = _make_dock_button(dock, "设置", "")
@@ -331,6 +428,221 @@ func show_toast(text: String, color: Color = Color(0.85, 0.95, 1.0), duration: f
 func show_dock_hint(text: String) -> void:
 	if _dock_hint:
 		_dock_hint.text = text
+	show_toast(text, Color(0.75, 0.85, 1.0), 3.0)
+
+
+func _build_cq_slide_shell() -> void:
+	if _cq_overlay != null or _upper_overlay_host == null:
+		return
+	_cq_overlay = ColorRect.new()
+	_cq_overlay.name = "TbhUpperOverlay"
+	_cq_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cq_overlay.offset_left = 0
+	_cq_overlay.offset_top = 0
+	_cq_overlay.offset_right = 0
+	_cq_overlay.offset_bottom = 0
+	_cq_overlay.color = Color(0.03, 0.04, 0.08, 0.62)
+	_cq_overlay.visible = false
+	_cq_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_cq_overlay.z_index = 12
+	_upper_overlay_host.add_child(_cq_overlay)
+	_cq_overlay.gui_input.connect(_on_cq_overlay_input)
+	_cq_slide_host = Control.new()
+	_cq_slide_host.name = "TbhModalHost"
+	_cq_slide_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cq_slide_host.offset_left = 0
+	_cq_slide_host.offset_top = 0
+	_cq_slide_host.offset_right = 0
+	_cq_slide_host.offset_bottom = 0
+	_cq_slide_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cq_slide_host.z_index = 13
+	_cq_overlay.add_child(_cq_slide_host)
+	_cq_slide_panel = _TbModalWindowScene.new()
+	_cq_slide_panel.name = "TbhModal"
+	if not _cq_slide_panel.close_requested.is_connected(_close_cq_slide_panel):
+		_cq_slide_panel.close_requested.connect(_close_cq_slide_panel)
+	_cq_slide_host.add_child(_cq_slide_panel)
+	_cq_slide_body = _cq_slide_panel.get_body_slot()
+
+
+func _apply_cq_shell_defaults() -> void:
+	for key in _panel_collapsed.keys():
+		_panel_collapsed[key] = true
+	_apply_panel_collapse_layout()
+	if _dock_bar:
+		_dock_bar.visible = false
+
+
+func _on_hud_icon_pressed(key: String) -> void:
+	match key:
+		"deploy":
+			_on_dock_deploy()
+			if GameManager.state == GameManager.GameState.BASE:
+				_open_cq_slide_panel("map")
+		"formation":
+			_on_dock_formation()
+			_open_cq_slide_panel("formation")
+		"bag":
+			_on_dock_bag()
+			_open_cq_slide_panel("bag")
+		"map":
+			_on_dock_map()
+			_open_cq_slide_panel("map")
+		"settings":
+			_close_cq_slide_panel()
+			_on_dock_settings()
+		_:
+			pass
+
+
+func _tbh_modal_meta(key: String) -> Dictionary:
+	match key:
+		"map":
+			return {
+				"panel": _left_panel,
+				"title": "传送门",
+				"icon": "◎",
+				"size": TBH_MODAL_MAP_SIZE,
+			}
+		"formation":
+			return {
+				"panel": _center_panel,
+				"title": "英雄",
+				"icon": "✦",
+				"size": TBH_MODAL_FORM_SIZE,
+			}
+		"bag":
+			return {
+				"panel": _right_panel,
+				"title": "仓库",
+				"icon": "▣",
+				"size": TBH_MODAL_BAG_SIZE,
+			}
+		_:
+			return {}
+
+
+func _open_cq_slide_panel(key: String) -> void:
+	if _cq_slide_panel == null or _cq_slide_body == null:
+		return
+	var meta: Dictionary = _tbh_modal_meta(key)
+	var panel: PanelContainer = meta.get("panel", null) as PanelContainer
+	if panel == null:
+		return
+	if _cq_open_key == key and _cq_overlay and _cq_overlay.visible:
+		_close_cq_slide_panel()
+		return
+	_close_cq_slide_panel()
+	_cq_open_key = key
+	_cq_slide_panel.configure(
+		str(meta.get("title", "")),
+		str(meta.get("icon", "")),
+		meta.get("size", Vector2(440, 400))
+	)
+	_mount_cq_panel(panel)
+	if _cq_overlay:
+		_cq_overlay.visible = true
+		_cq_overlay.move_to_front()
+	_animate_tbh_modal_open(key)
+	if _hud_dock:
+		_hud_dock.set_active_icon(key)
+
+
+func _mount_cq_panel(panel: PanelContainer) -> void:
+	if panel.get_parent() == _cq_slide_body:
+		return
+	_cq_restore_parent = panel.get_parent()
+	_cq_restore_index = panel.get_index()
+	_cq_restore_parent.remove_child(panel)
+	_cq_slide_body.add_child(panel)
+	panel.visible = true
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = 0
+	panel.offset_top = 0
+	panel.offset_right = 0
+	panel.offset_bottom = 0
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_cq_mounted_panel = panel
+	_ensure_panel_expanded(_panel_key_for_cq(_cq_open_key))
+
+
+func _panel_key_for_cq(key: String) -> String:
+	match key:
+		"map": return "left"
+		"formation": return "center"
+		"bag": return "right"
+		_: return "left"
+
+
+func _restore_cq_panel() -> void:
+	if _cq_mounted_panel == null or _cq_restore_parent == null:
+		return
+	if _cq_mounted_panel.get_parent() == _cq_slide_body:
+		_cq_slide_body.remove_child(_cq_mounted_panel)
+	_cq_restore_parent.add_child(_cq_mounted_panel)
+	if _cq_restore_index >= 0:
+		_cq_restore_parent.move_child(_cq_mounted_panel, _cq_restore_index)
+	_cq_mounted_panel = null
+	_cq_restore_parent = null
+	_cq_restore_index = -1
+	_apply_panel_collapse_layout()
+
+
+func _close_cq_slide_panel() -> void:
+	if _cq_slide_tween and _cq_slide_tween.is_valid():
+		_cq_slide_tween.kill()
+	_restore_cq_panel()
+	_cq_open_key = ""
+	if _cq_overlay:
+		_cq_overlay.visible = false
+	if _cq_slide_panel:
+		_cq_slide_panel.position = Vector2.ZERO
+		_cq_slide_panel.scale = Vector2.ONE
+		_cq_slide_panel.modulate = Color.WHITE
+	if _hud_dock:
+		_hud_dock.set_active_icon("")
+
+
+func _position_tbh_modal(key: String) -> void:
+	if _cq_slide_panel == null or _cq_slide_host == null:
+		return
+	var host_sz: Vector2 = _cq_slide_host.size
+	if host_sz.x < 8.0:
+		host_sz = size
+	var meta: Dictionary = _tbh_modal_meta(key)
+	var psz: Vector2 = meta.get("size", Vector2(440, 400))
+	var y: float = maxf((host_sz.y - psz.y) * 0.06, 8.0)
+	var x: float
+	match key:
+		"map":
+			x = host_sz.x * 0.05
+		"bag":
+			x = host_sz.x - psz.x - host_sz.x * 0.05
+		_:
+			x = (host_sz.x - psz.x) * 0.5
+	_cq_slide_panel.custom_minimum_size = psz
+	_cq_slide_panel.size = psz
+	_cq_slide_panel.position = Vector2(x, y)
+
+
+func _animate_tbh_modal_open(key: String) -> void:
+	if _cq_slide_panel == null:
+		return
+	_position_tbh_modal(key)
+	_cq_slide_panel.scale = Vector2(0.92, 0.92)
+	_cq_slide_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	if _cq_slide_tween and _cq_slide_tween.is_valid():
+		_cq_slide_tween.kill()
+	_cq_slide_tween = create_tween()
+	_cq_slide_tween.set_parallel(true)
+	_cq_slide_tween.tween_property(_cq_slide_panel, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_cq_slide_tween.tween_property(_cq_slide_panel, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _on_cq_overlay_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_close_cq_slide_panel()
 
 
 func _build_toast(shell_vbox: VBoxContainer) -> void:
@@ -641,11 +953,14 @@ func _build_logistics_popup() -> void:
 	_logistics_overlay.color = Color(0.04, 0.05, 0.08, 0.75)
 	_logistics_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_logistics_overlay.visible = false
+	_logistics_overlay.z_index = 20
 	overlay_parent.add_child(_logistics_overlay)
 	_logistics_overlay.gui_input.connect(_on_logistics_overlay_input)
 	_logistics_panel = PanelContainer.new()
 	_logistics_panel.name = "LogisticsPanel"
 	_logistics_panel.custom_minimum_size = Vector2(520, 420)
+	_logistics_panel.add_theme_stylebox_override("panel", TbModalWindow.make_frame_style())
+	_logistics_panel.z_index = 21
 	_logistics_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_logistics_panel.offset_left = -260
 	_logistics_panel.offset_top = -210
@@ -870,14 +1185,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_dock_deploy()
 		KEY_F2:
 			_on_dock_formation()
+			_open_cq_slide_panel("formation")
 		KEY_F3:
 			_on_dock_bag()
+			_open_cq_slide_panel("bag")
 		KEY_F4:
 			_on_dock_map()
+			_open_cq_slide_panel("map")
 		KEY_F5:
 			_toggle_logistics()
 		KEY_ESCAPE:
-			if _logistics_open:
+			if _cq_overlay and _cq_overlay.visible:
+				_close_cq_slide_panel()
+			elif _logistics_open:
 				_close_logistics()
 
 
@@ -920,6 +1240,8 @@ func _refresh_top_bar(state: int) -> void:
 	if _top_gold:
 		_top_gold.text = "金币: %d" % GameManager.gold
 	_refresh_top_stability(state)
+	if _hud_dock:
+		_hud_dock.refresh_resources()
 	if _top_recovery:
 		if state == GameManager.GameState.RUNNING and _lane_status_text != "":
 			_top_recovery.text = _lane_status_text
@@ -1011,6 +1333,8 @@ func _update_dock_highlight(state: int) -> void:
 			btn.modulate = Color(0.85, 1.0, 1.0)
 		else:
 			btn.modulate = Color.WHITE
+	if _hud_dock and _cq_open_key == "":
+		_hud_dock.set_active_icon(active_key)
 
 
 func _highlight_panel(panel: PanelContainer, seconds: float = 2.0) -> void:
@@ -1070,6 +1394,9 @@ func _on_dock_formation() -> void:
 				_squad_ui.scroll_prepare_center_to_top()
 			if _squad_ui and _squad_ui.has_method("pulse_prepare_center"):
 				_squad_ui.pulse_prepare_center(2.0)
+			var form := get_formation_ui()
+			if form and form.has_method("pulse_formation_focus"):
+				form.pulse_formation_focus(2.0)
 			_highlight_panel(_center_panel, 2.0)
 			if _dock_hint:
 				_dock_hint.text = "中窗 · 出征名单"
@@ -1103,11 +1430,78 @@ func _on_dock_deploy() -> void:
 			pass
 
 
+func open_stage_building(building_id: String) -> void:
+	if GameManager.state != GameManager.GameState.BASE:
+		show_toast("仅大营可点营地建筑", Color(1.0, 0.82, 0.55), 3.0)
+		return
+	_ensure_planning_subwindow_visible()
+	match building_id:
+		BottomStage.BUILDING_INFIRMARY:
+			_open_logistics_tab(0)
+			_pulse_logistics_upgrade("UpgradeInfirmary")
+			show_toast("医疗室 — 休整加速与安全箱升级", Color(0.75, 0.92, 1.0), 3.5)
+		BottomStage.BUILDING_BARRACKS:
+			_open_logistics_tab(0)
+			_pulse_logistics_upgrade("UpgradeBarracks")
+			show_toast("佣兵大厅 — 招募槽位与营房升级", Color(0.92, 0.85, 0.7), 3.5)
+		BottomStage.BUILDING_WAREHOUSE:
+			_close_logistics()
+			_open_cq_slide_panel("bag")
+			show_toast("仓库 — 大营背包", Color(0.85, 0.9, 1.0), 3.0)
+		_:
+			show_toast("未知建筑：%s" % building_id, Color.ORANGE, 3.0)
+
+
+func focus_stage_logistics() -> void:
+	_close_cq_slide_panel()
+	_close_logistics()
+	var main := get_tree().current_scene
+	if main and main.has_method("focus_stage_window"):
+		main.focus_stage_window()
+	var stage := _find_stage_shell()
+	if stage:
+		stage.focus_camp_buildings(2.0)
+	if _dock_hint:
+		_dock_hint.text = "后勤：点击下窗 医疗 / 营房 / 仓库"
+	show_toast("点击下窗营地建筑打开后勤", Color(0.8, 0.9, 1.0), 3.5)
+
+
+func _find_stage_shell() -> StageShell:
+	var root := get_tree().root
+	var stage := root.get_node_or_null("StageWindow/StageShell") as StageShell
+	if stage:
+		return stage
+	var scene := get_tree().current_scene
+	if scene:
+		return scene.get_node_or_null("StageWindow/StageShell") as StageShell
+	return null
+
+
+func _open_logistics_tab(tab_index: int) -> void:
+	_open_logistics()
+	if _logistics_tabs:
+		_logistics_tabs.current_tab = clampi(tab_index, 0, _logistics_tabs.get_tab_count() - 1)
+
+
+func _pulse_logistics_upgrade(button_name: String) -> void:
+	var btn := _find_logistics_upgrade_button(button_name)
+	if btn == null:
+		return
+	var orig: Color = btn.modulate
+	btn.modulate = Color(1.15, 1.05, 0.85)
+	var tween := create_tween()
+	tween.tween_interval(0.85)
+	tween.tween_property(btn, "modulate", orig, 0.35)
+
+
+func _find_logistics_upgrade_button(button_name: String) -> Button:
+	if _logistics_tab_buildings == null:
+		return null
+	return _logistics_tab_buildings.find_child(button_name, true, false) as Button
+
+
 func _toggle_logistics() -> void:
-	if _logistics_open:
-		_close_logistics()
-	else:
-		_open_logistics()
+	focus_stage_logistics()
 
 
 func _mount_recovery_ui() -> void:
@@ -1127,6 +1521,7 @@ func refresh_base_panels() -> void:
 
 
 func _open_logistics() -> void:
+	_close_cq_slide_panel()
 	_sync_upper_overlay_bounds()
 	_logistics_open = true
 	if _logistics_overlay:
@@ -1171,6 +1566,10 @@ func _on_dock_settings() -> void:
 func _on_shell_resized() -> void:
 	_check_viewport_width()
 	_sync_upper_overlay_bounds()
+	if _hud_dock:
+		_hud_dock.sync_layout()
+	if _cq_slide_panel and _cq_overlay and _cq_overlay.visible and _cq_open_key != "":
+		_position_tbh_modal(_cq_open_key)
 
 
 func _sync_upper_overlay_bounds() -> void:

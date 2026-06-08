@@ -224,6 +224,10 @@ func scroll_maps_list_to_top() -> void:
 		_maps_scroll.scroll_vertical = 0
 
 
+func get_formation_ui() -> Control:
+	return _formation_ui
+
+
 func scroll_formation_into_view(pulse_sec: float = 0.0) -> void:
 	if _formation_ui and _formation_ui.has_method("scroll_pool_into_view"):
 		_formation_ui.scroll_pool_into_view()

@@ -46,6 +46,7 @@
 | [design-boss-chase.md](design-boss-chase.md) | 7/7 Boss 追击、压力缩放、击杀=通关结算、返程反击按钮 |
 | [design-art-checklist.md](design-art-checklist.md) | **美术工作清单**：art_key、尺寸、阶段 P0～P3、验收 |
 | [design-combat-stack.md](design-combat-stack.md) | **战斗子系统地图**：接战类型、tick 顺序、文件索引 |
+| **[design-world-reel-CTO.md](design-world-reel-CTO.md)** | **CQ 式世界卷轴定案（CTO 交接）**：Camp+分块地图、区块过渡、CombatSlice |
 | [design-march-visual.md](design-march-visual.md) | **CQ 式横版条**：同一跑道、接战停滚、返程向左可视化 |
 | [design-march-events.md](design-march-events.md) | **跑图自动搜索 + 里程碑事件**（草案，未排 TASK） |
 | [design-pc-shell.md](design-pc-shell.md) | **PC 主壳**（T-11 + **T-UI-TWIN-1 双窗**：Planning + Stage） |

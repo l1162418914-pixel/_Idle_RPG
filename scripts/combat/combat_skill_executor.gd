@@ -16,7 +16,8 @@ func try_cast_active_skill(
 	caster: CombatEntity,
 	opponents: Array,
 	ally_list: Array,
-	events: Array
+	events: Array,
+	allow_buff_self: bool = true
 ) -> bool:
 	if caster.source_merc == null or _host == null:
 		return false
@@ -28,6 +29,8 @@ func try_cast_active_skill(
 			continue
 		var skill_data: Dictionary = DataLoader.skill_template(sid)
 		if skill_data.is_empty():
+			continue
+		if not allow_buff_self and skill_data.get("effect_type", "") == "buff_self":
 			continue
 		if not _can_cast_at_range(caster, skill_data, opponents, ally_list):
 			continue
