@@ -16,6 +16,7 @@ tools/b3_probe.txt
 tools/continue_probe.txt
 tools/form1_probe*.txt
 tools/probe_latest.txt
+tools/probe_*_out.txt
 
 # Local scrap / downloader (not part of game)
 tools/mrdld_downloader/

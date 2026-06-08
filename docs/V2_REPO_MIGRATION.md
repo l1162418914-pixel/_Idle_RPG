@@ -154,7 +154,26 @@ data/art_manifest.json
 ```
 Desktop/
   TBH_Idle_RPG/              → remote: TBH-Idle-RPG-legacy (ARCHIVED)
-  TBH_Idle_RPG_v2/           → remote: TBH-Idle-RPG (active)
+  TBH_Idle_RPG_v2/           → remote: TBH-Idle-RPG (active) · 已脚手架 2026-06-09
 ```
 
 旧文件夹可改名为 `TBH_Idle_RPG_legacy` 以免 Godot 开错工程。
+
+### 本地已执行（2026-06-09）
+
+| 步骤 | legacy `TBH_Idle_RPG` | v2 `TBH_Idle_RPG_v2` |
+|------|----------------------|----------------------|
+| 归档 commit | `8708998` + tag `archive/pre-world-reel` | — |
+| push legacy | ✅ `TBH-Idle-RPG-legacy` main + tag | — |
+| 白名单复制 | — | ✅ ~200 文件 |
+| git init + 首 commit | — | ✅ `main` 本地（待 push v2） |
+
+**legacy 远程**：`https://github.com/l1162418914-pixel/TBH-Idle-RPG-legacy`
+
+**v2 推送（GitHub 建仓 `TBH-Idle-RPG` 后）：**
+
+```powershell
+cd C:\Users\19173\Desktop\TBH_Idle_RPG_v2
+git remote add origin https://github.com/l1162418914-pixel/TBH-Idle-RPG.git
+git push -u origin main
+```
