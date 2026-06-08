@@ -1,16 +1,15 @@
 extends Control
 class_name MainShell
-## PlanningWindow 主壳（T-UI-TWIN-1 → TBH 上窗浮层 + CQ 角标 Dock）
-## ShellVBox → TopBar / UpperHudHost（三窗轨 + TBH 模态）/ StageBand；HudDock 右下
-## CQ 表演已迁至独立 StageWindow（`StageShell`）
+## 单窗主壳（T-UI-REEL-1）· ShellVBox → TopBar / UpperHudHost / StageBand(WorldReelPlane) + HudDock
 
 const _TbModalWindowScene = preload("res://scripts/ui/tbh_modal_window.gd")
+const _HudDockScene = preload("res://scripts/ui/hud_dock.gd")
+const _WorldReelPlaneScene = preload("res://scripts/ui/world_reel_plane.gd")
 
 const MIN_VIEWPORT_WIDTH := 1280
 const TOP_BAR_HEIGHT := 40
 const DOCK_HEIGHT := 48
-## SHELL-1 单窗后改为 280–320；TWIN 过渡期用薄占位条
-const STAGE_BAND_MIN_HEIGHT := 72
+const STAGE_BAND_MIN_HEIGHT := 280
 const TBH_MODAL_MAP_SIZE := Vector2(440, 400)
 const TBH_MODAL_FORM_SIZE := Vector2(500, 440)
 const TBH_MODAL_BAG_SIZE := Vector2(480, 460)
@@ -80,11 +79,12 @@ var _left_collapse_btn: Button = null
 var _center_collapse_btn: Button = null
 var _right_collapse_btn: Button = null
 var _stage_band: Control = null
-var _hud_dock: HudDock = null
+var _world_reel = null
+var _hud_dock = null
 var _dock_bar: HBoxContainer = null
 var _cq_overlay: ColorRect = null
 var _cq_slide_host: Control = null
-var _cq_slide_panel: TbModalWindow = null
+var _cq_slide_panel = null
 var _cq_slide_body: Control = null
 var _cq_slide_tween: Tween = null
 var _cq_mounted_panel: PanelContainer = null
@@ -104,6 +104,8 @@ func setup(
 	_run_ui = run_ui
 	_result_ui = result_ui
 	_build_layout()
+	_mount_world_reel()
+	_mount_hud_dock()
 	_build_cq_slide_shell()
 	_build_logistics_popup()
 	_build_running_panels()
@@ -124,29 +126,31 @@ func get_formation_ui() -> Control:
 	return null
 
 
-func register_external_hud_dock(dock: HudDock) -> void:
+func register_external_hud_dock(dock) -> void:
 	_hud_dock = dock
 
 
-var _window_host: Node = null
+func sync_formation_selection(selection_key: String) -> void:
+	if _world_reel:
+		_world_reel.sync_formation_selection(selection_key)
 
 
-func bind_window_host(host: Node) -> void:
-	_window_host = host
+func pulse_stage_focus(seconds: float = 2.0) -> void:
+	if _world_reel:
+		_world_reel.pulse_stage_focus(seconds)
 
 
-func _ensure_planning_subwindow_visible() -> void:
-	if _window_host and _window_host.has_method("raise_planning_subwindow"):
-		_window_host.raise_planning_subwindow()
-		return
-	var win := get_window() as Window
-	if win:
-		win.visible = true
-		win.show()
+func focus_camp_buildings(seconds: float = 2.0) -> void:
+	if _world_reel:
+		_world_reel.focus_camp_buildings(seconds)
+
+
+func scroll_to_camp_building(building_id: String) -> void:
+	if _world_reel:
+		_world_reel.scroll_to_camp_building(building_id)
 
 
 func handle_hud_icon_pressed(key: String) -> void:
-	_ensure_planning_subwindow_visible()
 	_on_hud_icon_pressed(key)
 
 
@@ -188,8 +192,9 @@ func apply_state(state: int) -> void:
 		_squad_ui._refresh()
 	if state == GameManager.GameState.RUNNING:
 		refresh_running_panels()
-	elif state == GameManager.GameState.RESULT:
+	el	if state == GameManager.GameState.RESULT:
 		_refresh_result_grid()
+	_apply_world_reel_state(state)
 
 
 func refresh_running_panels() -> void:
@@ -352,19 +357,6 @@ func _build_layout() -> void:
 	stage_bg.color = Color(0.06, 0.07, 0.1, 0.92)
 	stage_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage_band.add_child(stage_bg)
-	var stage_hint := Label.new()
-	stage_hint.name = "StageBandHint"
-	stage_hint.set_anchors_preset(Control.PRESET_CENTER)
-	stage_hint.offset_left = -200
-	stage_hint.offset_top = -12
-	stage_hint.offset_right = 200
-	stage_hint.offset_bottom = 12
-	stage_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage_hint.text = "StageBand · 舞台见下窗（SHELL-1 单窗后迁入）"
-	stage_hint.modulate = Color(0.45, 0.5, 0.58)
-	stage_hint.add_theme_font_size_override("font_size", 11)
-	stage_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage_band.add_child(stage_hint)
 	shell_vbox.add_child(_stage_band)
 
 	var dock := HBoxContainer.new()
@@ -959,7 +951,7 @@ func _build_logistics_popup() -> void:
 	_logistics_panel = PanelContainer.new()
 	_logistics_panel.name = "LogisticsPanel"
 	_logistics_panel.custom_minimum_size = Vector2(520, 420)
-	_logistics_panel.add_theme_stylebox_override("panel", TbModalWindow.make_frame_style())
+	_logistics_panel.add_theme_stylebox_override("panel", _TbModalWindowScene.make_frame_style())
 	_logistics_panel.z_index = 21
 	_logistics_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_logistics_panel.offset_left = -260
@@ -1434,17 +1426,16 @@ func open_stage_building(building_id: String) -> void:
 	if GameManager.state != GameManager.GameState.BASE:
 		show_toast("仅大营可点营地建筑", Color(1.0, 0.82, 0.55), 3.0)
 		return
-	_ensure_planning_subwindow_visible()
 	match building_id:
-		BottomStage.BUILDING_INFIRMARY:
+		"infirmary":
 			_open_logistics_tab(0)
 			_pulse_logistics_upgrade("UpgradeInfirmary")
 			show_toast("医疗室 — 休整加速与安全箱升级", Color(0.75, 0.92, 1.0), 3.5)
-		BottomStage.BUILDING_BARRACKS:
+		"barracks":
 			_open_logistics_tab(0)
 			_pulse_logistics_upgrade("UpgradeBarracks")
 			show_toast("佣兵大厅 — 招募槽位与营房升级", Color(0.92, 0.85, 0.7), 3.5)
-		BottomStage.BUILDING_WAREHOUSE:
+		"warehouse":
 			_close_logistics()
 			_open_cq_slide_panel("bag")
 			show_toast("仓库 — 大营背包", Color(0.85, 0.9, 1.0), 3.0)
@@ -1455,26 +1446,64 @@ func open_stage_building(building_id: String) -> void:
 func focus_stage_logistics() -> void:
 	_close_cq_slide_panel()
 	_close_logistics()
-	var main := get_tree().current_scene
-	if main and main.has_method("focus_stage_window"):
-		main.focus_stage_window()
-	var stage := _find_stage_shell()
-	if stage:
-		stage.focus_camp_buildings(2.0)
+	focus_camp_buildings(2.0)
 	if _dock_hint:
-		_dock_hint.text = "后勤：点击下窗 医疗 / 营房 / 仓库"
-	show_toast("点击下窗营地建筑打开后勤", Color(0.8, 0.9, 1.0), 3.5)
+		_dock_hint.text = "后勤：点击底栏营地建筑打开后勤"
+	show_toast("点击底栏营地建筑打开后勤", Color(0.8, 0.9, 1.0), 3.5)
 
 
-func _find_stage_shell() -> StageShell:
-	var root := get_tree().root
-	var stage := root.get_node_or_null("StageWindow/StageShell") as StageShell
-	if stage:
-		return stage
-	var scene := get_tree().current_scene
-	if scene:
-		return scene.get_node_or_null("StageWindow/StageShell") as StageShell
-	return null
+func _mount_world_reel() -> void:
+	if _stage_band == null or _world_reel != null:
+		return
+	_world_reel = _WorldReelPlaneScene.new()
+	_world_reel.name = "WorldReelPlane"
+	_stage_band.add_child(_world_reel)
+	if not _world_reel.building_pressed.is_connected(_on_world_reel_building_pressed):
+		_world_reel.building_pressed.connect(_on_world_reel_building_pressed)
+	if not _world_reel.active_slot_pressed.is_connected(_on_world_reel_active_slot):
+		_world_reel.active_slot_pressed.connect(_on_world_reel_active_slot)
+
+
+func _mount_hud_dock() -> void:
+	if _hud_dock != null:
+		return
+	_hud_dock = _HudDockScene.new()
+	_hud_dock.name = "HudDock"
+	add_child(_hud_dock)
+	_hud_dock.bind_stage_band(_stage_band)
+	if not _hud_dock.icon_pressed.is_connected(_on_hud_icon_pressed):
+		_hud_dock.icon_pressed.connect(_on_hud_icon_pressed)
+
+
+func _apply_world_reel_state(state: int) -> void:
+	if _world_reel == null:
+		return
+	_world_reel.apply_game_state(state)
+	var map_id: String = ""
+	if state in [GameManager.GameState.PREPARE, GameManager.GameState.RUNNING]:
+		map_id = GameManager.selected_map_id
+	elif state == GameManager.GameState.BASE and GameManager.selected_map_id != "":
+		map_id = GameManager.selected_map_id
+	_world_reel.set_selected_map(map_id)
+	_sync_formation_selection_to_world_reel()
+
+
+func _sync_formation_selection_to_world_reel() -> void:
+	var form := get_formation_ui()
+	if form and form.has_method("get_selection_key"):
+		sync_formation_selection(form.get_selection_key())
+
+
+func _on_world_reel_active_slot(half: String, index: int) -> void:
+	var form := get_formation_ui()
+	if form and form.has_method("_on_slot_pressed"):
+		form._on_slot_pressed(half, "active", index)
+
+
+func _on_world_reel_building_pressed(building_id: String) -> void:
+	open_stage_building(building_id)
+	if _world_reel:
+		_world_reel.pulse_camp_building(building_id, 1.2)
 
 
 func _open_logistics_tab(tab_index: int) -> void:

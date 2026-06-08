@@ -171,7 +171,7 @@ func _run() -> void:
 	_probe_stage_1a_bottom_stage()
 	_probe_stage_5a_building_click()
 	_probe_frame_1a_shell_zones()
-	_probe_twin_1a_dual_window()
+	_probe_reel_1a_single_window_world_reel()
 	_probe_cq_shell_2a_hud_dock()
 	_probe_tbh_shell_1a_upper_modal()
 	_probe_m2c_search_blocked_during_combat()
@@ -3652,45 +3652,53 @@ func _probe_frame_1a_shell_zones() -> void:
 	if not shell_src.contains("UpperOverlayHost"):
 		_fail("FRAME-1a", "后勤/装备浮窗应挂 UpperOverlayHost（只遮上区）")
 		return
-	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
-	if not stage_src.contains("StageBar") or not stage_src.contains("_apply_stage_bar_mouse_policy"):
-		_fail("FRAME-1a", "StageShell 应承载 StageBar 表演层")
+	if not shell_src.contains("WorldReelPlane") or not shell_src.contains("StageBand"):
+		_fail("FRAME-1a", "MainShell StageBand 应挂载 WorldReelPlane 表演层")
 		return
 	var camp_src: String = FileAccess.get_file_as_string("res://scripts/ui/camp_stage.gd")
 	if not camp_src.contains("_collapsed: bool = true") and not camp_src.contains("_collapsed = true"):
 		_fail("FRAME-1a", "CampStage 应默认折叠")
 		return
-	_pass("FRAME-1a", "T-UI-FRAME-1/TWIN 计划区与表演区分离")
+	_pass("FRAME-1a", "T-UI-FRAME-1/REEL-1 计划区与 StageBand 表演区分离")
 
 
-func _probe_twin_1a_dual_window() -> void:
+func _probe_reel_1a_single_window_world_reel() -> void:
 	var main_src: String = FileAccess.get_file_as_string("res://scripts/main.gd")
-	if not main_src.contains("StageWindow") or not main_src.contains("_stage_shell"):
-		_fail("TWIN-1a", "main.gd 应创建 StageWindow 并持有 StageShell")
+	if main_src.contains("StageWindow") or main_src.contains("_stage_window") or main_src.contains("_stage_shell"):
+		_fail("REEL-1a", "main.gd 不应再创建 StageWindow/StageShell")
 		return
-	if not main_src.contains("_stage_shell.apply_state") or not main_src.contains("_main_shell.apply_state"):
-		_fail("TWIN-1a", "state_changed 应同步 PlanningShell 与 StageShell")
+	if not main_src.contains("1280") or not main_src.contains("720"):
+		_fail("REEL-1a", "main.gd 应配置单窗 1280×720")
 		return
-	if not main_src.contains("_shutdown_all_windows"):
-		_fail("TWIN-1a", "关主窗应关闭副窗")
+	if not main_src.contains("_main_shell.apply_state"):
+		_fail("REEL-1a", "state_changed 应同步 MainShell")
 		return
-	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
-	if not stage_src.contains("get_combat_view") or not stage_src.contains("BottomStage"):
-		_fail("TWIN-1a", "StageShell 应提供 combat_view 与 BottomStage")
+	const REEL_PATH := "res://scripts/ui/world_reel_plane.gd"
+	if not FileAccess.file_exists(REEL_PATH):
+		_fail("REEL-1a", "缺少 scripts/ui/world_reel_plane.gd")
 		return
-	if not FileAccess.file_exists("res://scenes/stage_window.tscn"):
-		_fail("TWIN-1a", "缺少 scenes/stage_window.tscn")
+	var reel_src: String = FileAccess.get_file_as_string(REEL_PATH)
+	if not reel_src.contains("class_name WorldReelPlane"):
+		_fail("REEL-1a", "WorldReelPlane 应声明 class_name")
 		return
-	if not main_src.contains("_attach_planning_as_stage_child") or not main_src.contains("transient"):
-		_fail("TWIN-1a", "双窗应通过 _attach_planning_as_stage_child 绑定 transient 子窗")
+	if not reel_src.contains("CampSegment") or not reel_src.contains("MapSegment"):
+		_fail("REEL-1a", "WorldReelPlane 应含 CampSegment + MapSegment")
 		return
-	if not main_src.contains("add_child(_stage_window)") or not main_src.contains("_sync_twin_window_layout"):
-		_fail("TWIN-1a", "StageWindow 应独立挂载并同步双窗布局")
+	if not reel_src.contains("FogLock") or not reel_src.contains("BottomStage"):
+		_fail("REEL-1a", "WorldReelPlane 应含 BottomStage 与雾锁占位")
 		return
-	if not stage_src.contains("HudDock") or not stage_src.contains("_mount_hud_dock"):
-		_fail("TWIN-1a", "HudDock 应挂在 StageShell（下窗）")
+	var shell_src: String = FileAccess.get_file_as_string("res://scripts/ui/main_shell.gd")
+	if not shell_src.contains("STAGE_BAND_MIN_HEIGHT := 280") or not shell_src.contains("_mount_world_reel"):
+		_fail("REEL-1a", "MainShell StageBand 应 ≥280px 并挂载 WorldReelPlane")
 		return
-	_pass("TWIN-1a", "T-UI-TWIN-1 双窗：Planning 根窗 + Stage 兄弟窗 + 下窗 Dock")
+	if not shell_src.contains("HudDock") or not shell_src.contains("_mount_hud_dock"):
+		_fail("REEL-1a", "HudDock 应挂在 MainShell（贴 StageBand）")
+		return
+	var maps_src: String = FileAccess.get_file_as_string("res://data/map_templates.json")
+	if not maps_src.contains("\"world_reel\"") or not maps_src.contains("grassland_c0"):
+		_fail("REEL-1a", "map_templates 应含 grassland world_reel 桩")
+		return
+	_pass("REEL-1a", "T-UI-REEL-1 单窗 StageBand + CampSegment + chunk0/雾锁")
 
 
 func _probe_cq_shell_2a_hud_dock() -> void:
@@ -3750,9 +3758,9 @@ func _probe_tbh_shell_1a_upper_modal() -> void:
 
 
 func _probe_stage_1a_bottom_stage() -> void:
-	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
-	if not stage_src.contains("BottomStage") or not stage_src.contains("_bottom_stage"):
-		_fail("STAGE-1a", "StageShell 应挂载 BottomStage")
+	var reel_src: String = FileAccess.get_file_as_string("res://scripts/ui/world_reel_plane.gd")
+	if not reel_src.contains("BottomStage") or not reel_src.contains("_camp_segment"):
+		_fail("STAGE-1a", "WorldReelPlane 应挂载 BottomStage 作 CampSegment")
 		return
 	var stage := BottomStage.new()
 	stage.custom_minimum_size = Vector2(480, 220)
@@ -3773,13 +3781,12 @@ func _probe_stage_1a_bottom_stage() -> void:
 
 func _probe_stage_5a_building_click() -> void:
 	var stage_src: String = FileAccess.get_file_as_string("res://scripts/ui/bottom_stage.gd")
-	var shell_src: String = FileAccess.get_file_as_string("res://scripts/ui/stage_shell.gd")
 	var main_src: String = FileAccess.get_file_as_string("res://scripts/ui/main_shell.gd")
 	if not stage_src.contains("building_pressed") or not stage_src.contains("BUILDING_INFIRMARY"):
 		_fail("STAGE-5a", "BottomStage 应发射 building_pressed 与建筑常量")
 		return
-	if not shell_src.contains("_on_bottom_stage_building_pressed") or not shell_src.contains("open_stage_building"):
-		_fail("STAGE-5a", "StageShell 应转发建筑点击到 MainShell")
+	if not main_src.contains("_on_world_reel_building_pressed") or not main_src.contains("open_stage_building"):
+		_fail("STAGE-5a", "MainShell 应转发 WorldReel 建筑点击")
 		return
 	if not main_src.contains("func open_stage_building") or not main_src.contains("focus_stage_logistics"):
 		_fail("STAGE-5a", "MainShell 应提供 open_stage_building / focus_stage_logistics")

@@ -106,7 +106,75 @@
       "chase_spawn_pack": 3,
       "chase_start_ambush_extra": 1,
       "shield_damage_mult_chase": 1.35,
-      "chase_w_loot": 0.12
+      "chase_w_loot": 0.12,
+      "world_reel": {
+        "chunk_distance_m": 100,
+        "chunks": [
+          {
+            "id": "grassland_c0",
+            "label": "入口",
+            "art": {
+              "far": "march_reel/grassland/c0_far",
+              "near": "march_reel/grassland/c0_near",
+              "seam": "march_reel/grassland/c0_seam"
+            }
+          },
+          {
+            "id": "grassland_c1",
+            "art": {
+              "far": "march_reel/grassland/c1_far",
+              "near": "march_reel/grassland/c1_near",
+              "seam": "march_reel/grassland/c1_seam"
+            }
+          },
+          {
+            "id": "grassland_c2",
+            "art": {
+              "far": "march_reel/grassland/c2_far",
+              "near": "march_reel/grassland/c2_near",
+              "seam": "march_reel/grassland/c2_seam"
+            }
+          },
+          {
+            "id": "grassland_c3",
+            "art": {
+              "far": "march_reel/grassland/c3_far",
+              "near": "march_reel/grassland/c3_near",
+              "seam": "march_reel/grassland/c3_seam"
+            }
+          },
+          {
+            "id": "grassland_c4",
+            "art": {
+              "far": "march_reel/grassland/c4_far",
+              "near": "march_reel/grassland/c4_near",
+              "seam": "march_reel/grassland/c4_seam"
+            }
+          },
+          {
+            "id": "grassland_c5",
+            "label": "深处",
+            "boss": true,
+            "art": {
+              "far": "march_reel/grassland/c5_far",
+              "near": "march_reel/grassland/c5_near",
+              "seam": "march_reel/grassland/c5_seam"
+            }
+          }
+        ],
+        "parallax": {
+          "far_factor": 0.18,
+          "near_factor": 0.88
+        },
+        "transition": {
+          "mode": "dual_host_fog_parallax",
+          "blend_base_m": 1.5,
+          "blend_k": 8,
+          "blend_min_m": 2,
+          "blend_max_m": 12
+        },
+        "combat_slice_set": "grassland"
+      }
     },
     {
       "map_id": "test_01_stability_retreat",

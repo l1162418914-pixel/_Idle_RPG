@@ -21,6 +21,11 @@ var _test_map_rosters: Dictionary = {}
 var _march_search_pools: Dictionary = {}
 var _march_events: Dictionary = {}
 var _art_manifest: Dictionary = {}
+var _indexed_merc: Dictionary = {}
+var _indexed_player_classes: Dictionary = {}
+var _indexed_maps: Dictionary = {}
+var _indexed_buildings: Dictionary = {}
+var _indexed_skills: Dictionary = {}
 
 
 func load_all() -> void:
@@ -103,13 +108,6 @@ func _index_skills() -> void:
 	if _skill_templates.has("active_skills"):
 		for s in _skill_templates.active_skills:
 			_indexed_skills[s.skill_id] = s
-
-
-var _indexed_merc: Dictionary = {}
-var _indexed_player_classes: Dictionary = {}
-var _indexed_maps: Dictionary = {}
-var _indexed_buildings: Dictionary = {}
-var _indexed_skills: Dictionary = {}
 
 
 # --- Public API ---

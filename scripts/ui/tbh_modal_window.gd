@@ -1,5 +1,5 @@
-class_name TbModalWindow
 extends PanelContainer
+class_name TbModalWindow
 ## TBH 式上窗浮层：深色描边框 + 标题栏 + 关闭钮 + 内容槽
 
 signal close_requested

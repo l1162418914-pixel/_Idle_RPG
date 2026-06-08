@@ -1,5 +1,5 @@
-class_name HudDock
 extends Control
+class_name HudDock
 ## T-UI-CQ-SHELL-2 · 右下角标 Dock（贴 StageBand 顶边；CQ 式资源条 + 方钮）
 
 signal icon_pressed(key: String)

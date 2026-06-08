@@ -1,5 +1,5 @@
-class_name BottomStage
 extends Control
+class_name BottomStage
 ## T-UI-STAGE-1/2/5 + CQ 横滑营地 · 建筑热点可点 → 上窗后勤/背包
 
 enum StageMode {
@@ -39,7 +39,7 @@ var _half_tag: Label = null
 var _scroll_hint: Label = null
 var _bob_phase: float = 0.0
 var _party_ids: Array[String] = []
-var _display_half: String = SquadFormationService.HALF_A
+var _display_half: String = "A"
 var _selection_key: String = ""
 var _layout_dirty: bool = true
 var _drag_scroll_active: bool = false
@@ -49,6 +49,7 @@ var _building_bodies: Dictionary = {}
 var _building_base_colors: Dictionary = {}
 var _pulse_building_id: String = ""
 var _pulse_building_until: float = 0.0
+var _scroll_locked: bool = false
 
 
 func _ready() -> void:
@@ -116,6 +117,12 @@ func get_stage_mode() -> int:
 
 func get_camp_scroll() -> ScrollContainer:
 	return _camp_scroll
+
+
+func set_camp_scroll_locked(locked: bool) -> void:
+	_scroll_locked = locked
+	if _scroll_hint:
+		_scroll_hint.visible = not locked
 
 
 func scroll_to_building(building_id: String) -> void:
@@ -362,7 +369,12 @@ func _on_building_host_hover(building_id: String, inside: bool) -> void:
 	if body == null:
 		return
 	if inside:
-		body.color = base.lightened(0.18)
+		body.color = Color(
+			clampf(base.r + 0.18, 0.0, 1.0),
+			clampf(base.g + 0.18, 0.0, 1.0),
+			clampf(base.b + 0.18, 0.0, 1.0),
+			base.a
+		)
 	else:
 		body.color = base
 
@@ -392,7 +404,7 @@ func _tick_building_pulse() -> void:
 
 
 func _on_camp_scroll_input(event: InputEvent) -> void:
-	if _camp_scroll == null:
+	if _camp_scroll == null or _scroll_locked:
 		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton

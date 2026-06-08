@@ -136,20 +136,15 @@ func pulse_formation_focus(seconds: float = 2.0) -> void:
 
 
 func pulse_stage_focus(seconds: float = 2.0) -> void:
-	var stage := _find_stage_shell()
-	if stage:
-		stage.pulse_stage_focus(seconds)
+	var shell := _find_main_shell()
+	if shell:
+		shell.pulse_stage_focus(seconds)
 
 
-func _find_stage_shell() -> StageShell:
-	var root := get_tree().root
-	if root:
-		var stage := root.get_node_or_null("StageWindow/StageShell") as StageShell
-		if stage:
-			return stage
+func _find_main_shell() -> MainShell:
 	var scene := get_tree().current_scene
 	if scene:
-		return scene.get_node_or_null("StageWindow/StageShell") as StageShell
+		return scene.get_node_or_null("MainShell") as MainShell
 	return null
 
 
@@ -707,9 +702,9 @@ func _refresh_selection_highlights() -> void:
 	)
 	if _camp_stage:
 		_camp_stage.set_selection_highlight(sel_key)
-	var stage := _find_stage_shell()
-	if stage and stage.has_method("sync_formation_selection"):
-		stage.sync_formation_selection(sel_key)
+	var shell := _find_main_shell()
+	if shell and shell.has_method("sync_formation_selection"):
+		shell.sync_formation_selection(sel_key)
 	_refresh_summary()
 
 

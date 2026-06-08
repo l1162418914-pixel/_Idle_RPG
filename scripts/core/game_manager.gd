@@ -48,6 +48,53 @@ var expedition_priority: String = EXPEDITION_PRIORITY_MARCH
 var loot_auto_evict_low_value: bool = true
 ## 格满且无法挤占时丢弃新掉落（否则保留在地面/不掉落）
 var loot_discard_overflow: bool = false
+## 双半组编制 { active_half, A: {active, bench}, B: {...} }
+var squad_formation: Dictionary = {}
+var last_run_squad_snapshot: Array[String] = []
+var last_deploy_half: String = "A"
+var last_run_loot_log: Array[String] = []
+var last_run_stability_note: String = ""
+## 基地/下次出征共用的队伍稳定度（0-100）
+var team_stability: int = 100
+## 槽位级账号 meta（经验冻结池等，见 SAVE_FORMAT §account_meta）
+var account_meta: Dictionary = {}
+## 救援队编组占位（与 squad_formation 并列，见 SAVE_FORMAT §rescue_squad）
+var rescue_squad: Dictionary = {}
+## 回收出征目标（留营 MIA 佣兵 id；出征后由 RecoveryRunService 写入 WorldRun）
+var recovery_run_target_ids: Array[String] = []
+var rescue_run_target_ids: Array[String] = []
+## 出征出发时已在册的 MIA id（B-11 计趟：仅对这些批次累加 skipped_runs）
+var mia_ids_at_run_departure: Array[String] = []
+## 最近一次大价值复活结算摘要（供回收 UI toast）
+var last_high_value_revive_summary: Dictionary = {}
+var last_instant_recovery_summary: Dictionary = {}
+## 本趟是否为 B-10 互捞自动回收出征
+var mutual_recovery_this_run: bool = false
+## 出征 UI 勾选：本趟跳过互捞改打正常远征（B-10a）
+var skip_mutual_recovery_next_run: bool = false
+
+const REVIVE_COST_BASE: int = 80
+const HIGH_VALUE_MIA_REVIVE_MULT: int = 12
+## 正常通关地图后额外扣除的稳定度（再加地图危险等级）
+const MAP_CLEAR_STABILITY_BASE: int = 6
+const REVIVE_COST_PER_LEVEL: int = 15
+
+signal state_changed(new_state: int)
+signal gold_changed(amount: int)
+signal squad_ready()
+signal run_started()
+signal run_ended(result: Dictionary)
+signal roster_healed()
+signal team_stability_changed(new_value: int)
+signal squad_stability_changed(new_value: int)
+signal run_start_failed(code: int)
+signal deploy_half_reassigned(preferred: String, actual: String)
+signal formation_changed
+signal formation_preference_changed(half: String)
+
+var _base_heal_timer: float = 0.0
+## 测试图出征前快照（回大营时还原，不入账）
+var _test_run_baseline: Dictionary = {}
 
 
 func get_expedition_advance_mult() -> float:
@@ -112,53 +159,6 @@ func get_expedition_prefs_summary() -> String:
 				ret += "·仅安全箱"
 			var tail := " · %s · %s" % [loot_note, ret] if loot_note != "" else " · %s" % ret
 			return "均衡 · 正常跑图%s" % tail
-## 双半组编制 { active_half, A: {active, bench}, B: {...} }
-var squad_formation: Dictionary = {}
-var last_run_squad_snapshot: Array[String] = []
-var last_deploy_half: String = "A"
-var last_run_loot_log: Array[String] = []
-var last_run_stability_note: String = ""
-## 基地/下次出征共用的队伍稳定度（0-100）
-var team_stability: int = 100
-## 槽位级账号 meta（经验冻结池等，见 SAVE_FORMAT §account_meta）
-var account_meta: Dictionary = {}
-## 救援队编组占位（与 squad_formation 并列，见 SAVE_FORMAT §rescue_squad）
-var rescue_squad: Dictionary = {}
-## 回收出征目标（留营 MIA 佣兵 id；出征后由 RecoveryRunService 写入 WorldRun）
-var recovery_run_target_ids: Array[String] = []
-var rescue_run_target_ids: Array[String] = []
-## 出征出发时已在册的 MIA id（B-11 计趟：仅对这些批次累加 skipped_runs）
-var mia_ids_at_run_departure: Array[String] = []
-## 最近一次大价值复活结算摘要（供回收 UI toast）
-var last_high_value_revive_summary: Dictionary = {}
-var last_instant_recovery_summary: Dictionary = {}
-## 本趟是否为 B-10 互捞自动回收出征
-var mutual_recovery_this_run: bool = false
-## 出征 UI 勾选：本趟跳过互捞改打正常远征（B-10a）
-var skip_mutual_recovery_next_run: bool = false
-
-const REVIVE_COST_BASE: int = 80
-const HIGH_VALUE_MIA_REVIVE_MULT: int = 12
-## 正常通关地图后额外扣除的稳定度（再加地图危险等级）
-const MAP_CLEAR_STABILITY_BASE: int = 6
-const REVIVE_COST_PER_LEVEL: int = 15
-
-signal state_changed(new_state: int)
-signal gold_changed(amount: int)
-signal squad_ready()
-signal run_started()
-signal run_ended(result: Dictionary)
-signal roster_healed()
-signal team_stability_changed(new_value: int)
-signal squad_stability_changed(new_value: int)
-signal run_start_failed(code: int)
-signal deploy_half_reassigned(preferred: String, actual: String)
-signal formation_changed
-signal formation_preference_changed(half: String)
-
-var _base_heal_timer: float = 0.0
-## 测试图出征前快照（回大营时还原，不入账）
-var _test_run_baseline: Dictionary = {}
 
 
 func _ready() -> void:

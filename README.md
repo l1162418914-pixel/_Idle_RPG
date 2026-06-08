@@ -1,4 +1,7 @@
-# TBH Idle RPG
+# TBH Idle RPG（legacy · 归档参考）
+
+> **ARCHIVED** — 本仓库将归档为 **TBH-Idle-RPG-legacy**；主开发迁移至 **TBH-Idle-RPG**（WORLD-REEL v2 新壳）。  
+> 迁移步骤见 [docs/V2_REPO_MIGRATION.md](docs/V2_REPO_MIGRATION.md)。产品定案见 [docs/design-world-reel-CTO.md](docs/design-world-reel-CTO.md)。
 
 Godot 4.2+ 挂机出征原型：双半组编队、返程战利品网格、Boss 追击、濒死/觉醒、撤离物线。
 

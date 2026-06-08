@@ -69,6 +69,10 @@ var run_awaken_used: bool = false
 var is_awakening: bool = false
 var awakening_time_left: float = 0.0
 var awakening_variant_id: String = ""
+## 停尸间待医疗（救援队运回，非 MIA）
+var is_morgue_pending: bool = false
+## 救援队失败养伤 CD 截止 unix 时间戳（B-12f）
+var rescue_injury_cd_until: int = 0
 
 
 func init_from_template(template: Dictionary) -> void:
@@ -180,12 +184,6 @@ func is_test_roster_locked() -> bool:
 
 
 ## 是否可编入出征队
-## 停尸间待医疗（救援队运回，非 MIA）
-var is_morgue_pending: bool = false
-## 救援队失败养伤 CD 截止 unix 时间戳（B-12f）
-var rescue_injury_cd_until: int = 0
-
-
 func is_on_rescue_injury_cd() -> bool:
 	return rescue_injury_cd_until > Time.get_unix_time_from_system()
 
